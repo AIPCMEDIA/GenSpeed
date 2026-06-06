@@ -58,8 +58,8 @@ GenSpeed est un petit utilitaire Windows qui modifie les fichiers de données (`
 - **Windows 10 / 11** (64-bit recommandé)
 - **Steam Edition** (obligatoire)
 - **Python 3.7+**
-- **GenLauncher** (pour la gestion des mods)
 - **GenPatcher** (pour les patchs supplémentaires)
+- - **GenLauncher** (pour la gestion des mods)
 
 > **Remarque LAN :** la vitesse de **simulation réseau** de Zero Hour est plafonnée par le moteur (~2×). GenSpeed accélère le **gameplay** (données), ce qui marche en LAN tant que tous les joueurs ont les mêmes fichiers — c'est l'approche la plus fiable.
 
@@ -80,7 +80,7 @@ GenSpeed est un petit utilitaire Windows qui modifie les fichiers de données (`
 ### Prérequis
 1. **Windows 10/11**
 2. **Steam** avec **C&C Generals - Zero Hour** installé
-3. **GenLauncher** et **GenPatcher** configurés
+3. **GenLauncher** et **GenPatcher** configurés ( sans Gentools, ou desativé dasn Genlauncher )
 4. **Python 3.7+** ([python.org](https://www.python.org/) — cocher « Add Python to PATH » à l'installation)
 
 ### Étapes
@@ -102,7 +102,7 @@ GenSpeed est un petit utilitaire Windows qui modifie les fichiers de données (`
 5. **(Optionnel)** `Creer-raccourci-bureau.bat` crée un raccourci sur le Bureau pour accès rapide.
 
 ### Auto-détection
-GenSpeed **détecte automatiquement** l'installation Steam de Zero Hour. Si ce n'est pas trouvé, il te demande le dossier une fois et le mémorise.
+GenSpeed **détecte automatiquement** l'installation Steam de Zero Hour et des mods GenLauncher du dossier GLM Si ce n'est pas trouvé, il te demande le dossier une fois et le mémorise.
 
 ---
 
@@ -144,29 +144,31 @@ Règle **chaque catégorie individuellement** :
 
 ---
 
-## 🔧 Workflow complet : GenSpeed + GenLauncher + GenPatcher
+## 🔧 Workflow complet d'utilisation : GenSpeed + GenLauncher
 
-GenSpeed s'intègre dans un **écosystème complet** :
+GenSpeed s'intègre dans un **écosystème complet** , j'ai installer comme ça :
 
 ```
-1. GenSpeed (configuration vitesse/caméra du mod)
+1. Steam + C&C + C&C Heure H ( le jeu de base )
        ↓
-2. GenPatcher (application de patchs additionnels)
+2. GenPatcher (application de patchs additionnels, ( perso, je n'ai pas installer Gentools ))
        ↓
-3. GenLauncher (lancement du jeu avec tout appliqué)
-       ↓
-4. Zero Hour + mods + speed + patchs
+3. GenLauncher + mods, patch, addons dans options :
+ - Cochez : "Use default Camera height (recommanded)" et "Use modded exe files (recommanded)", "Disable Gentools".
+ - Décochez : Check Mode files integrity. Work... et Hide Genlaucher while the Game is running
+
+3. GenSpeed (configuration vitesse/caméra du mod/ Appliquer)
+
 ```
 
-**Exemple concret :**
+**Exemple d'utilisation concret :**
 - Ouvre **GenSpeed**
-- Sélectionne "Contra"
+- Sélectionne un ou plusieurs mods "Contra"
 - Configure vitesse : "Énervé (×2)"
 - Configure caméra : "Cam haute"
 - Clique "Appliquer"
 - Dans GenSpeed, clique "🚀 Lancer GenLauncher"
 - GenLauncher démarre avec tes réglages appliqués
-- GenPatcher applique d'autres patchs si nécessaire
 - **Joue !**
 
 ---
@@ -186,8 +188,11 @@ GenSpeed s'intègre dans un **écosystème complet** :
 
 ## À propos du code
 
-⚠️ **Note importante** : Ce projet a été **généré et développé par une IA** (GitHub Copilot).
-Je ne suis **pas développeur professionnel**. Le code fonctionne selon les spécifications, mais il peut contenir des améliorations possibles ou des cas limites non gérés.
+⚠️ **Note importante** : Ce projet a été **généré et développé par des IA** (Claude Code, ChatGPT, GitHub Copilot...).
+Je ne suis **pas développeur professionnel, ni même amateur**. 
+Le code fonctionne selon les spécifications, mais il peut contenir des améliorations possibles ou des cas limites non gérés.
+GenSpeed existe , parce j'en avais marre de chercher sur le Net une solution, pour avoir la meme rapidité que dans Skirmish (Escarmouche), mais en Lan, mais entre potes...
+Avis aux moddeurs , ce serait génial de peaufinner GenSpeed, voir de l'integrer dans GenLaucher... ;-) 
 
 Si tu trouves un bug ou une amélioration, n'hésite pas à ouvrir une **issue** ! 🤖
 
@@ -226,4 +231,4 @@ Distribué sous licence **MIT** (voir [`LICENSE`](LICENSE)). Tu peux l'utiliser,
 
 **Enjoy faster gameplay! 🚀⚡**
 
-*Pour Steam, GenLauncher, et GenPatcher uniquement.*
+*Pour Steam, GenPatcher, et GenLauncher uniquement.*
