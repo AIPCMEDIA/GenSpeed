@@ -8,9 +8,32 @@ GenSpeed est un petit utilitaire Windows qui modifie les fichiers de données (`
 
 ---
 
+## ⚙️ Configuration requise
+
+### Important : Plateforme Steam + GenLauncher + GenPatcher
+
+⚠️ **GenSpeed fonctionne UNIQUEMENT avec :**
+- **Command & Conquer: Generals - Zero Hour** installé via **Steam**
+- **GenLauncher** (gestionnaire de mods/launcher)
+- **GenPatcher** (application de patchs supplémentaires)
+
+**Ne fonctionne PAS avec :**
+- ❌ Versions CD/DVD (anciennes)
+- ❌ GOG ou autres stores
+- ❌ Installations non-Steam
+- ❌ Sans GenLauncher/GenPatcher
+
+### Configuration minimale
+- **Windows 10 / 11** (64-bit recommandé)
+- **Python 3.7+** ([python.org](https://www.python.org/))
+- **Steam** avec **C&C Generals ZH** installé
+- **GenLauncher + GenPatcher** configurés
+
+---
+
 ## Fonctionnalités / Features
 
-- ✅ Vanilla **+ mods** (détection automatique)
+- ✅ Vanilla **+ mods** (détection automatique via GenLauncher)
 - ⚡ Paliers de vitesse **Cool / Énervé / Déchaîné** (+ Original)
 - 🎛️ Réglage **détaillé par catégorie** (mode avancé)
 - 🎥 **Presets de caméra**
@@ -23,18 +46,20 @@ GenSpeed est un petit utilitaire Windows qui modifie les fichiers de données (`
 
 ## 📋 Compatibilité
 
-### Jeux & Mods testés
-- ✅ **Command & Conquer: Generals - Zero Hour** (Vanilla)
+### Mods testés & supportés
+- ✅ **Vanilla (C&C Generals - Zero Hour de base)**
 - ✅ **Contra**
 - ✅ **NProject**
 - ✅ **ShockWave** / **ShockWave Chaos**
 - ✅ **Rise of the Reds** (RotR)
-- ✅ **Autres mods SAGE** (probablement)
+- ✅ **Autres mods SAGE** (probablement compatibles)
 
 ### Plateforme
-- **Windows 10 / 11**
+- **Windows 10 / 11** (64-bit recommandé)
+- **Steam Edition** (obligatoire)
 - **Python 3.7+**
-- **Steam** (détection automatique)
+- **GenLauncher** (pour la gestion des mods)
+- **GenPatcher** (pour les patchs supplémentaires)
 
 > **Remarque LAN :** la vitesse de **simulation réseau** de Zero Hour est plafonnée par le moteur (~2×). GenSpeed accélère le **gameplay** (données), ce qui marche en LAN tant que tous les joueurs ont les mêmes fichiers — c'est l'approche la plus fiable.
 
@@ -54,24 +79,27 @@ GenSpeed est un petit utilitaire Windows qui modifie les fichiers de données (`
 
 ### Prérequis
 1. **Windows 10/11**
-2. **Python 3.7+** ([python.org](https://www.python.org/) — cocher « Add Python to PATH » à l'installation)
-3. **Command & Conquer: Generals - Zero Hour** (Steam recommandé)
+2. **Steam** avec **C&C Generals - Zero Hour** installé
+3. **GenLauncher** et **GenPatcher** configurés
+4. **Python 3.7+** ([python.org](https://www.python.org/) — cocher « Add Python to PATH » à l'installation)
 
 ### Étapes
 
-1. **Télécharger** ce dépôt (bouton vert **Code → Download ZIP**), puis dézipper où tu veux.
+1. **Vérifier** que GenLauncher et GenPatcher sont correctement installés et configurés
 
-2. **(Optionnel, recommandé)** Installer les dépendances pour le thème sombre :
+2. **Télécharger** ce dépôt (bouton vert **Code → Download ZIP**), puis dézipper où tu veux.
+
+3. **(Optionnel, recommandé)** Installer les dépendances pour le thème sombre :
    ```bash
    python -m pip install -r requirements.txt
    ```
    Sinon GenSpeed démarre quand même avec un thème clair de secours.
 
-3. **Démarrer GenSpeed** :
+4. **Démarrer GenSpeed** :
    - Double-cliquer **`GenSpeed.bat`** (le plus simple)
    - Ou lancer `python main.py` en ligne de commande
 
-4. **(Optionnel)** `Creer-raccourci-bureau.bat` crée un raccourci sur le Bureau pour accès rapide.
+5. **(Optionnel)** `Creer-raccourci-bureau.bat` crée un raccourci sur le Bureau pour accès rapide.
 
 ### Auto-détection
 GenSpeed **détecte automatiquement** l'installation Steam de Zero Hour. Si ce n'est pas trouvé, il te demande le dossier une fois et le mémorise.
@@ -116,36 +144,43 @@ Règle **chaque catégorie individuellement** :
 
 ---
 
+## 🔧 Workflow complet : GenSpeed + GenLauncher + GenPatcher
+
+GenSpeed s'intègre dans un **écosystème complet** :
+
+```
+1. GenSpeed (configuration vitesse/caméra du mod)
+       ↓
+2. GenPatcher (application de patchs additionnels)
+       ↓
+3. GenLauncher (lancement du jeu avec tout appliqué)
+       ↓
+4. Zero Hour + mods + speed + patchs
+```
+
+**Exemple concret :**
+- Ouvre **GenSpeed**
+- Sélectionne "Contra"
+- Configure vitesse : "Énervé (×2)"
+- Configure caméra : "Cam haute"
+- Clique "Appliquer"
+- Dans GenSpeed, clique "🚀 Lancer GenLauncher"
+- GenLauncher démarre avec tes réglages appliqués
+- GenPatcher applique d'autres patchs si nécessaire
+- **Joue !**
+
+---
+
 ## Comment ça marche (technique)
 
-- **Lecture d'archives** : lit les fichiers `.big`/`.gib` du mod
+- **Lecture d'archives** : lit les fichiers `.big`/`.gib` du mod (via Steam)
 - **Modification .ini** : applique les facteurs de vitesse aux variables concernées
   - Vitesses ×N (déplacement, projectiles, etc.)
   - Durées ÷N (construction, recharge, etc.)
 - **Sauvegarde sécurisée** : crée un `.speedbak` avant toute modification
 - **Dépatch** : restaure l'original via le backup
 - **Configuration locale** : stockée dans `%LOCALAPPDATA%\GenSpeed` (aucune télémétrie)
-
----
-
-## 🔧 Integration avec GenLauncher & GenPatcher
-
-GenSpeed fonctionne en tandem avec **GenLauncher** et **GenPatcher** :
-
-1. **GenSpeed** modifie la vitesse/caméra des mods
-2. **GenPatcher** applique d'autres patches (ex: anticheat, bugfixes)
-3. **GenLauncher** lance le jeu avec tous les patchs appliqués
-
-**Workflow typique :**
-```
-GenSpeed (réglages vitesse/caméra)
-    ↓
-GenPatcher (patchs additionnels)
-    ↓
-GenLauncher (lancer le jeu)
-    ↓
-Zero Hour + mods patchés
-```
+- **Intégration GenLauncher** : fonctionne en tandem avec le launcher Steam
 
 ---
 
@@ -185,7 +220,10 @@ Distribué sous licence **MIT** (voir [`LICENSE`](LICENSE)). Tu peux l'utiliser,
 - ✅ Vérification LAN (hash + comparaison de fichiers)
 - ✅ Auto-détection Steam
 - ✅ Sauvegarde/restauration automatiques
+- ✅ Intégration GenLauncher & GenPatcher
 
 ---
 
 **Enjoy faster gameplay! 🚀⚡**
+
+*Pour Steam, GenLauncher, et GenPatcher uniquement.*
