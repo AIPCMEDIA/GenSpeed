@@ -14,8 +14,8 @@ GenSpeed est un petit utilitaire Windows qui modifie les fichiers de données (`
 
 ⚠️ **GenSpeed fonctionne UNIQUEMENT avec :**
 - **Command & Conquer: Generals - Zero Hour** installé via **Steam**
-- **GenLauncher** (gestionnaire de mods/launcher)
 - **GenPatcher** (application de patchs supplémentaires)
+- **GenLauncher** (gestionnaire de mods/launcher)
 
 **Ne fonctionne PAS avec :**
 - ❌ Versions CD/DVD (anciennes)
