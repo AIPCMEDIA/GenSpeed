@@ -59,7 +59,7 @@ GenSpeed est un petit utilitaire Windows qui modifie les fichiers de données (`
 - **Steam Edition** (obligatoire)
 - **Python 3.7+**
 - **GenPatcher** (pour les patchs supplémentaires)
-- - **GenLauncher** (pour la gestion des mods)
+- **GenLauncher** (pour la gestion des mods)
 
 > **Remarque LAN :** la vitesse de **simulation réseau** de Zero Hour est plafonnée par le moteur (~2×). GenSpeed accélère le **gameplay** (données), ce qui marche en LAN tant que tous les joueurs ont les mêmes fichiers — c'est l'approche la plus fiable.
 
