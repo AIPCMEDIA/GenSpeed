@@ -1,5 +1,0 @@
-# Dépendances optionnelles (l'app fonctionne sans, avec un rendu de secours).
-# Installe-les pour le thème sombre et le logo :
-#   python -m pip install -r requirements.txt
-ttkbootstrap>=1.10   ; thème sombre moderne (sinon thème clair par défaut)
-pillow>=9.0          ; affichage du logo + génération d'icône (facultatif)

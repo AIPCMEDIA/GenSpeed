@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Terminal EVA — vert phosphore (neutre / militaire) -->
+    <SolidColorBrush x:Key="bgRoot"   Color="#FF091309"/>
+    <SolidColorBrush x:Key="bgFrame"  Color="#FF172A16"/>
+    <SolidColorBrush x:Key="bgFrame2" Color="#FF1D331C"/>
+    <SolidColorBrush x:Key="bgInput"  Color="#FF0F1C0F"/>
+    <SolidColorBrush x:Key="bgEntry"  Color="#FF22381F"/>
+    <SolidColorBrush x:Key="rowAlt"   Color="#FF11210F"/>
+    <SolidColorBrush x:Key="gridLine" Color="#FF20331C"/>
+    <SolidColorBrush x:Key="fg"       Color="#FFDCECC4"/>
+    <SolidColorBrush x:Key="dim"      Color="#FF90AD70"/>
+    <SolidColorBrush x:Key="accent"   Color="#FFA6DC64"/>
+    <SolidColorBrush x:Key="accentBar" Color="#FFF0B429"/>
+    <SolidColorBrush x:Key="orange"   Color="#FFF0B429"/>
+    <SolidColorBrush x:Key="border"   Color="#FF3D6A26"/>
+    <SolidColorBrush x:Key="btnFg"    Color="#FF2A4A1A"/>
+    <SolidColorBrush x:Key="btnFgH"   Color="#FF3A6224"/>
+    <SolidColorBrush x:Key="primary"  Color="#FF5A9030"/>
+    <SolidColorBrush x:Key="primaryH" Color="#FF6AAA3A"/>
+    <SolidColorBrush x:Key="primaryFg" Color="#FFF0F8E0"/>
+    <SolidColorBrush x:Key="go"       Color="#FF3D6820"/>
+    <SolidColorBrush x:Key="goH"      Color="#FF4E7D28"/>
+</ResourceDictionary>

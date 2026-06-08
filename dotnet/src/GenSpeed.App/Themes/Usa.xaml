@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- USA — High-Tech : bleu acier + cyan néon -->
+    <SolidColorBrush x:Key="bgRoot"   Color="#FF07101D"/>
+    <SolidColorBrush x:Key="bgFrame"  Color="#FF102134"/>
+    <SolidColorBrush x:Key="bgFrame2" Color="#FF18304A"/>
+    <SolidColorBrush x:Key="bgInput"  Color="#FF0A1622"/>
+    <SolidColorBrush x:Key="bgEntry"  Color="#FF1A3047"/>
+    <SolidColorBrush x:Key="rowAlt"   Color="#FF0D1C2C"/>
+    <SolidColorBrush x:Key="gridLine" Color="#FF1E3A55"/>
+    <SolidColorBrush x:Key="fg"       Color="#FFD2E8F7"/>
+    <SolidColorBrush x:Key="dim"      Color="#FF6E92B2"/>
+    <SolidColorBrush x:Key="accent"   Color="#FF3FC8F2"/>
+    <SolidColorBrush x:Key="accentBar" Color="#FF66D0FF"/>
+    <SolidColorBrush x:Key="orange"   Color="#FF66D0FF"/>
+    <SolidColorBrush x:Key="border"   Color="#FF2C5A82"/>
+    <SolidColorBrush x:Key="btnFg"    Color="#FF1B3A57"/>
+    <SolidColorBrush x:Key="btnFgH"   Color="#FF2A5680"/>
+    <SolidColorBrush x:Key="primary"  Color="#FF2E7FB8"/>
+    <SolidColorBrush x:Key="primaryH" Color="#FF3F9AD8"/>
+    <SolidColorBrush x:Key="primaryFg" Color="#FFEAF6FF"/>
+    <SolidColorBrush x:Key="go"       Color="#FF1F6FA8"/>
+    <SolidColorBrush x:Key="goH"      Color="#FF2E86C4"/>
+</ResourceDictionary>

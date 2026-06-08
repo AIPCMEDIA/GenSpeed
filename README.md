@@ -1,234 +1,205 @@
+<div align="center">
+
+<img src="png/logo.png" width="120" alt="GenSpeed logo"/>
+
 # GenSpeed 🚀⚡
 
 **Accélère le gameplay de *Command & Conquer™ Generals – Zero Hour* (et de ses mods), même en LAN.**
+*Speed up the gameplay of C&C Generals: Zero Hour (and its mods), even in LAN.*
 
-GenSpeed est un petit utilitaire Windows qui modifie les fichiers de données (`.ini`) du jeu/mod pour rendre les parties plus rapides : unités plus véloces, constructions et recharges plus courtes, etc. Réglages par paliers (Cool / Énervé / Déchaîné) ou détaillés, presets de caméra, et un outil de vérification de compatibilité pour le multijoueur LAN.
+[![Download](https://img.shields.io/badge/⬇️_Télécharger_/_Download-GenSpeed.exe-5a9030?style=for-the-badge)](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)
+[![Platform](https://img.shields.io/badge/Windows-10_/_11-blue?style=flat)](#)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat)](LICENSE)
 
-> 🇬🇧 *GenSpeed is a small Windows tool that speeds up C&C Generals: Zero Hour (and its mods) by editing the game's `.ini` data. Works in LAN as long as all players use the same mod version and identical GenSpeed settings.*
+</div>
 
----
-
-## ⚙️ Configuration requise
-
-### Important : Plateforme Steam + GenLauncher + GenPatcher
-
-⚠️ **GenSpeed fonctionne UNIQUEMENT avec :**
-- **Command & Conquer: Generals - Zero Hour** installé via **Steam**
-- **GenPatcher** (application de patchs supplémentaires)
-- **GenLauncher** (gestionnaire de mods/launcher)
-
-**Ne fonctionne PAS avec :**
-- ❌ Versions CD/DVD (anciennes)
-- ❌ GOG ou autres stores
-- ❌ Installations non-Steam
-- ❌ Sans GenLauncher/GenPatcher
-
-### Configuration minimale
-- **Windows 10 / 11** (64-bit recommandé)
-- **Python 3.7+** ([python.org](https://www.python.org/))
-- **Steam** avec **C&C Generals ZH** installé
-- **GenLauncher + GenPatcher** configurés
+> 🇫🇷 GenSpeed modifie les fichiers de données (`.ini`) du jeu/mod pour rendre les parties plus rapides : unités plus véloces, constructions/recharges plus courtes, presets de caméra. Plus un **outil de diagnostic de désync (mismatch) LAN** qui compare ton install à celle d'un ami et nomme exactement ce qui diffère.
+>
+> 🇬🇧 GenSpeed edits the game/mod `.ini` data to make matches faster: quicker units, shorter build/reload times, camera presets. Plus a **LAN mismatch (desync) diagnostic** that compares your install with a friend's and names exactly what differs.
 
 ---
 
-## Fonctionnalités / Features
+## ✨ Nouveau dans la v2.0 / New in v2.0
 
-- ✅ Vanilla **+ mods** (détection automatique via GenLauncher)
-- ⚡ Paliers de vitesse **Cool / Énervé / Déchaîné** (+ Original)
-- 🎛️ Réglage **détaillé par catégorie** (mode avancé)
-- 🎥 **Presets de caméra**
+🇫🇷
+- 🖥️ **Application autonome (.exe)** — **plus besoin de Python**, double-clic et c'est parti.
+- 🎨 **3 thèmes** (Terminal EVA, USA, Chine) + **interface bilingue FR/EN**.
+- 🩺 **Diagnostic mismatch complet** : inventaire **nommé** de tout l'écosystème (jeu, mods + versions, addons, GenTool, redists…) et comparaison entre joueurs.
+- ⚡ Redimensionnement fluide, presets vitesse/caméra modifiables (créer/renommer/supprimer), confirmation détaillée avant patch.
+
+🇬🇧
+- 🖥️ **Standalone .exe** — **no Python required** anymore, just double-click.
+- 🎨 **3 themes** (EVA Terminal, USA, China) + **bilingual FR/EN UI**.
+- 🩺 **Full mismatch diagnostic**: **named** inventory of the whole ecosystem (game, mods + versions, add-ons, GenTool, redists…) and player-to-player comparison.
+- ⚡ Smooth resizing, editable speed/camera presets (create/rename/delete), detailed pre-patch confirmation.
+
+---
+
+## 📸 Aperçu / Screenshots
+
+| Écran principal / Main window | Diagnostic mismatch |
+|:---:|:---:|
+| ![Main](docs/screenshots/01-main-eva.png) | ![Diagnostic](docs/screenshots/05-diagnostic.png) |
+| **Confirmation avant patch / Apply confirmation** | **Thèmes / Themes** |
+| ![Confirm](docs/screenshots/04-confirm.png) | ![USA theme](docs/screenshots/02-theme-usa.png) ![China theme](docs/screenshots/03-theme-china.png) |
+
+---
+
+## ⚙️ Configuration requise / Requirements
+
+> ⚠️ **GenSpeed est conçu pour l'écosystème Steam + GenLauncher + GenPatcher.**
+> *GenSpeed is designed for the Steam + GenLauncher + GenPatcher ecosystem.*
+
+| | |
+|---|---|
+| **OS** | Windows 10 / 11 (64-bit) |
+| **Jeu / Game** | C&C Generals – Zero Hour via **Steam** |
+| **Mods** | gérés par **GenLauncher** (dossier `GLM`) / managed by **GenLauncher** (`GLM` folder) |
+| **Patchs** | **GenPatcher** (patch communautaire, redists…) |
+| **.NET** | ❌ rien à installer / nothing to install (runtime embarqué dans l'exe) |
+
+**Ne fonctionne PAS avec / Does NOT work with :** versions CD/DVD, GOG, ou installations non-Steam.
+
+---
+
+## ⬇️ Téléchargement & lancement / Download & run
+
+1. **Télécharge `GenSpeed.exe`** depuis la page **[Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)**.
+   *Download `GenSpeed.exe` from the **[Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)** page.*
+2. **Double-clique dessus.** Aucune installation. / **Double-click it.** No install.
+3. GenSpeed **détecte automatiquement** ton install Steam + tes mods GenLauncher. Sinon, il te demande le dossier une fois et le mémorise.
+   *GenSpeed **auto-detects** your Steam install + GenLauncher mods. Otherwise it asks for the folder once and remembers it.*
+
+> 💡 Au 1er lancement, Windows SmartScreen peut afficher « éditeur inconnu » (exe non signé) → **Informations complémentaires → Exécuter quand même**. C'est normal.
+> *On first run, Windows SmartScreen may say "unknown publisher" (unsigned exe) → **More info → Run anyway**. This is expected.*
+
+---
+
+## 🎮 Fonctionnalités / Features
+
+- ✅ **Jeu de base + mods** (détection auto via GenLauncher / auto-detect via GenLauncher)
+- ⚡ Paliers de vitesse **Original / Cool / Énervé / Déchaîné** + presets personnalisables
+- 🎛️ Réglage **détaillé par catégorie** (déplacement, tir, construction, vision…)
+- 🎥 **Presets de caméra** (vue haute, max, satellite… + personnalisés)
 - 💾 **Sauvegarde + restauration automatiques** (`.speedbak`)
-- 🌐 **Vérificateur de compatibilité LAN** (code + comparaison de fichiers)
-- 🔎 Détection **Steam** automatique
-- 🔒 **Aucune télémétrie, aucune connexion internet**
+- 🛡️ **Code LAN** (hash) pour vérifier que tous les joueurs ont les mêmes fichiers
+- 🩺 **Diagnostic mismatch** : exporte ton empreinte, compare avec un ami, verdict détaillé
+- 🔎 Aperçu des valeurs (clés / exhaustif / modifiées) + ouverture du dossier du mod
+- 🎨 3 thèmes · 🌐 FR/EN · 🔒 **Aucune télémétrie, aucune connexion internet**
 
 ---
 
-## 📋 Compatibilité
+## 🕹️ Utilisation rapide / Quick start
 
-### Mods testés & supportés
-- ✅ **Vanilla (C&C Generals - Zero Hour de base)**
-- ✅ **Contra**
-- ✅ **NProject**
-- ✅ **ShockWave** / **ShockWave Chaos**
-- ✅ **Rise of the Reds** (RotR)
-- ✅ **Autres mods SAGE** (probablement compatibles)
+1. **Coche un ou plusieurs mods** dans la liste (clic sur la ligne). / **Check one or more mods** (click the row).
+2. **Règle la vitesse** : Original (×1) · Cool (≈×1.5) · Énervé (≈×2, recommandé) · Déchaîné (≈×3).
+3. **Caméra** (optionnel) : un preset ou réglages manuels. / **Camera** (optional): a preset or manual values.
+4. **Appliquer la config** → une fenêtre récapitule ce que ça change, tu valides (UAC). / **Apply** → a window summarizes the changes, you confirm (UAC).
+5. **▶ Lancer GenLauncher** et joue ! Pour revenir à l'original : **Annuler**.
 
-### Plateforme
-- **Windows 10 / 11** (64-bit recommandé)
-- **Steam Edition** (obligatoire)
-- **Python 3.7+**
-- **GenPatcher** (pour les patchs supplémentaires)
-- **GenLauncher** (pour la gestion des mods)
-
-> **Remarque LAN :** la vitesse de **simulation réseau** de Zero Hour est plafonnée par le moteur (~2×). GenSpeed accélère le **gameplay** (données), ce qui marche en LAN tant que tous les joueurs ont les mêmes fichiers — c'est l'approche la plus fiable.
+🖱️ **Clic droit sur un mod** : aperçus + ouvrir son dossier. / **Right-click a mod**: previews + open its folder.
 
 ---
 
-## ⚠️ Avertissements importants (à lire)
+## 🌐 Multijoueur LAN & diagnostic mismatch
 
-- **Non affilié à Electronic Arts (EA).** *Command & Conquer*, *Generals* et *Zero Hour* sont des marques et œuvres déposées d'**Electronic Arts Inc.** GenSpeed est un **outil amateur, non officiel**, sans aucun lien avec EA ni les auteurs des mods.
-- **Utilisation à vos propres risques.** Le logiciel est fourni « TEL QUEL », **sans aucune garantie**. L'auteur **ne peut être tenu responsable** d'un quelconque dommage, perte de données, dysfonctionnement, bannissement ou autre conséquence liée à son utilisation.
-- **GenSpeed modifie des fichiers du jeu.** Une **sauvegarde automatique** (`.speedbak`) est créée et tu peux **revenir à l'original** à tout moment, mais fais tes propres sauvegardes si tu y tiens.
-- **Pas pour la triche en ligne.** Destiné au **jeu solo / entre amis en LAN**. En réseau, **tous les joueurs doivent avoir exactement les mêmes fichiers** (même mod, même version, mêmes réglages GenSpeed), sinon « mismatch / désync ». Un outil de vérification est inclus.
-- **N'utilise pas ça en partie classée / compétitive.** Ce n'est pas son but.
+🇫🇷 En réseau, **tous les joueurs doivent avoir exactement les mêmes fichiers** (même jeu, même mod/version, mêmes réglages), sinon « mismatch / désync ». GenSpeed aide :
 
----
+1. **🛡 Calculer mon code LAN** — un hash de ton install ; comparez-le, il doit être **identique**.
+2. **🩺 Diagnostic mismatch** — chacun **exporte son empreinte** (un fichier `.json`), l'un de vous **compare** celle de l'autre. GenSpeed liste, **par gravité et avec des noms clairs**, ce qui diffère :
+   - ❌ **Critique** (cause le désync) : version du jeu, INI, **mods + version** (« Contra 10.0.2 ↔ 10.0.1 »)
+   - ⚠️ **Attention** : maps
+   - ℹ️ **Info** (contexte) : GenTool, GenLauncher, addons, VC++ redists, résolution…
+3. **📜 Dernier replay** — version + map + CRC de ta dernière partie.
 
-## Installation
-
-### Prérequis
-1. **Windows 10/11**
-2. **Steam** avec **C&C Generals - Zero Hour** installé
-3. **GenLauncher** et **GenPatcher** configurés ( sans Gentools, ou desativé dasn Genlauncher )
-4. **Python 3.7+** ([python.org](https://www.python.org/) — cocher « Add Python to PATH » à l'installation)
-
-### Étapes
-
-1. **Vérifier** que GenLauncher et GenPatcher sont correctement installés et configurés
-
-2. **Télécharger** ce dépôt (bouton vert **Code → Download ZIP**), puis dézipper où tu veux.
-
-3. **(Optionnel, recommandé)** Installer les dépendances pour le thème sombre :
-   ```bash
-   python -m pip install -r requirements.txt
-   ```
-   Sinon GenSpeed démarre quand même avec un thème clair de secours.
-
-4. **Démarrer GenSpeed** :
-   - Double-cliquer **`GenSpeed.bat`** (le plus simple)
-   - Ou lancer `python main.py` en ligne de commande
-
-5. **(Optionnel)** `Creer-raccourci-bureau.bat` crée un raccourci sur le Bureau pour accès rapide.
-
-### Auto-détection
-GenSpeed **détecte automatiquement** l'installation Steam de Zero Hour et des mods GenLauncher du dossier GLM Si ce n'est pas trouvé, il te demande le dossier une fois et le mémorise.
+🇬🇧 In LAN, **all players must have exactly the same files** or you get a mismatch/desync. GenSpeed's **🩺 diagnostic** has each player export a fingerprint and compares them, listing what differs **by severity with clear names** (e.g. "Mod Contra 10.0.2 ↔ 10.0.1"). The shared report contains **no personal data** — only file/mod/add-on names, versions and truncated hashes.
 
 ---
 
-## Utilisation rapide
-
-### Mode Simple (Recommandé)
-
-1. **Sélectionne tes mods** dans la liste (ou rien = jeu vanilla)
-2. **Règle la vitesse** : 
-   - 🟢 **Original** (×1) – sans changement
-   - 😎 **Cool** (≈×1.5) – léger boost
-   - 😠 **Énervé** (≈×2) – recommandé (bon équilibre)
-   - 🔥 **Déchaîné** (≈×3) – très rapide
-3. **Règle la caméra** (optionnel) – vue par défaut ou un des presets
-4. **Appliquer** (demande les droits administrateur)
-5. **Lance GenLauncher** et joue !
-
-Pour revenir au jeu d'origine : bouton **Annuler**.
-
-### Mode Avancé
-
-Règle **chaque catégorie individuellement** :
-- Déplacement, Projectiles, Visée, Construction, Tir, Pouvoirs, Déploiement, Économie, Vision, Soin, Mérite (XP)
-
----
-
-## 🌐 Multijoueur LAN
-
-### Configuration
-1. Chaque joueur **sélectionne le même mod** et applique **les mêmes réglages GenSpeed**
-2. Utilise **🌐 Vérification multijoueur** pour comparer votre « code »
-3. Les codes **doivent être IDENTIQUES** pour jouer sans désync
-
-### Outils de diagnostic
-- **🛡 Vérifier mon code** – calcule ton hash personnel (base Steam + mods cochés)
-- **📜 Versions de ma dernière partie** – affiche jeu/mod/patch + map du dernier replay
-- **📤 Exporter rapport** – crée un fichier détaillé (empreinte par fichier)
-- **🔍 Comparer rapport ami** – charge le rapport d'un copain, localise les différences exactes
-
----
-
-## 🔧 Workflow complet d'utilisation : GenSpeed + GenLauncher
-
-GenSpeed s'intègre dans un **écosystème complet** , j'ai installer comme ça :
+## 🔧 Workflow conseillé / Recommended workflow
 
 ```
-1. Steam + C&C + C&C Heure H ( le jeu de base )
-       ↓
-2. GenPatcher (application de patchs additionnels, ( perso, je n'ai pas installer Gentools ))
-       ↓
-3. GenLauncher + mods, patch, addons dans options :
- - Cochez : "Use default Camera height (recommanded)" et "Use modded exe files (recommanded)", "Disable Gentools".
- - Décochez : Check Mode files integrity. Work... et Hide Genlaucher while the Game is running
-
-3. GenSpeed (configuration vitesse/caméra du mod/ Appliquer)
-
+1. Steam + C&C Generals – Zero Hour (jeu de base / base game)
+        ↓
+2. GenPatcher (patch communautaire, redists…)
+        ↓
+3. GenLauncher + mods.  Dans les options / In the options:
+   ✔ "Use default Camera height (recommended)"
+   ✔ "Use modded exe files (recommended)"
+   ✔ "Disable GenTool"
+   ✘ "Check Mod files integrity"
+   ✘ "Hide GenLauncher while the Game is running"
+        ↓
+4. GenSpeed → règle vitesse/caméra, Appliquer, Lancer GenLauncher → joue !
 ```
 
-**Exemple d'utilisation concret :**
-- Ouvre **GenSpeed**
-- Sélectionne un ou plusieurs mods "Contra"
-- Configure vitesse : "Énervé (×2)"
-- Configure caméra : "Cam haute"
-- Clique "Appliquer"
-- Dans GenSpeed, clique "🚀 Lancer GenLauncher"
-- GenLauncher démarre avec tes réglages appliqués
-- **Joue !**
+---
+
+## 🧠 Comment ça marche / How it works
+
+- Lit les archives `.big`/`.gib` du jeu/mod et modifie les variables `.ini` (vitesses ×N, durées ÷N).
+- Crée un `.speedbak` **à côté de chaque fichier** avant toute modification → **dépatch** = restauration exacte.
+- Config locale dans `%LOCALAPPDATA%\GenSpeed` (aucune télémétrie).
+- Patch identique **octet-pour-octet** à la v1.0 Python → compatibilité LAN entre toutes les versions.
+
+*Reads the mod's `.big`/`.gib` archives, scales `.ini` variables, backs up each file as `.speedbak` (exact restore). Local config in `%LOCALAPPDATA%\GenSpeed`. Patching is **byte-for-byte identical** to the Python v1.0 → LAN-compatible across versions.*
 
 ---
 
-## Comment ça marche (technique)
+## 🛠️ Compiler depuis les sources / Build from source
 
-- **Lecture d'archives** : lit les fichiers `.big`/`.gib` du mod (via Steam)
-- **Modification .ini** : applique les facteurs de vitesse aux variables concernées
-  - Vitesses ×N (déplacement, projectiles, etc.)
-  - Durées ÷N (construction, recharge, etc.)
-- **Sauvegarde sécurisée** : crée un `.speedbak` avant toute modification
-- **Dépatch** : restaure l'original via le backup
-- **Configuration locale** : stockée dans `%LOCALAPPDATA%\GenSpeed` (aucune télémétrie)
-- **Intégration GenLauncher** : fonctionne en tandem avec le launcher Steam
+Le code C# (.NET 8 / WPF) est dans [`dotnet/`](dotnet/). / The C# code (.NET 8 / WPF) is in [`dotnet/`](dotnet/).
 
----
-
-## À propos du code
-
-⚠️ **Note importante** : Ce projet a été **généré et développé par des IA** (Claude Code, ChatGPT, GitHub Copilot...).
-Je ne suis **pas développeur professionnel, ni même amateur**. 
-Le code fonctionne selon les spécifications, mais il peut contenir des améliorations possibles ou des cas limites non gérés.
-GenSpeed existe , parce j'en avais marre de chercher sur le Net une solution, pour avoir la meme rapidité que dans Skirmish (Escarmouche), mais en Lan, mais entre potes...
-Avis aux moddeurs , ce serait génial de peaufinner GenSpeed, voir de l'integrer dans GenLaucher... ;-) 
-
-Si tu trouves un bug ou une amélioration, n'hésite pas à ouvrir une **issue** ! 🤖
+```powershell
+cd dotnet
+dotnet run --project src/GenSpeed.App      # lancer en dev / run in dev
+.\publish.ps1                              # générer l'exe autonome / build the standalone exe
+```
 
 ---
 
-## Licence
+## ⚠️ Avertissements / Disclaimers
 
-Distribué sous licence **MIT** (voir [`LICENSE`](LICENSE)). Tu peux l'utiliser, le modifier et le partager librement. Aucune garantie.
+- **Non affilié à Electronic Arts.** *Command & Conquer™, Generals™, Zero Hour™* appartiennent à **Electronic Arts Inc.** Projet **amateur, non officiel**, sans lien avec EA ni les auteurs des mods.
+- **À tes propres risques.** Fourni « TEL QUEL », **sans garantie**. L'auteur n'est **pas responsable** d'éventuels dommages, pertes de données ou bannissements.
+- **Pas pour la triche en ligne / compétitive.** Conçu pour le solo et le **LAN entre amis**.
 
-*Command & Conquer™, Generals™ et Zero Hour™ appartiennent à Electronic Arts Inc.*
-*Ce projet n'est ni approuvé ni soutenu par EA.*
-
----
-
-## Ressources communauté
-
-- 🌍 [ModDB - C&C Generals Mods](https://www.moddb.com/games/c-c-generals)
-- 💬 [Reddit r/commandandconquer](https://www.reddit.com/r/commandandconquer/)
-- 🎮 [CNC Online](https://cnc-online.net/)
-- 📺 [ZeroHour.net](https://www.zerohour.net/)
+*Not affiliated with EA. Provided "AS IS", no warranty, use at your own risk. Not for online/ranked cheating — made for solo and LAN-with-friends play.*
 
 ---
 
-## Changelog
+## 🤖 À propos du code / About the code
 
-### v1.0 (Initial Release)
-- ✅ Système de patching complet (multiplicatif/division par catégorie)
-- ✅ Mode Simple (4 paliers) + Mode Avancé (détaillé)
-- ✅ Presets caméra intégrés
-- ✅ Vérification LAN (hash + comparaison de fichiers)
-- ✅ Auto-détection Steam
-- ✅ Sauvegarde/restauration automatiques
-- ✅ Intégration GenLauncher & GenPatcher
+🇫🇷 Le code de GenSpeed est **écrit par des IA** (Claude Code, etc.). Moi, je ne code pas : mon rôle est plutôt celui d'un **architecte / chef d'orchestre** — je définis la vision et les fonctionnalités, je guide les choix, je teste et j'oriente. GenSpeed existe parce que je voulais retrouver la rapidité de l'Escarmouche… mais en LAN entre potes. Avis aux moddeurs : ce serait génial de le peaufiner, voire de l'intégrer à GenLauncher 😉. Un bug, une idée ? Ouvre une **issue** !
+
+🇬🇧 GenSpeed's code is **written by AI** (Claude Code, etc.). I don't write the code myself — my role is closer to an **architect / director**: I set the vision and features, guide the decisions, test and steer. GenSpeed exists because I wanted Skirmish-like speed in LAN with friends. Modders welcome to improve it! Found a bug or have an idea? Open an **issue**.
 
 ---
 
-**Enjoy faster gameplay! 🚀⚡**
+## 📜 Licence / License
 
-*Pour Steam, GenPatcher, et GenLauncher uniquement.*
+MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage, sans garantie.
+
+*Command & Conquer™, Generals™ and Zero Hour™ are property of Electronic Arts Inc. This project is neither endorsed nor supported by EA.*
+
+---
+
+## 📝 Changelog
+
+### v2.0
+- 🖥️ Réécriture complète en **C# / .NET 8 (WPF)** → **exe autonome**, plus de Python
+- 🩺 **Diagnostic mismatch** avec inventaire nommé de l'écosystème (mods+versions, addons, GenTool, système)
+- 🎨 **3 thèmes** + interface **bilingue FR/EN**
+- 🛠️ Presets vitesse/caméra **modifiables** (CRUD), confirmation détaillée, clic droit + aperçus copiables
+- ⚡ Redimensionnement fluide, persistance config, détection + sélection manuelle du dossier de jeu
+
+### v1.0
+- Système de patching, modes Simple/Avancé, presets caméra, vérification LAN, auto-détection Steam, sauvegarde/restauration, intégration GenLauncher & GenPatcher *(version Python — conservée dans l'historique git)*
+
+---
+
+<div align="center">
+
+**Enjoy faster gameplay! 🚀⚡** · *Pour Steam + GenPatcher + GenLauncher.*
+
+</div>

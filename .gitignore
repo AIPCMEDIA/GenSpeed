@@ -1,16 +1,26 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
+# ===== .NET / C# build =====
+bin/
+obj/
+*.user
+*.suo
+.vs/
+# Sortie de publication (l'exe va sur GitHub Releases, pas dans le dépôt)
+publish/
+*.exe
 
-# Configuration / état locaux (spécifiques à chaque machine — NE PAS publier)
+# ===== Configuration / état locaux (spécifiques à chaque machine — NE PAS publier) =====
 genspeed-config.json
+genspeed-net.json
 genspeed-*.json
+GenSpeed-diagnostic*.json
+GenSpeed-rapport*.json
 *.speedbak
 
-# OS / éditeurs
+# ===== Outils / artefacts =====
+dotnet/tests/_tmp/
+genspeed-crash.txt
+
+# ===== OS / éditeurs =====
 Thumbs.db
 desktop.ini
 .DS_Store
