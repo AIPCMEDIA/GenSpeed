@@ -76,6 +76,9 @@
 3. GenSpeed **détecte automatiquement** ton install Steam + tes mods GenLauncher. Sinon, il te demande le dossier une fois et le mémorise.
    *GenSpeed **auto-detects** your Steam install + GenLauncher mods. Otherwise it asks for the folder once and remembers it.*
 
+> 📦 Tu préfères un pack avec notice ? Télécharge **`GenSpeed-v2.0.zip`** (contient `GenSpeed.exe` + un **LISEZ-MOI** démarrage rapide FR/EN). Le simple `GenSpeed.exe` ci-dessus reste l'option la plus directe.
+> *Prefer a bundle with a readme? Download **`GenSpeed-v2.0.zip`** (contains `GenSpeed.exe` + a quick-start LISEZ-MOI in FR/EN). The single `GenSpeed.exe` above stays the simplest option.*
+
 > 💡 Au 1er lancement, Windows SmartScreen peut afficher « éditeur inconnu » (exe non signé) → **Informations complémentaires → Exécuter quand même**. C'est normal.
 > *On first run, Windows SmartScreen may say "unknown publisher" (unsigned exe) → **More info → Run anyway**. This is expected.*
 
@@ -120,24 +123,56 @@
 
 🇬🇧 In LAN, **all players must have exactly the same files** or you get a mismatch/desync. GenSpeed's **🩺 diagnostic** has each player export a fingerprint and compares them, listing what differs **by severity with clear names** (e.g. "Mod Contra 10.0.2 ↔ 10.0.1"). The shared report contains **no personal data** — only file/mod/add-on names, versions and truncated hashes.
 
+### 🗺️ Maps & mismatch — la règle d'or / the golden rule
+
+🇫🇷
+- **Une carte que vous ne jouez pas ne cause JAMAIS de désync.** Zero Hour ne charge que la carte de la partie en cours ; les cartes en trop dans ton dossier restent inertes. Tu peux en avoir plus que ton ami, aucun problème.
+- **Ce qui doit être identique des deux côtés :** ① la **carte que vous jouez** (terrain `.map` **et** son `map.ini`), et ② les données chargées à **chaque** partie : **jeu de base + INI du mod + tes réglages GenSpeed**.
+- **« Il me manque une carte » ≠ désync** : c'est juste une question de **disponibilité** — vous ne pouvez pas lancer *cette* carte tant que l'un ne l'a pas (le jeu peut la transférer). Une fois les deux pourvus et la carte identique, ça roule.
+- **Les maps des mods sont embarquées dans le mod** → automatiquement identiques si vous avez la **même version de mod**. Rien à partager à la main.
+
+🇬🇧
+- **A map you don't play NEVER causes a desync.** Zero Hour only loads the current match's map; extra maps sit inert. Having more than your friend is harmless.
+- **What must match on both sides:** ① the **map you actually play** (`.map` terrain **and** its `map.ini`), and ② the data loaded **every** match: **base game + mod INI + your GenSpeed settings**.
+- **"I'm missing a map" ≠ desync** — it's just **availability**: you can't start *that* map until both have it (the game can transfer it). Once both have the same one, you're fine.
+- **Mod maps are bundled inside the mod** → automatically identical if you share the **same mod version**. Nothing to share by hand.
+
+> 💡 C'est pourquoi le diagnostic classe les **maps en ⚠️ Attention** (contextuel) et le **jeu / mods / réglages en 🔴 Critique** (chargés à chaque partie).
+> *That's why the diagnostic rates **maps as ⚠️ Attention** (contextual) and the **game / mods / settings as 🔴 Critical** (loaded every match).*
+
 ---
 
-## 🔧 Workflow conseillé / Recommended workflow
+## 🔧 Installation conseillée — ordre exact / Recommended install — exact order
 
-```
-1. Steam + C&C Generals – Zero Hour (jeu de base / base game)
-        ↓
-2. GenPatcher (patch communautaire, redists…)
-        ↓
-3. GenLauncher + mods.  Dans les options / In the options:
-   ✔ "Use default Camera height (recommended)"
-   ✔ "Use modded exe files (recommended)"
-   ✔ "Disable GenTool"
-   ✘ "Check Mod files integrity"
-   ✘ "Hide GenLauncher while the Game is running"
-        ↓
-4. GenSpeed → règle vitesse/caméra, Appliquer, Lancer GenLauncher → joue !
-```
+> ⚠️ **Pour le LAN : fais EXACTEMENT les mêmes étapes, les mêmes versions et les mêmes options sur CHAQUE PC.** C'est ce qui évite les « mismatch / désync ».
+> *For LAN: do the **exact same steps, versions and options on EVERY PC**. That's what prevents mismatches.*
+
+**1. Jeu de base (Steam)** — installe *C&C Generals* + *Zero Hour (Heure H)* via Steam. **Lance Generals une fois**, puis **Zero Hour une fois**, et quitte. (Ça initialise le jeu : registre, dossier `Data`, `Options.ini` — indispensable avant de patcher.)
+*Base game (Steam): install Generals + Zero Hour. Launch **Generals once**, then **Zero Hour once**, and quit, to initialize the game before anything else.*
+
+**2. GenPatcher** — applique les **correctifs de compatibilité Windows 10/11** + redistribuables.
+- 💡 **GenTool** : GenPatcher propose de l'installer — c'est **optionnel**. Pour **GenSpeed + LAN entre amis**, tu peux le **laisser de côté** (ou, si tu l'installes, le **désactiver** dans GenLauncher). Il sert surtout au **jeu en ligne classé / aux replays** et peut interférer avec des fichiers modifiés.
+- *GenPatcher applies Win10/11 fixes + redists. GenTool is **optional** — for GenSpeed + LAN you can skip it (or disable it in GenLauncher). It's mainly for online/ranked play and may interfere with modified files.*
+- 💡 **Autres extras GenPatcher** (tous **optionnels**) : *Control Bar Pro* (barre de commandes enrichie), **packs de maps** communautaires, *hotkeys*, *World Builder*. Les **hotkeys** et *World Builder* sont **purement locaux** (aucun impact multi). En revanche, pour le **Control Bar Pro** et les **packs de maps** : si tu les installes, **mets le même choix sur les deux PC**.
+- *Other GenPatcher extras (all **optional**): Control Bar Pro, community **map packs**, hotkeys, World Builder. Hotkeys & World Builder are **purely local** (no multiplayer impact). For Control Bar Pro and map packs: if you install them, **use the same choice on both PCs**.*
+
+**3. GenLauncher** (installé / mis à jour via GenPatcher). Configure les options ainsi :
+*GenLauncher (installed/updated via GenPatcher). Set the options like this:*
+- ✔ **Use default Camera height** — laisse **GenSpeed gérer la caméra** (évite un conflit).
+- ✔ **Use modded .exe files**
+- ✔ **Particles: 1000** · ✔ **Texture quality level: 0** *(préférence perfs/visuel)*
+- ✔ **Use language: English** *(recommandé pour certains mods)*
+- ✔ **Disable dynamic level of detail**
+- ✘ **Tout le reste décoché** — surtout **Check Mod files integrity** (OFF, sinon il annule les modifs de GenSpeed) et **Hide GenLauncher while the game is running**.
+
+**4. Test du jeu nu** — lance **Zero Hour une fois** via GenLauncher. S'il propose une **« recommended configuration » au 1er lancement → refuse-la** (pour garder tes options), et vérifie que le jeu démarre.
+*Launch Zero Hour once via GenLauncher. If it offers a "recommended configuration" on first run → decline it, then check the game starts.*
+
+**5. Mods** — installe chaque **mod + ses patchs/addons** via GenLauncher, puis **lance chacun une fois**. (Ça génère leurs fichiers, indispensable pour que GenSpeed les détecte et les patche.)
+*Install each mod + its patches/add-ons via GenLauncher, then **launch each once** so GenSpeed can detect and patch them.*
+
+**6. GenSpeed (en dernier)** — règle la vitesse/caméra, **Applique**, **Lance GenLauncher** → joue ! Pour revenir à l'original : **Annuler**.
+*GenSpeed (last): set speed/camera, **Apply**, **Launch GenLauncher** → play! To revert: **Cancel**.*
 
 ---
 
