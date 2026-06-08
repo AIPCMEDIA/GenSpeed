@@ -48,9 +48,10 @@
 
 ### ⬇️ Download
 
-Grab `GenSpeed.exe` from the GitHub Releases page:
-**https://github.com/AIPCMEDIA/GenSpeed/releases/latest**
+**Direct download (single file, not a zip):**
+**https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe**
 
+> Just download `GenSpeed.exe` and double-click — no install, nothing to unzip. Do **not** download "Source code (zip)" on GitHub; that's only the source, not the app.
 > First run: Windows SmartScreen may warn "unknown publisher" (the exe isn't code-signed) → *More info → Run anyway*.
 
 ### ⚠️ Disclaimer
@@ -87,8 +88,10 @@ Not affiliated with Electronic Arts. Provided "AS IS", no warranty, use at your 
 
 ### ⬇️ Téléchargement
 
-`GenSpeed.exe` sur la page Releases GitHub :
-**https://github.com/AIPCMEDIA/GenSpeed/releases/latest**
+**Téléchargement direct (un seul fichier, pas un zip) :**
+**https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe**
+
+> Télécharge `GenSpeed.exe` et double-clique — aucune installation, rien à décompresser. Ne télécharge **pas** le « Source code (zip) » de GitHub : c'est le code source, pas l'application.
 
 ### ⚠️ Avertissement
 
