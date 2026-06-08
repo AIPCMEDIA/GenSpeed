@@ -7,15 +7,15 @@
 **Accélère le gameplay de *Command & Conquer™ Generals – Zero Hour* (et de ses mods), même en LAN.**
 *Speed up the gameplay of C&C Generals: Zero Hour (and its mods), even in LAN.*
 
-### [⬇️ TÉLÉCHARGER GenSpeed.exe / DOWNLOAD GenSpeed.exe](https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe)
+### [⬇️ TÉLÉCHARGER / DOWNLOAD — page Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)
 
-[![Download](https://img.shields.io/badge/⬇️_Télécharger_/_Download-GenSpeed.exe_(direct)-5a9030?style=for-the-badge)](https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe)
+[![Download](https://img.shields.io/badge/⬇️_Télécharger_/_Download-Releases-5a9030?style=for-the-badge)](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)
 [![Platform](https://img.shields.io/badge/Windows-10_/_11-blue?style=flat)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat)](LICENSE)
 
-> 👉 Clique le bouton vert ci-dessus = tu télécharges **directement `GenSpeed.exe`**.
+> 👉 Clique le bouton vert → page **Releases** → télécharge **`GenSpeed.exe`** dans la section **Assets**.
 > Ne télécharge **pas** le « *Source code (zip)* » : c'est le code source, il **ne contient pas** l'application.
-> *Click the green button above to download **`GenSpeed.exe`** directly. Do **not** download "Source code (zip)" — that's the source code, it does **not** contain the app.*
+> *Click the green button → **Releases** page → download **`GenSpeed.exe`** under **Assets**. Do **not** download "Source code (zip)" — that's the source code, it does **not** contain the app.*
 
 </div>
 
@@ -70,8 +70,8 @@
 
 ## ⬇️ Téléchargement & lancement / Download & run
 
-1. **Télécharge `GenSpeed.exe`** → **[clic ici pour le téléchargement direct](https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe)** (un seul fichier, pas un zip).
-   *Download `GenSpeed.exe` → **[click here for the direct download](https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe)** (a single file, not a zip).*
+1. **Va sur la page [Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)** et télécharge **`GenSpeed.exe`** dans la section **Assets** (un seul fichier, pas un zip).
+   *Go to the **[Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)** page and download **`GenSpeed.exe`** under **Assets** (a single file, not a zip).*
 2. **Double-clique dessus.** Aucune installation, rien à décompresser. / **Double-click it.** No install, nothing to unzip.
 3. GenSpeed **détecte automatiquement** ton install Steam + tes mods GenLauncher. Sinon, il te demande le dossier une fois et le mémorise.
    *GenSpeed **auto-detects** your Steam install + GenLauncher mods. Otherwise it asks for the folder once and remembers it.*
@@ -94,6 +94,7 @@
 - 🛡️ **Code LAN** (hash) pour vérifier que tous les joueurs ont les mêmes fichiers
 - 🩺 **Diagnostic mismatch** : exporte ton empreinte, compare avec un ami, verdict détaillé
 - 🔎 Aperçu des valeurs (clés / exhaustif / modifiées) + ouverture du dossier du mod
+- 📁 **Changer le dossier du jeu / des mods (GLM)** depuis le menu ⚙ Config · ❔ **Aide intégrée**
 - 🎨 3 thèmes · 🌐 FR/EN · 🔒 **Aucune télémétrie, aucune connexion internet**
 
 ---
@@ -232,6 +233,8 @@ MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage,
 - 🩺 **Diagnostic mismatch** avec inventaire nommé de l'écosystème (mods+versions, addons, GenTool, système)
 - 🎨 **3 thèmes** + interface **bilingue FR/EN**
 - 🛠️ Presets vitesse/caméra **modifiables** (CRUD), confirmation détaillée, clic droit + aperçus copiables
+- 📁 **Changer le dossier du jeu** *et* **le dossier des mods (GLM)** depuis l'appli (menu ⚙ Config) — gère le cas où GenLauncher est installé **ailleurs**, avec conseils d'emplacement
+- ❔ **Aide intégrée** (bouton ❔) : fenêtre d'aide bilingue (démarrage, vitesse/caméra, dossiers, LAN & mismatch, sauvegarde, à propos)
 - ⚡ Redimensionnement fluide, persistance config, détection + sélection manuelle du dossier de jeu
 
 ### v1.0
