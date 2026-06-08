@@ -7,9 +7,15 @@
 **Accélère le gameplay de *Command & Conquer™ Generals – Zero Hour* (et de ses mods), même en LAN.**
 *Speed up the gameplay of C&C Generals: Zero Hour (and its mods), even in LAN.*
 
-[![Download](https://img.shields.io/badge/⬇️_Télécharger_/_Download-GenSpeed.exe-5a9030?style=for-the-badge)](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)
+### [⬇️ TÉLÉCHARGER GenSpeed.exe / DOWNLOAD GenSpeed.exe](https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe)
+
+[![Download](https://img.shields.io/badge/⬇️_Télécharger_/_Download-GenSpeed.exe_(direct)-5a9030?style=for-the-badge)](https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe)
 [![Platform](https://img.shields.io/badge/Windows-10_/_11-blue?style=flat)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat)](LICENSE)
+
+> 👉 Clique le bouton vert ci-dessus = tu télécharges **directement `GenSpeed.exe`**.
+> Ne télécharge **pas** le « *Source code (zip)* » : c'est le code source, il **ne contient pas** l'application.
+> *Click the green button above to download **`GenSpeed.exe`** directly. Do **not** download "Source code (zip)" — that's the source code, it does **not** contain the app.*
 
 </div>
 
@@ -64,9 +70,9 @@
 
 ## ⬇️ Téléchargement & lancement / Download & run
 
-1. **Télécharge `GenSpeed.exe`** depuis la page **[Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)**.
-   *Download `GenSpeed.exe` from the **[Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)** page.*
-2. **Double-clique dessus.** Aucune installation. / **Double-click it.** No install.
+1. **Télécharge `GenSpeed.exe`** → **[clic ici pour le téléchargement direct](https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe)** (un seul fichier, pas un zip).
+   *Download `GenSpeed.exe` → **[click here for the direct download](https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe)** (a single file, not a zip).*
+2. **Double-clique dessus.** Aucune installation, rien à décompresser. / **Double-click it.** No install, nothing to unzip.
 3. GenSpeed **détecte automatiquement** ton install Steam + tes mods GenLauncher. Sinon, il te demande le dossier une fois et le mémorise.
    *GenSpeed **auto-detects** your Steam install + GenLauncher mods. Otherwise it asks for the folder once and remembers it.*
 
