@@ -7,15 +7,9 @@
 **Accélère le gameplay de *Command & Conquer™ Generals – Zero Hour* (et de ses mods), même en LAN.**
 *Speed up the gameplay of C&C Generals: Zero Hour (and its mods), even in LAN.*
 
-### [⬇️ TÉLÉCHARGER / DOWNLOAD — page Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)
-
-[![Download](https://img.shields.io/badge/⬇️_Télécharger_/_Download-Releases-5a9030?style=for-the-badge)](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)
 [![Platform](https://img.shields.io/badge/Windows-10_/_11-blue?style=flat)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat)](LICENSE)
-
-> 👉 Clique le bouton vert → page **Releases** → télécharge **`GenSpeed.exe`** dans la section **Assets**.
-> Ne télécharge **pas** le « *Source code (zip)* » : c'est le code source, il **ne contient pas** l'application.
-> *Click the green button → **Releases** page → download **`GenSpeed.exe`** under **Assets**. Do **not** download "Source code (zip)" — that's the source code, it does **not** contain the app.*
+[![.NET](https://img.shields.io/badge/.NET-8_/_WPF-512BD4?style=flat)](#)
 
 </div>
 
@@ -68,19 +62,14 @@
 
 ---
 
-## ⬇️ Téléchargement & lancement / Download & run
+## ⚙️ Installation
 
-1. **Va sur la page [Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)** et télécharge **`GenSpeed.exe`** dans la section **Assets** (un seul fichier, pas un zip).
-   *Go to the **[Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)** page and download **`GenSpeed.exe`** under **Assets** (a single file, not a zip).*
-2. **Double-clique dessus.** Aucune installation, rien à décompresser. / **Double-click it.** No install, nothing to unzip.
-3. GenSpeed **détecte automatiquement** ton install Steam + tes mods GenLauncher. Sinon, il te demande le dossier une fois et le mémorise.
-   *GenSpeed **auto-detects** your Steam install + GenLauncher mods. Otherwise it asks for the folder once and remembers it.*
+🇫🇷 GenSpeed est un **exécutable autonome** : pas d'installation, pas de Python, rien à décompresser. Les versions publiées se trouvent dans l'onglet **[Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)** du dépôt. Au lancement, GenSpeed **détecte automatiquement** ton install Steam et tes mods GenLauncher (sinon il demande le dossier une fois et le mémorise).
 
-> 📦 Tu préfères un pack avec notice ? Télécharge **`GenSpeed-v2.0.zip`** (contient `GenSpeed.exe` + un **LISEZ-MOI** démarrage rapide FR/EN). Le simple `GenSpeed.exe` ci-dessus reste l'option la plus directe.
-> *Prefer a bundle with a readme? Download **`GenSpeed-v2.0.zip`** (contains `GenSpeed.exe` + a quick-start LISEZ-MOI in FR/EN). The single `GenSpeed.exe` above stays the simplest option.*
+🇬🇧 GenSpeed is a **standalone executable**: no install, no Python, nothing to unzip. Published versions live on the repository's **[Releases](https://github.com/AIPCMEDIA/GenSpeed/releases/latest)** tab. On launch, GenSpeed **auto-detects** your Steam install and GenLauncher mods (otherwise it asks for the folder once and remembers it).
 
-> 💡 Au 1er lancement, Windows SmartScreen peut afficher « éditeur inconnu » (exe non signé) → **Informations complémentaires → Exécuter quand même**. C'est normal.
-> *On first run, Windows SmartScreen may say "unknown publisher" (unsigned exe) → **More info → Run anyway**. This is expected.*
+> 💡 Première utilisation : Windows SmartScreen peut afficher « éditeur inconnu » (l'exe n'est pas signé) → **Informations complémentaires → Exécuter quand même**.
+> *First run: Windows SmartScreen may say "unknown publisher" (the exe isn't code-signed) → **More info → Run anyway**.*
 
 ---
 
