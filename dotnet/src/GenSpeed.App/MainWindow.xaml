@@ -154,7 +154,14 @@
                         <ContentControl DockPanel.Dock="Top" Tag="{l:Tr card.mods}" Template="{StaticResource CardHead}"/>
                         <DataGrid x:Name="ModGrid" Margin="10,6" SelectionMode="Single">
                             <DataGrid.Columns>
-                                <DataGridCheckBoxColumn Header="✓" Binding="{Binding Sel}" Width="34" IsReadOnly="True"/>
+                                <DataGridCheckBoxColumn Binding="{Binding Sel}" Width="40" IsReadOnly="True">
+                                    <DataGridCheckBoxColumn.HeaderTemplate>
+                                        <DataTemplate>
+                                            <CheckBox Click="OnToggleAll" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                      ToolTip="{l:Tr sel.all.tip}"/>
+                                        </DataTemplate>
+                                    </DataGridCheckBoxColumn.HeaderTemplate>
+                                </DataGridCheckBoxColumn>
                                 <DataGridTextColumn x:Name="ColMod" Binding="{Binding Display}" Width="*"/>
                                 <DataGridTextColumn x:Name="ColSpeed" Binding="{Binding Vitesse}" Width="100"/>
                                 <DataGridTextColumn x:Name="ColCamera" Binding="{Binding Camera}" Width="110"/>

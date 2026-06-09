@@ -140,6 +140,7 @@ public partial class MainWindow : Window
     {
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare));
         Dropdown(ConfigBtn, ("cfg.installs", OnCfgInstalls), ("cfg.gamedir", OnCfgGameDir), ("cfg.modsdir", OnCfgModsDir),
+                            ("cfg.launcher", OnCfgLauncher),
                             ("cfg.reset", OnCfgReset), ("cfg.export", OnCfgExport), ("cfg.import", OnCfgImport));
         Dropdown(PreviewBtn, ("preview.key", () => RunPreview("key")),
                              ("preview.full", () => RunPreview("full")),
@@ -230,8 +231,9 @@ public partial class MainWindow : Window
     private void LaunchGenLauncher()
     {
         if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
+        string key = LaunchKey();          // dossier + mod coché : le lanceur est mémorisé PAR mod
         string? exe = null;
-        if (_config.LaunchExes.TryGetValue(_gameDir, out var saved))
+        if (_config.LaunchExes.TryGetValue(key, out var saved))
         {
             string sp = Path.Combine(_gameDir, saved);
             if (File.Exists(sp)) exe = sp;
@@ -249,7 +251,7 @@ public partial class MainWindow : Window
                 exe = Path.Combine(_gameDir, pick);
             }
         }
-        _config.LaunchExes[_gameDir] = Path.GetFileName(exe);
+        _config.LaunchExes[key] = Path.GetFileName(exe);
         ConfigStore.Save(_config);
         try
         {
@@ -257,6 +259,38 @@ public partial class MainWindow : Window
             Log(string.Format(Loc.T("launch.started"), Path.GetFileName(exe)));
         }
         catch (System.ComponentModel.Win32Exception) { Log(Loc.T("genl.cancel")); }
+    }
+
+    /// <summary>Clé du lanceur mémorisé : dossier d'install + mod coché (le 1er). Le bon lanceur dépend du mod joué.</summary>
+    private string LaunchKey()
+    {
+        var first = CheckedTargets().FirstOrDefault();
+        return (_gameDir ?? "") + "::" + (first?.Label ?? "");
+    }
+
+    /// <summary>Changer le lanceur mémorisé pour le mod actuellement coché (re-demande + ré-enregistre).</summary>
+    private void OnCfgLauncher()
+    {
+        if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
+        var cands = LaunchCandidates(_gameDir);
+        if (cands.Count == 0) { Dialogs.Info(this, "GenSpeed", Loc.T("genl.notfound")); return; }
+        var first = CheckedTargets().FirstOrDefault();
+        string forMod = first != null ? FriendlyLabel(first.Label) : Loc.T("launch.nomod");
+        string? pick = Dialogs.Choose(this, Loc.T("launch.pick.title"),
+                                      string.Format(Loc.T("launch.change.msg"), forMod),
+                                      cands.Select(c => Path.GetFileName(c)!).ToList());
+        if (pick == null) return;
+        _config.LaunchExes[LaunchKey()] = pick;
+        ConfigStore.Save(_config);
+        Log(string.Format(Loc.T("launch.set"), pick, forMod));
+    }
+
+    /// <summary>Case d'en-tête : coche / décoche TOUS les mods du tableau.</summary>
+    private void OnToggleAll(object sender, RoutedEventArgs e)
+    {
+        bool check = (sender as CheckBox)?.IsChecked == true;
+        if (ModGrid.ItemsSource is IEnumerable<ModRow> rows)
+            foreach (var r in rows) r.Sel = check;
     }
 
     /// <summary>Libellé d'affichage convivial (Vanilla → « Jeu de base »), localisé.</summary>
