@@ -9,6 +9,7 @@ public sealed class PatchJob
 {
     public string Mode { get; set; } = "apply";          // "apply" | "restore"
     public string GameDir { get; set; } = "";
+    public string? ModsDir { get; set; }                 // dossier GLM externe (GenLauncher ailleurs)
     public Dictionary<string, double> Factors { get; set; } = new();
     public Dictionary<string, string?> Cam { get; set; } = new();
     public List<string> Labels { get; set; } = new();
@@ -35,6 +36,12 @@ public static class ElevatedRunner
         {
             var job = JsonSerializer.Deserialize<PatchJob>(File.ReadAllText(jobPath))!;
             var byLabel = ModDetection.DetectTargets(job.GameDir).ToDictionary(t => t.Label);
+
+            // Mods GenLauncher installés ailleurs : mêmes cibles que la fenêtre principale.
+            if (!string.IsNullOrEmpty(job.ModsDir) && Directory.Exists(job.ModsDir)
+                && !string.Equals(job.ModsDir, Path.Combine(job.GameDir, "GLM"), StringComparison.OrdinalIgnoreCase))
+                foreach (var t in ModDetection.DetectGlmMods(job.ModsDir))
+                    byLabel.TryAdd(t.Label, t);
 
             foreach (var label in job.Labels)
             {

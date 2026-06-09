@@ -28,6 +28,8 @@
   No more guessing why you mismatch. The shared report contains **no personal data** — only file/mod/add-on names, versions and short hashes.
 - 🎨 **3 themes** (EVA Terminal, USA, China) + a fully **bilingual FR/EN** interface.
 - 🛠️ Editable speed & camera **presets** (create / rename / delete), a detailed **confirmation screen** before patching (it tells you, in plain words, what each change does in-game), right-click previews, and "open mod folder".
+- 📁 **Change the game folder — and the mods (GLM) folder — from the app** (⚙ Config menu): a wrong folder picked on first launch, or a GenLauncher installed elsewhere, is no longer a problem (with on-screen hints to locate them).
+- ❔ **Built-in help** (❔ button): a bilingual help window covering quick start, speed/camera, folders, LAN & mismatch, backup/restore and an About section.
 
 ### 🎮 Features
 
@@ -46,10 +48,25 @@
 - **GenPatcher** + **GenLauncher** (the usual community setup)
 - Nothing else — the .NET runtime is bundled in the exe.
 
+### 🧭 Recommended setup & the LAN "golden rule"
+
+**Install order (do the SAME on every PC for LAN):**
+1. **Steam:** launch *Generals* once, then *Zero Hour* once (initializes the game).
+2. **GenPatcher:** Win10/11 fixes + redists. **GenTool is optional** — for GenSpeed + LAN you can skip it (or disable it in GenLauncher). Other extras (Control Bar Pro, map packs, hotkeys, World Builder) are optional too; hotkeys & World Builder are purely local.
+3. **GenLauncher options:** ✔ *Use default Camera height* (let GenSpeed handle the camera), ✔ *Use modded .exe*, ✘ *Check Mod files integrity* (OFF — it would revert GenSpeed). The rest to taste.
+4. Launch **Zero Hour once**; if it offers a "recommended configuration", **decline it**.
+5. Install your **mods** (+ patches/add-ons) and **launch each once**.
+6. Run **GenSpeed last**.
+
+**The LAN golden rule — avoid mismatches.** On **both** PCs you need: ① the same game + same mods (same versions), ② the same GenSpeed settings, ③ only play maps you **both** have.
+- A map you **don't play** never causes a desync — even if only one of you has it. Only the **map actually played** matters (its `.map` + `map.ini` must be identical).
+- **Mod maps are bundled inside the mod** → identical if you share the same mod version. Nothing to share by hand.
+- "Missing a map" is just **availability** (the game can transfer it), **not** a desync.
+
 ### ⬇️ Download
 
 **Direct download (single file, not a zip):**
-**https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe**
+**https://github.com/AIPCMEDIA/GenSpeed/releases/latest**
 
 > Just download `GenSpeed.exe` and double-click — no install, nothing to unzip. Do **not** download "Source code (zip)" on GitHub; that's only the source, not the app.
 > First run: Windows SmartScreen may warn "unknown publisher" (the exe isn't code-signed) → *More info → Run anyway*.
@@ -85,11 +102,28 @@ Not affiliated with Electronic Arts. Provided "AS IS", no warranty, use at your 
   Fini de deviner pourquoi ça désync. Le rapport partagé **ne contient aucune info perso** — juste des noms de fichiers/mods/addons, versions et hash courts.
 - 🎨 **3 thèmes** (Terminal EVA, USA, Chine) + interface **bilingue FR/EN**.
 - 🛠️ Presets vitesse & caméra **modifiables**, **écran de confirmation détaillé** avant patch (il explique en clair ce que chaque réglage change en jeu), aperçus au clic droit, et « ouvrir le dossier du mod ».
+- 📁 **Changer le dossier du jeu — et celui des mods (GLM) — depuis l'appli** (menu ⚙ Config) : un mauvais dossier choisi au 1er lancement, ou un GenLauncher installé ailleurs, n'est plus un souci (avec conseils d'emplacement à l'écran).
+- ❔ **Aide intégrée** (bouton ❔) : une fenêtre d'aide bilingue couvrant le démarrage rapide, la vitesse/caméra, les dossiers, le LAN & mismatch, la sauvegarde/restauration et une section « À propos ».
+
+### 🧭 Installation conseillée & la « règle d'or » du LAN
+
+**Ordre d'installation (identique sur chaque PC pour le LAN) :**
+1. **Steam :** lance *Generals* une fois, puis *Zero Hour* une fois (initialise le jeu).
+2. **GenPatcher :** correctifs Win10/11 + redists. **GenTool est optionnel** — pour GenSpeed + LAN tu peux le sauter (ou le désactiver dans GenLauncher). Les autres extras (Control Bar Pro, packs de maps, hotkeys, World Builder) sont aussi optionnels ; hotkeys & World Builder sont purement locaux.
+3. **Options GenLauncher :** ✔ *Use default Camera height* (laisse GenSpeed gérer la caméra), ✔ *Use modded .exe*, ✘ *Check Mod files integrity* (OFF — sinon il annule GenSpeed). Le reste selon ton goût.
+4. Lance **Zero Hour une fois** ; s'il propose une « recommended configuration », **refuse-la**.
+5. Installe tes **mods** (+ patchs/addons) et **lance chacun une fois**.
+6. Utilise **GenSpeed en dernier**.
+
+**La règle d'or du LAN — éviter les mismatch.** Sur les **deux** PC il faut : ① même jeu + mêmes mods (mêmes versions), ② mêmes réglages GenSpeed, ③ ne jouer que des cartes que vous avez **tous les deux**.
+- Une carte que vous **ne jouez pas** ne cause jamais de désync — même si un seul l'a. Seule la **carte jouée** compte (son `.map` + `map.ini` doivent être identiques).
+- **Les maps des mods sont embarquées dans le mod** → identiques si même version de mod. Rien à partager à la main.
+- « Il me manque une carte » = simple **disponibilité** (le jeu peut la transférer), **pas** un désync.
 
 ### ⬇️ Téléchargement
 
 **Téléchargement direct (un seul fichier, pas un zip) :**
-**https://github.com/AIPCMEDIA/GenSpeed/releases/latest/download/GenSpeed.exe**
+**https://github.com/AIPCMEDIA/GenSpeed/releases/latest**
 
 > Télécharge `GenSpeed.exe` et double-clique — aucune installation, rien à décompresser. Ne télécharge **pas** le « Source code (zip) » de GitHub : c'est le code source, pas l'application.
 

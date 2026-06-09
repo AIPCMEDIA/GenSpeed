@@ -13,16 +13,28 @@ public static class Patcher
         public int Skipped { get; set; }
     }
 
-    /// <summary>Garantit que .speedbak = version pristine et que fp est prêt à patcher.</summary>
-    public static void EnsurePristineBackup(string fp, string? prevHash)
+    /// <summary>
+    /// Garantit que .speedbak = version pristine et que fp est DÉPATCHÉ avant d'être (re)patché.
+    /// Retourne false s'il faut SAUTER ce fichier : déjà patché mais backup perdu → re-scaler
+    /// sur-patcherait le mod. On refuse plutôt que d'abîmer les données.
+    /// </summary>
+    public static bool EnsurePristineBackup(string fp, string? prevHash)
     {
         string bak = fp + ".speedbak";
-        if (!File.Exists(bak)) { File.Copy(fp, bak, true); return; }
+        if (!File.Exists(bak))
+        {
+            // Pas de backup, mais le fichier EST la version déjà patchée connue → impossible de
+            // récupérer le pristine ; re-scaler doublerait le patch. On saute.
+            if (prevHash != null && Hashing.FileSha256(fp) == prevHash) return false;
+            File.Copy(fp, bak, true);   // 1er patch : on sauvegarde le pristine
+            return true;
+        }
         string? cur = Hashing.FileSha256(fp);
         if (prevHash == null || cur == prevHash)
-            File.Copy(bak, fp, true);   // backup de confiance -> on restaure le pristine
+            File.Copy(bak, fp, true);   // DÉPATCH : restaure le pristine AVANT de (re)patcher
         else
             File.Copy(fp, bak, true);   // fp modifié hors GenSpeed -> nouveau pristine
+        return true;
     }
 
     public static PatchOutcome PatchTarget(Target t, IReadOnlyDictionary<string, double> factors,
@@ -31,7 +43,12 @@ public static class Patcher
         var res = new PatchOutcome();
         foreach (var fp in t.Files)
         {
-            EnsurePristineBackup(fp, prevHashes.TryGetValue(fp, out var ph) ? ph : null);
+            // Dépatch préalable obligatoire (évite de sur-patcher un mod déjà patché).
+            if (!EnsurePristineBackup(fp, prevHashes.TryGetValue(fp, out var ph) ? ph : null))
+            {
+                res.Skipped++;   // déjà patché + backup perdu → on ne double-patche pas
+                continue;
+            }
             bool changed;
 
             if (t.Type == TargetType.Ini)
@@ -50,8 +67,8 @@ public static class Patcher
                 try { entries = BigArchive.Read(fp); }
                 catch (BigFileException)
                 {
-                    string b = fp + ".speedbak";
-                    if (File.Exists(b)) File.Delete(b);
+                    // Archive illisible (transitoire ?) → on saute SANS toucher au backup existant
+                    // (le supprimer ferait perdre le point de restauration). Fix D.
                     res.Skipped++;
                     continue;
                 }

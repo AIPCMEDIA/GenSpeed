@@ -46,6 +46,7 @@
                     <Button x:Name="PreviewBtn" Content="{l:Tr tb.preview}" Margin="2,5"/>
                     <Button x:Name="ConfigBtn" Content="{l:Tr tb.config}" Margin="2,5"/>
                     <Button x:Name="DiagBtn" Content="{l:Tr tb.diag}" Margin="2,5"/>
+                    <Button x:Name="HelpBtn" Content="{l:Tr tb.help}" Margin="2,5" Click="OnHelp"/>
                 </StackPanel>
             </StackPanel>
         </Border>

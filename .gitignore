@@ -7,6 +7,9 @@ obj/
 # Sortie de publication (l'exe va sur GitHub Releases, pas dans le dépôt)
 publish/
 *.exe
+# Paquet de distribution (exe + LISEZ-MOI zippés -> GitHub Releases)
+dotnet/dist/
+*.zip
 
 # ===== Configuration / état locaux (spécifiques à chaque machine — NE PAS publier) =====
 genspeed-config.json

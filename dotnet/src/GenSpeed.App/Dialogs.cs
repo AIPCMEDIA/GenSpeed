@@ -126,6 +126,29 @@ public static class Dialogs
         win.ShowDialog();
     }
 
+    /// <summary>Choix dans une liste (un bouton par option). Retourne l'option choisie ou null.</summary>
+    public static string? Choose(Window owner, string title, string message, IList<string> options)
+    {
+        var win = Shell(owner, title, out var body);
+        body.Children.Add(new TextBlock { Text = message, Foreground = B("fg"),
+            TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
+        string? result = null;
+        foreach (var opt in options)
+        {
+            var o = opt;
+            var b = new Button { Content = o, HorizontalContentAlignment = HorizontalAlignment.Left,
+                Margin = new Thickness(0, 2, 0, 2), Padding = new Thickness(10, 6, 10, 6) };
+            b.Click += (_, _) => { result = o; win.DialogResult = true; };
+            body.Children.Add(b);
+        }
+        var cancel = new Button { Content = "Annuler / Cancel", MinWidth = 80,
+            Margin = new Thickness(0, 10, 0, 0), HorizontalAlignment = HorizontalAlignment.Right };
+        cancel.Click += (_, _) => win.DialogResult = false;
+        body.Children.Add(cancel);
+        win.ShowDialog();
+        return result;
+    }
+
     /// <summary>Message d'information.</summary>
     public static void Info(Window owner, string title, string message)
     {

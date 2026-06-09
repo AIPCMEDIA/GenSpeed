@@ -112,6 +112,13 @@ public static class Diagnostics
 
     private static string Sha8(string fp) => Hashing.FileSha256(fp)?[..8] ?? "présent";
 
+    /// <summary>Vrai si le dossier contient au moins une archive de données .gib (récursif).</summary>
+    private static bool DirHasGib(string dir)
+    {
+        try { return Directory.Exists(dir) && Directory.EnumerateFiles(dir, "*.gib", SearchOption.AllDirectories).Any(); }
+        catch { return false; }
+    }
+
     // Noms lisibles pour les addons numérotés connus.
     private static string FriendlyAddon(string fileNoExt)
     {
@@ -148,7 +155,10 @@ public static class Diagnostics
                 try { subs = Directory.EnumerateDirectories(modPath).Select(p => Path.GetFileName(p)!).ToList(); }
                 catch { continue; }
                 var versions = subs.Where(n => !skip.Contains(n)).OrderBy(n => n, StringComparer.Ordinal).ToList();
-                var extras = subs.Where(n => skip.Contains(n) && !n.Equals("Tools", StringComparison.OrdinalIgnoreCase)).ToList();
+                // N'inclut "+Addons"/"+Patches" que si le dossier contient vraiment des données (.gib),
+                // pour éviter un faux « différent » sur un dossier vide/fantôme.
+                var extras = subs.Where(n => skip.Contains(n) && !n.Equals("Tools", StringComparison.OrdinalIgnoreCase)
+                                             && DirHasGib(Path.Combine(modPath, n))).ToList();
                 string ver = versions.Count > 0 ? string.Join(", ", versions) : "(?)";
                 if (extras.Count > 0) ver += " +" + string.Join("+", extras);
                 d[$"🧩 Mod: {mod}"] = ver;

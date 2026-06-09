@@ -13,10 +13,35 @@ public sealed class SpeedPreset
     [JsonPropertyName("cats")]   public Dictionary<string, double>? Cats { get; set; }
 }
 
+/// <summary>Cache du code LAN d'une cible : hash + signature (fichier -> [ticks, taille]) pour éviter de re-hacher des Go.</summary>
+public sealed class HashCacheEntry
+{
+    [JsonPropertyName("hash")] public string Hash { get; set; } = "";
+    [JsonPropertyName("sig")]  public Dictionary<string, long[]> Sig { get; set; } = new();
+}
+
+/// <summary>État appliqué à un mod (pour réafficher vitesse/caméra après redémarrage).</summary>
+public sealed class PatchedInfo
+{
+    [JsonPropertyName("speed")]  public string Speed { get; set; } = "";
+    [JsonPropertyName("camera")] public string Camera { get; set; } = "";
+    // chemin -> SHA du dernier patch : permet de détecter une MAJ externe du mod après redémarrage.
+    [JsonPropertyName("files")]  public Dictionary<string, string> Files { get; set; } = new();
+}
+
 /// <summary>Configuration persistée de GenSpeed (.NET).</summary>
 public sealed class GenConfig
 {
     [JsonPropertyName("game_dir")]       public string? GameDir { get; set; }
+    [JsonPropertyName("mods_dir")]       public string? ModsDir { get; set; }   // dossier GLM si GenLauncher est installé ailleurs
+    // Installations connues (jeu de base + mods autonomes type Reborn Omega). GameDir = active.
+    [JsonPropertyName("known_installs")] public List<string> KnownInstalls { get; set; } = new();
+    // Dossier d'install -> exe de lancement mémorisé (résout l'ambiguïté GenLauncher vs exe du mod).
+    [JsonPropertyName("launch_exes")]    public Dictionary<string, string> LaunchExes { get; set; } = new();
+    // Label du mod -> vitesse/caméra appliquées (réaffichées au prochain démarrage).
+    [JsonPropertyName("patched_state")]  public Dictionary<string, PatchedInfo> PatchedState { get; set; } = new();
+    // "dossier::label" -> code LAN mis en cache (évite de re-hacher des Go à chaque chargement).
+    [JsonPropertyName("hash_cache")]     public Dictionary<string, HashCacheEntry> HashCache { get; set; } = new();
     [JsonPropertyName("speed_presets")]  public List<SpeedPreset> SpeedPresets { get; set; } = new();
     // nom -> { variable -> valeur } ; "Reset camera" = {} est conservé.
     [JsonPropertyName("camera_presets")] public Dictionary<string, Dictionary<string, string>> CameraPresets { get; set; } = new();

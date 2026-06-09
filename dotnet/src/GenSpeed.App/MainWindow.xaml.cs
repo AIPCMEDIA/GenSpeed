@@ -139,7 +139,8 @@ public partial class MainWindow : Window
     private void WireToolbar()
     {
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare));
-        Dropdown(ConfigBtn, ("cfg.reset", OnCfgReset), ("cfg.export", OnCfgExport), ("cfg.import", OnCfgImport));
+        Dropdown(ConfigBtn, ("cfg.installs", OnCfgInstalls), ("cfg.gamedir", OnCfgGameDir), ("cfg.modsdir", OnCfgModsDir),
+                            ("cfg.reset", OnCfgReset), ("cfg.export", OnCfgExport), ("cfg.import", OnCfgImport));
         Dropdown(PreviewBtn, ("preview.key", () => RunPreview("key")),
                              ("preview.full", () => RunPreview("full")),
                              ("preview.mod", () => RunPreview("mod")));
@@ -209,15 +210,51 @@ public partial class MainWindow : Window
     // ===== Lancer GenLauncher =====
     private void OnLaunchGenLauncher(object sender, RoutedEventArgs e) => LaunchGenLauncher();
 
+    // Exe qui NE sont pas des lanceurs utilisateur (moteur/outils).
+    private static bool IsLauncherCandidate(string file)
+    {
+        string n = Path.GetFileName(file).ToLowerInvariant();
+        if (n is "generals.exe" or "generalszh.exe" or "modded.exe" or "edgescroller.exe" or "genpatcher.exe") return false;
+        if (n.Contains("worldbuilder") || n.StartsWith("unins") || n.StartsWith("gentool")
+            || n.Contains("vcredist") || n.Contains("dxsetup") || n.Contains("redist")) return false;
+        return true;
+    }
+
+    private static List<string> LaunchCandidates(string dir)
+    {
+        try { return Directory.EnumerateFiles(dir, "*.exe").Where(IsLauncherCandidate).OrderBy(f => f, StringComparer.Ordinal).ToList(); }
+        catch { return new List<string>(); }
+    }
+
+    /// <summary>Lance l'install active : exe mémorisé &gt; candidat unique &gt; sinon demande (et mémorise).</summary>
     private void LaunchGenLauncher()
     {
         if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
-        string exe = Path.Combine(_gameDir, "GenLauncher.exe");
-        if (!File.Exists(exe)) { Dialogs.Info(this, "GenSpeed", Loc.T("genl.notfound")); return; }
+        string? exe = null;
+        if (_config.LaunchExes.TryGetValue(_gameDir, out var saved))
+        {
+            string sp = Path.Combine(_gameDir, saved);
+            if (File.Exists(sp)) exe = sp;
+        }
+        if (exe == null)
+        {
+            var cands = LaunchCandidates(_gameDir);
+            if (cands.Count == 0) { Dialogs.Info(this, "GenSpeed", Loc.T("genl.notfound")); Log(Loc.T("genl.notfound")); return; }
+            if (cands.Count == 1) exe = cands[0];
+            else
+            {
+                string? pick = Dialogs.Choose(this, Loc.T("launch.pick.title"), Loc.T("launch.pick.msg"),
+                                              cands.Select(c => Path.GetFileName(c)!).ToList());
+                if (pick == null) return;
+                exe = Path.Combine(_gameDir, pick);
+            }
+        }
+        _config.LaunchExes[_gameDir] = Path.GetFileName(exe);
+        ConfigStore.Save(_config);
         try
         {
             Process.Start(new ProcessStartInfo { FileName = exe, WorkingDirectory = _gameDir, UseShellExecute = true, Verb = "runas" });
-            Log(Loc.T("genl.launched"));
+            Log(string.Format(Loc.T("launch.started"), Path.GetFileName(exe)));
         }
         catch (System.ComponentModel.Win32Exception) { Log(Loc.T("genl.cancel")); }
     }
@@ -282,8 +319,12 @@ public partial class MainWindow : Window
     {
         SpeedSlider.Value = Math.Min(2, Speeds.Count - 1);
         ApplySpeedPreset(SpeedIdx);
-        CamSlider.Value = 0;
-        ApplyCamPreset(0);
+        int camInit = _camNames.IndexOf("Cam haute");
+        if (camInit < 0) camInit = _camNames.Count > 1 ? 1 : 0;
+        _camIdx = camInit;
+        if (CamLabel != null) CamLabel.Text = camInit == 0 ? Loc.T("cam.default") : _camNames[camInit];
+        CamSlider.Value = camInit;
+        ApplyCamPreset(camInit);
         Log(Loc.T("cfg.reset.done"));
     }
 
@@ -311,6 +352,77 @@ public partial class MainWindow : Window
         Log(string.Format(Loc.T("cfg.imported"), dlg.FileName));
     }
 
+    /// <summary>Aide globale de l'application.</summary>
+    private void OnHelp(object sender, RoutedEventArgs e) => HelpWindow.Show(this);
+
+    /// <summary>Re-choisir le dossier du jeu à tout moment (corrige un dossier mal sélectionné au 1er lancement).</summary>
+    private void OnCfgGameDir()
+    {
+        Dialogs.Info(this, "GenSpeed", Loc.T("pick.game.help"));
+        var dir = AskGameDir();
+        if (dir == null) return;
+        _config.GameDir = dir;
+        ConfigStore.Save(_config);
+        Log(string.Format(Loc.T("log.gamedir"), dir));
+        LoadMods();   // ré-détecte mods + rafraîchit la grille
+    }
+
+    /// <summary>Pointer le dossier des mods (GLM) si GenLauncher est installé hors du dossier du jeu.</summary>
+    private void OnCfgModsDir()
+    {
+        Dialogs.Info(this, "GenSpeed", Loc.T("pick.mods.help"));
+        var dlg = new OpenFolderDialog { Title = Loc.T("pick.mods.title") };
+        if (dlg.ShowDialog() != true) return;
+        var glm = ModDetection.ResolveGlmDir(dlg.FolderName);
+        if (glm == null) { Dialogs.Info(this, "GenSpeed", Loc.T("pick.mods.invalid")); return; }
+        _config.ModsDir = glm;
+        ConfigStore.Save(_config);
+        Log(string.Format(Loc.T("cfg.modsdir.set"), glm));
+        LoadMods();
+    }
+
+    private static string InstallLabel(string dir) => Path.GetFileName(dir.TrimEnd('\\', '/'));
+
+    private void EnsureInstallListed(string? dir)
+    {
+        if (string.IsNullOrEmpty(dir)) return;
+        if (!_config.KnownInstalls.Any(p => string.Equals(p, dir, StringComparison.OrdinalIgnoreCase)))
+        { _config.KnownInstalls.Add(dir); ConfigStore.Save(_config); }
+    }
+
+    private void SwitchInstall(string dir)
+    {
+        if (string.Equals(dir, _gameDir, StringComparison.OrdinalIgnoreCase)) return;
+        _config.GameDir = dir;
+        ConfigStore.Save(_config);
+        Log(string.Format(Loc.T("inst.switched"), InstallLabel(dir)));
+        LoadMods();   // recharge la liste des mods de l'install choisie
+    }
+
+    /// <summary>Sélecteur d'installations : jeu de base + mods autonomes (ajout / bascule).</summary>
+    private void OnCfgInstalls()
+    {
+        EnsureInstallListed(_gameDir);
+        var installs = _config.KnownInstalls.ToList();
+        var options = installs.Select(p =>
+            (string.Equals(p, _gameDir, StringComparison.OrdinalIgnoreCase) ? "● " : "    ") + InstallLabel(p)).ToList();
+        options.Add(Loc.T("inst.add"));
+
+        string? pick = Dialogs.Choose(this, Loc.T("inst.title"), Loc.T("inst.msg"), options);
+        if (pick == null) return;
+
+        if (pick == Loc.T("inst.add"))
+        {
+            var dir = AskGameDir();           // sélecteur + validation IsZhFolder (existant)
+            if (dir == null) return;
+            EnsureInstallListed(dir);
+            SwitchInstall(dir);
+            return;
+        }
+        int idx = options.IndexOf(pick);
+        if (idx >= 0 && idx < installs.Count) SwitchInstall(installs[idx]);
+    }
+
     // ===== Textes dépendant de la langue =====
     private void RefreshTexts()
     {
@@ -321,8 +433,10 @@ public partial class MainWindow : Window
         ColIni.Header = Loc.T("col.ini");
         ColPatched.Header = Loc.T("col.patched");
         ColCode.Header = Loc.T("col.code");
-        foreach (var (key, tb) in _catLabels) tb.Text = Loc.T("cat." + key);
+        foreach (var (key, tb) in _catLabels) { tb.Text = Loc.T("cat." + key); tb.ToolTip = Loc.T("tip.cat." + key); }
+        foreach (var (key, box) in _catBoxes) box.ToolTip = Loc.T("tip.cat." + key);
         foreach (var (key, tb) in _camHints) tb.Text = Loc.T(key);
+        foreach (var kv in _camControls) kv.Value.ToolTip = Loc.T("tip.cam." + kv.Key);
         LangBtn.Content = Loc.I.Lang == 0 ? "EN" : "FR";
         if (LogBtn != null) LogBtn.Content = Loc.T(_logVisible ? "tb.log" : "tb.logshow");
         if (ModGrid.ItemsSource is IEnumerable<ModRow> mrows)
@@ -339,11 +453,27 @@ public partial class MainWindow : Window
         if (_gameDir == null) _gameDir = AskGameDir();   // 1er lancement : auto-détection échouée → sélection manuelle
         if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
         if (_config.GameDir != _gameDir) { _config.GameDir = _gameDir; ConfigStore.Save(_config); }
+        EnsureInstallListed(_gameDir);
         Log(string.Format(Loc.T("log.gamedir"), _gameDir));
 
         List<Target> targets;
         try { targets = await Task.Run(() => ModDetection.DetectTargets(_gameDir)); }
         catch (Exception ex) { Log("⚠ " + ex.Message); return; }
+
+        // Mods GenLauncher installés ailleurs (dossier GLM personnalisé, optionnel).
+        if (!string.IsNullOrEmpty(_config.ModsDir) && Directory.Exists(_config.ModsDir)
+            && !string.Equals(_config.ModsDir, Path.Combine(_gameDir, "GLM"), StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var extra = await Task.Run(() => ModDetection.DetectGlmMods(_config.ModsDir!));
+                var have = new HashSet<string>(targets.Select(t => t.Label));
+                foreach (var t in extra) if (have.Add(t.Label)) targets.Add(t);
+                if (extra.Count > 0) Log(string.Format(Loc.T("log.modsextra"), extra.Count, _config.ModsDir));
+            }
+            catch (Exception ex) { Log("⚠ " + ex.Message); }
+        }
+
         _targets = targets;
 
         var rows = new ObservableCollection<ModRow>();
@@ -358,11 +488,65 @@ public partial class MainWindow : Window
         ModGrid.ItemsSource = rows;
         Log(string.Format(Loc.T("log.detected"), targets.Count));
 
+        int alreadyPatched = 0;
         foreach (var row in rows)
         {
             var t = row.Target!;
-            row.Code = await Task.Run(() => Hashing.InstallHash(_gameDir!, t.Files).Hash);
+            // État persistant : un mod est « patché » s'il a des sauvegardes .speedbak (survit au redémarrage).
+            int patched = t.Files.Count(fp => File.Exists(fp + ".speedbak"));
+            if (patched > 0)
+            {
+                row.Patched = $"{patched}/{t.ArchiveCount}";
+                if (_config.PatchedState.TryGetValue(row.Mod, out var ps) && !string.IsNullOrWhiteSpace(ps.Speed))
+                {
+                    row.Vitesse = ps.Speed;
+                    row.Camera = string.IsNullOrWhiteSpace(ps.Camera) ? Loc.T("orig") : ps.Camera;
+                    // Restaure les SHA du dernier patch -> protège contre la restauration d'un backup périmé.
+                    if (ps.Files.Count > 0) row.PatchedFiles = new Dictionary<string, string>(ps.Files);
+                }
+                else
+                {
+                    row.Vitesse = Loc.T("patched.flag");   // patché mais réglage exact inconnu (patché hors mémoire)
+                }
+                alreadyPatched++;
+            }
+            row.Code = await CachedLanCode(t);
         }
+        if (_hashCacheDirty) { ConfigStore.Save(_config); _hashCacheDirty = false; }
+        if (alreadyPatched > 0) Log(string.Format(Loc.T("log.alreadypatched"), alreadyPatched));
+    }
+
+    private bool _hashCacheDirty;
+
+    /// <summary>Code LAN avec cache : ne re-hache (lourd) que si la signature mtime/taille a changé.</summary>
+    private async Task<string> CachedLanCode(Target t)
+    {
+        string key = (_gameDir ?? "") + "::" + t.Label;
+        var sig = BuildSig(t.Files);
+        if (_config.HashCache.TryGetValue(key, out var ce) && SigEqual(ce.Sig, sig))
+            return ce.Hash;                                   // cache valide -> instantané
+        string h = await Task.Run(() => Hashing.InstallHash(_gameDir!, t.Files).Hash);
+        _config.HashCache[key] = new HashCacheEntry { Hash = h, Sig = sig };
+        _hashCacheDirty = true;
+        return h;
+    }
+
+    private static Dictionary<string, long[]> BuildSig(IEnumerable<string> files)
+    {
+        var sig = new Dictionary<string, long[]>(StringComparer.Ordinal);
+        foreach (var f in files)
+            try { var fi = new FileInfo(f); if (fi.Exists) sig[f] = new[] { fi.LastWriteTimeUtc.Ticks, fi.Length }; }
+            catch { }
+        return sig;
+    }
+
+    private static bool SigEqual(Dictionary<string, long[]> a, Dictionary<string, long[]> b)
+    {
+        if (a.Count != b.Count) return false;
+        foreach (var kv in b)
+            if (!a.TryGetValue(kv.Key, out var av) || av.Length != 2 || av[0] != kv.Value[0] || av[1] != kv.Value[1])
+                return false;
+        return true;
     }
 
     /// <summary>Sélection manuelle du dossier de jeu (fallback si auto-détection échoue).</summary>
@@ -610,9 +794,16 @@ public partial class MainWindow : Window
     {
         _camNames = CamOrder();
         CamSlider.Maximum = Math.Max(1, _camNames.Count - 1);
-        _camIdx = 0;
-        if ((int)Math.Round(CamSlider.Value) == 0) { if (CamLabel != null) CamLabel.Text = Loc.T("cam.default"); ApplyCamPreset(0); }
-        else CamSlider.Value = 0;
+        // Défaut au démarrage : « Cam haute » (1er preset), comme la vitesse sur Énervé.
+        int init = _camNames.IndexOf("Cam haute");
+        if (init < 0) init = _camNames.Count > 1 ? 1 : 0;
+        _camIdx = init;
+        if ((int)Math.Round(CamSlider.Value) == init)
+        {
+            if (CamLabel != null) CamLabel.Text = init == 0 ? Loc.T("cam.default") : _camNames[init];
+            ApplyCamPreset(init);
+        }
+        else CamSlider.Value = init;
     }
 
     private void CamSlider_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -722,13 +913,26 @@ public partial class MainWindow : Window
                    .Where(r => r.Sel && r.Target != null).ToList() ?? new List<ModRow>();
         if (rows.Count == 0) { Log(Loc.T("log.nosel")); return; }
 
+        // Dépatch : ne garder que les mods réellement patchés (présence d'un .speedbak).
+        if (mode == "restore")
+        {
+            var patchedRows = rows.Where(r => r.Target!.Files.Any(fp => File.Exists(fp + ".speedbak"))).ToList();
+            if (patchedRows.Count == 0)
+            {
+                Dialogs.Info(this, "GenSpeed", Loc.T("restore.nothing"));
+                Log(Loc.T("restore.nothing"));
+                return;
+            }
+            rows = patchedRows;   // on ignore les cibles non patchées (pas d'UAC inutile, pas de faux « restauré »)
+        }
+
         if (mode == "apply" &&
             !Dialogs.ConfirmApply(this, rows.Select(r => FriendlyLabel(r.Mod)), BuildChangeSummary(), _gameDir))
             return;
 
         var job = new PatchJob
         {
-            Mode = mode, GameDir = _gameDir, Factors = ReadFactors(), Cam = ReadCam(),
+            Mode = mode, GameDir = _gameDir, ModsDir = _config.ModsDir, Factors = ReadFactors(), Cam = ReadCam(),
             Labels = rows.Select(r => r.Mod).ToList(),
             PrevHashes = rows.ToDictionary(r => r.Mod, r => r.PatchedFiles),
             ResultPath = Path.Combine(Path.GetTempPath(), $"genspeed_result_{Guid.NewGuid():N}.json"),
@@ -759,20 +963,21 @@ public partial class MainWindow : Window
                     r.Patched = $"{pf.Count}/{r.Target!.ArchiveCount}";
                     r.Vitesse = SpeedLabel.Text;
                     r.Camera = camApplied ? (_camIdx > 0 ? CamLabel.Text : Loc.T("cam.custom")) : Loc.T("orig");
+                    _config.PatchedState[r.Mod] = new PatchedInfo { Speed = r.Vitesse, Camera = r.Camera, Files = pf };
                     Log($"   • {FriendlyLabel(r.Mod)} : {pf.Count}/{r.Target!.ArchiveCount} " + Loc.T("log.filespatched"));
                 }
                 else
                 {
                     r.Patched = "—"; r.Vitesse = Loc.T("orig"); r.Camera = Loc.T("orig");
+                    _config.PatchedState.Remove(r.Mod);
                     Log($"   • {FriendlyLabel(r.Mod)} : " + Loc.T("log.restoredmod"));
                 }
             }
+            ConfigStore.Save(_config);   // persiste l'état patché (vitesse/caméra) pour le prochain démarrage
             Log(Loc.T(mode == "apply" ? "log.applied" : "log.restored"));
             foreach (var r in rows)
-            {
-                var t = r.Target!;
-                r.Code = await Task.Run(() => Hashing.InstallHash(_gameDir!, t.Files).Hash);
-            }
+                r.Code = await CachedLanCode(r.Target!);   // recalcule + met à jour le cache (fichiers changés par le patch)
+            if (_hashCacheDirty) { ConfigStore.Save(_config); _hashCacheDirty = false; }
 
             if (mode == "apply")
             {

@@ -145,31 +145,61 @@ public static class ModDetection
         {
             try
             {
-                var inis = Directory.EnumerateFiles(iniDir)
-                    .Where(f => f.EndsWith(".ini", StringComparison.OrdinalIgnoreCase)).ToList();
+                // Récursif : certains mods (ex. Reborn Omega) rangent leurs unités dans
+                // des sous-dossiers (Data\INI\Object\, Default\…). Cohérent avec CollectLooseIni.
+                var inis = Directory.EnumerateFiles(iniDir, "*", SearchOption.AllDirectories)
+                    .Where(f => f.EndsWith(".ini", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(p => p, StringComparer.Ordinal).ToList();
                 if (inis.Count > 0)
                     targets.Add(new Target { Label = "VANILLA (Data/INI)", Type = TargetType.Ini, Files = inis });
             }
             catch { }
         }
 
-        string glmDir = Path.Combine(gameDir, "GLM");
-        if (Directory.Exists(glmDir))
-        {
-            try
-            {
-                foreach (var modPath in Directory.EnumerateDirectories(glmDir).OrderBy(p => Path.GetFileName(p), StringComparer.Ordinal))
-                {
-                    string mod = Path.GetFileName(modPath);
-                    if (mod is "Addons" or "Patches" or "Tools") continue;
-                    var arch = CollectStatArchives(modPath);
-                    if (arch.Count > 0)
-                        targets.Add(new Target { Label = mod, Type = TargetType.Gib, Files = arch });
-                }
-            }
-            catch { }
-        }
+        targets.AddRange(DetectGlmMods(Path.Combine(gameDir, "GLM")));
 
         return targets;
+    }
+
+    /// <summary>Détecte les mods d'un dossier GLM donné (GenLauncher pouvant être installé ailleurs). Tri ordinal.</summary>
+    public static List<Target> DetectGlmMods(string glmDir)
+    {
+        var targets = new List<Target>();
+        if (string.IsNullOrEmpty(glmDir) || !Directory.Exists(glmDir)) return targets;
+        try
+        {
+            foreach (var modPath in Directory.EnumerateDirectories(glmDir)
+                         .OrderBy(p => Path.GetFileName(p), StringComparer.Ordinal))
+            {
+                string mod = Path.GetFileName(modPath);
+                if (mod is "Addons" or "Patches" or "Tools") continue;
+                var arch = CollectStatArchives(modPath);
+                if (arch.Count > 0)
+                    targets.Add(new Target { Label = mod, Type = TargetType.Gib, Files = arch });
+            }
+        }
+        catch { }
+        return targets;
+    }
+
+    /// <summary>À partir d'un dossier choisi par l'utilisateur, localise le dossier GLM des mods (ou null).</summary>
+    public static string? ResolveGlmDir(string picked)
+    {
+        if (string.IsNullOrEmpty(picked) || !Directory.Exists(picked)) return null;
+        // 1) le dossier choisi EST le dossier GLM
+        if (Path.GetFileName(picked.TrimEnd('\\', '/')).Equals("GLM", StringComparison.OrdinalIgnoreCase))
+            return picked;
+        // 2) il contient un sous-dossier GLM
+        string sub = Path.Combine(picked, "GLM");
+        if (Directory.Exists(sub)) return sub;
+        // 3) il contient directement des mods (sous-dossiers avec des .gib)
+        try
+        {
+            foreach (var d in Directory.EnumerateDirectories(picked))
+                if (Directory.EnumerateFiles(d, "*.gib", SearchOption.AllDirectories).Any())
+                    return picked;
+        }
+        catch { }
+        return null;
     }
 }
