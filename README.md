@@ -19,19 +19,29 @@
 
 ---
 
-## ✨ Nouveau dans la v2.0 / New in v2.0
+## ✨ Nouveau dans la v2.1 / New in v2.1
 
 🇫🇷
-- 🖥️ **Application autonome (.exe)** — **plus besoin de Python**, double-clic et c'est parti.
-- 🎨 **3 thèmes** (Terminal EVA, USA, Chine) + **interface bilingue FR/EN**.
-- 🩺 **Diagnostic mismatch complet** : inventaire **nommé** de tout l'écosystème (jeu, mods + versions, addons, GenTool, redists…) et comparaison entre joueurs.
-- ⚡ Redimensionnement fluide, presets vitesse/caméra modifiables (créer/renommer/supprimer), confirmation détaillée avant patch.
+- 🧹 **Désinstalleur propre** (menu ⚙ Config) : analyse l'installation et toutes les traces en **étapes ordonnées** (mods GenLauncher par mod **et par addon/patch**, GenLauncher, DLL GenTool, GenPatcher, données joueur, raccourcis, registre EA, résidus de compatibilité, traces de diagnostic Windows, le jeu — compatible Steam). Tout est expliqué, **rien n'est coché d'office**, tout est **sauvegardé dans un dossier daté avant suppression** (guide de restauration inclus), et un bouton **Simuler** montre ce qui se passerait sans rien toucher.
+- ✏ **Renommer les mods dans la liste** (affichage seulement — n'affecte ni le jeu ni le code LAN).
+- 🔎 **Type d'installation dans la barre de titre** : Heure H d'origine / monde GenLauncher / fork autonome.
+- 🚀 Lanceur mémorisé **par mod coché**, case « tout cocher » dans le tableau, clic droit « ouvrir le dossier » corrigé.
 
 🇬🇧
-- 🖥️ **Standalone .exe** — **no Python required** anymore, just double-click.
-- 🎨 **3 themes** (EVA Terminal, USA, China) + **bilingual FR/EN UI**.
-- 🩺 **Full mismatch diagnostic**: **named** inventory of the whole ecosystem (game, mods + versions, add-ons, GenTool, redists…) and player-to-player comparison.
-- ⚡ Smooth resizing, editable speed/camera presets (create/rename/delete), detailed pre-patch confirmation.
+- 🧹 **Clean uninstaller** (⚙ Config menu): scans the install and every leftover in **ordered steps** (GenLauncher mods per mod **and per addon/patch**, GenLauncher, GenTool DLLs, GenPatcher, player data, shortcuts, EA registry, compatibility leftovers, Windows diagnostic traces, the game — Steam-aware). Everything is explained, **nothing pre-checked**, everything **backed up to a dated folder before deletion** (restore guide included), and a **Simulate** button shows what would happen without touching anything.
+- ✏ **Rename mods in the list** (display only — does not affect the game or the LAN code).
+- 🔎 **Install type in the title bar**: original Zero Hour / GenLauncher world / standalone fork.
+- 🚀 Launcher remembered **per checked mod**, select-all checkbox in the table, right-click "open folder" fixed.
+
+<details>
+<summary>✨ v2.0</summary>
+
+- 🖥️ **Application autonome (.exe)** — plus besoin de Python / **Standalone .exe** — no Python required.
+- 🎨 **3 thèmes** + **interface bilingue FR/EN** / 3 themes + bilingual UI.
+- 🩺 **Diagnostic mismatch complet** : inventaire nommé de tout l'écosystème et comparaison entre joueurs / full named-inventory mismatch diagnostic.
+- ⚡ Redimensionnement fluide, presets modifiables, confirmation détaillée avant patch.
+
+</details>
 
 ---
 
@@ -83,7 +93,9 @@
 - 🛡️ **Code LAN** (hash) pour vérifier que tous les joueurs ont les mêmes fichiers
 - 🩺 **Diagnostic mismatch** : exporte ton empreinte, compare avec un ami, verdict détaillé
 - 🔎 Aperçu des valeurs (clés / exhaustif / modifiées) + ouverture du dossier du mod
-- 📁 **Changer le dossier du jeu / des mods (GLM)** depuis le menu ⚙ Config · ❔ **Aide intégrée**
+- 📁 **Changer le dossier du jeu / des mods (GLM)** + **basculer entre plusieurs installations** depuis le menu ⚙ Config · ❔ **Aide intégrée**
+- 🧹 **Désinstalleur propre** : retire proprement mods, GenLauncher, GenTool, GenPatcher, traces registre/Windows… avec **sauvegarde avant suppression** et mode **Simuler**
+- ✏ **Renommer les mods dans la liste** · 🔎 **type d'install affiché** (origine / GenLauncher / fork)
 - 🎨 3 thèmes · 🌐 FR/EN · 🔒 **Aucune télémétrie, aucune connexion internet**
 
 ---
@@ -216,6 +228,13 @@ MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage,
 ---
 
 ## 📝 Changelog
+
+### v2.1
+- 🧹 **Désinstalleur propre** : scan en étapes ordonnées (mods par mod/addon/patch, GenLauncher, GenTool, GenPatcher, données joueur, raccourcis, registre EA, compatibilité, traces Windows, jeu — compatible Steam), méthode au choix par élément (laisser / désactiver / sauvegarder+supprimer / supprimer), **sauvegarde datée + guide de restauration**, mode **Simuler**, mise à jour du catalogue GenLauncher après retrait
+- ✏ **Renommage des mods** dans la liste (alias d'affichage par installation)
+- 🔎 **Type d'installation** détecté et affiché (origine / monde GenLauncher / fork autonome)
+- 🚀 Lanceur mémorisé **par mod coché** · case « tout cocher » · clic droit « ouvrir le dossier » corrigé
+- 🏗️ Réorganisation interne du code (classes partielles) — aucun changement de comportement
 
 ### v2.0
 - 🖥️ Réécriture complète en **C# / .NET 8 (WPF)** → **exe autonome**, plus de Python
