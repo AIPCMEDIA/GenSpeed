@@ -153,6 +153,20 @@
                     <DockPanel>
                         <ContentControl DockPanel.Dock="Top" Tag="{l:Tr card.mods}" Template="{StaticResource CardHead}"/>
                         <DataGrid x:Name="ModGrid" Margin="10,6" SelectionMode="Single">
+                            <DataGrid.GroupStyle>
+                                <!-- En-tête par INSTALLATION : remplace l'« install active » (tout est visible, tout le temps). -->
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource bgFrame2}" BorderBrush="{DynamicResource accent}"
+                                                    BorderThickness="0,0,0,1" Padding="8,5" Margin="0,6,0,2">
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource accent}"
+                                                           FontWeight="Bold" FontSize="13"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </DataGrid.GroupStyle>
                             <DataGrid.Columns>
                                 <DataGridCheckBoxColumn Binding="{Binding Sel}" Width="40" IsReadOnly="True">
                                     <DataGridCheckBoxColumn.HeaderTemplate>

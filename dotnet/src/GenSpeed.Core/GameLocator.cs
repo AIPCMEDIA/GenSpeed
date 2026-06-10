@@ -36,7 +36,7 @@ public static class GameLocator
         return null;
     }
 
-    private static IEnumerable<string> SteamLibraries()
+    public static IEnumerable<string> SteamLibraries()
     {
         var libs = new List<string>();
         var sp = SteamPath();

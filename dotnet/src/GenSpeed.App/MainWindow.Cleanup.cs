@@ -39,12 +39,13 @@ public partial class MainWindow
 
     private async void OnCfgUninstall()
     {
-        if (_gameDir == null) { Dialogs.Info(this, "GenSpeed", Loc.T("log.nogame")); return; }
-        string gameDir = _gameDir;
+        // MACHINE ENTIÈRE : toutes les installs découvertes + traces globales (plus d'« install active »).
+        var installs = _installs.ToList();
+        if (installs.Count == 0) { Dialogs.Info(this, "GenSpeed", Loc.T("log.nogame")); return; }
 
         Log(Loc.T("clean.scanning"));
         List<CleanupItem> items;
-        try { items = await Task.Run(() => Cleanup.Scan(gameDir)); }
+        try { items = await Task.Run(() => Cleanup.Scan(installs)); }
         catch (Exception ex) { Log("⚠ " + ex.Message); return; }
         if (!IsLoaded) return;   // fenêtre principale fermée pendant l'analyse : abandonner proprement
         if (items.Count == 0) { Dialogs.Info(this, Loc.T("clean.title"), Loc.T("clean.nothing")); return; }
@@ -54,24 +55,42 @@ public partial class MainWindow
             Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
             "GenSpeed", "Backups", $"Cleanup-{DateTime.Now:yyyyMMdd-HHmmss}");
 
-        var (action, result) = CleanupWindow.Show(this, items, backupDir, gameDir);
+        var headers = installs.ToDictionary(d => d, d => $"🖥 {InstallLabel(d)}   ·   {InstallType(d)}",
+                                            StringComparer.OrdinalIgnoreCase);
+        var (action, result) = CleanupWindow.Show(this, items, backupDir, headers);
         if (action == CleanupAction.Cancel) return;
 
         var chosen = result.Where(i => i.Selected && i.Removable && i.ChosenMethod != CleanupMethod.Laisser).ToList();
         if (chosen.Count == 0) { Log(Loc.T("clean.none.sel")); return; }
 
+        // Description groupée (même ordre que la fenêtre ET que la suppression réelle) :
+        // sections par install puis traces globales ; à l'intérieur, l'ordre des étapes.
+        IEnumerable<string> DescribeChosen()
+        {
+            var dirs = chosen.Where(i => i.InstallDir != null).Select(i => i.InstallDir!)
+                             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            int step = 0;
+            foreach (var dirOrNull in dirs.Cast<string?>().Append(null))
+            {
+                var sec = chosen.Where(i => string.Equals(i.InstallDir, dirOrNull, StringComparison.OrdinalIgnoreCase)
+                                            || (i.InstallDir == null && dirOrNull == null)).ToList();
+                if (sec.Count == 0) continue;
+                yield return dirOrNull == null ? Loc.T("clean.sec.global")
+                    : (headers.TryGetValue(dirOrNull, out var h) ? h : dirOrNull);
+                foreach (var g in sec.GroupBy(i => i.Category).OrderBy(x => Cleanup.CategoryRank(x.Key)))
+                {
+                    step++;
+                    yield return "  " + string.Format(Loc.T("clean.step"), step, Loc.T($"clean.cat.{g.Key}"));
+                    foreach (var it in g)
+                        yield return $"     • [{Loc.T($"clean.method.{it.ChosenMethod}")}] {it.Display}";
+                }
+            }
+        }
+
         if (action == CleanupAction.Simulate)
         {
             Log(Loc.T("clean.sim.head"));
-            // Même ordre par étapes que la fenêtre ET que la suppression réelle (CategoryRank).
-            int simStep = 0;
-            foreach (var g in chosen.GroupBy(i => i.Category).OrderBy(x => Cleanup.CategoryRank(x.Key)))
-            {
-                simStep++;
-                Log("  " + string.Format(Loc.T("clean.step"), simStep, Loc.T($"clean.cat.{g.Key}")));
-                foreach (var it in g)
-                    Log($"     • [{Loc.T($"clean.method.{it.ChosenMethod}")}] {it.Display}");
-            }
+            foreach (var line in DescribeChosen()) Log(line);
             Log(string.Format(Loc.T("clean.sim.foot"), backupDir));
             return;
         }
@@ -114,13 +133,11 @@ public partial class MainWindow
             // Journal écrit DANS le dossier de sauvegarde (utile pour relire/diagnostiquer après coup).
             var jl = new System.Text.StringBuilder();
             jl.AppendLine("=== GenSpeed — journal de nettoyage / cleanup log ===");
-            jl.AppendLine($"Date    : {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-            jl.AppendLine($"Install : {gameDir}");
+            jl.AppendLine($"Date     : {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            jl.AppendLine($"Installs : {string.Join("  |  ", installs)}");
             jl.AppendLine();
             jl.AppendLine($"--- Éléments choisis / selected items ({chosen.Count}) ---");
-            foreach (var g in chosen.GroupBy(i => i.Category).OrderBy(x => Cleanup.CategoryRank(x.Key)))
-                foreach (var it in g)
-                    jl.AppendLine($"[{g.Key}] [{Loc.T($"clean.method.{it.ChosenMethod}")}] {it.Display}  ({it.Path})");
+            foreach (var line in DescribeChosen()) jl.AppendLine(line);
             jl.AppendLine();
             jl.AppendLine($"--- Effectué / done ({res.Done.Count}) ---");
             foreach (var d in res.Done) jl.AppendLine(d);
@@ -145,11 +162,15 @@ public partial class MainWindow
             Dialogs.Info(this, Loc.T("clean.title"),
                 string.Format(Loc.T("clean.report"), res.Done.Count, res.Errors.Count, FmtBytes(res.FreedBytes), res.BackupDir));
 
-            // Désinstallation profonde (clés EA / dossier jeu) : proposer la désinstall Steam propre.
-            var steam = result.FirstOrDefault(i => i.Category == CleanupCategory.Steam && !string.IsNullOrEmpty(i.Extra));
-            bool deep = chosen.Any(i => i.Category == CleanupCategory.Registre || i.Category == CleanupCategory.Jeu);
-            if (steam != null && deep && Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.steam.ask"), steam.Extra)))
-                try { Process.Start(new ProcessStartInfo { FileName = $"steam://uninstall/{steam.Extra}", UseShellExecute = true }); } catch { }
+            // Désinstallation profonde (clés EA / dossier jeu) : proposer la désinstall Steam propre, PAR install gérée Steam.
+            bool deepGlobal = chosen.Any(i => i.Category == CleanupCategory.Registre);
+            foreach (var steam in result.Where(i => i.Category == CleanupCategory.Steam && !string.IsNullOrEmpty(i.Extra)))
+            {
+                bool deep = deepGlobal || chosen.Any(c => c.Category == CleanupCategory.Jeu &&
+                            string.Equals(c.InstallDir, steam.InstallDir, StringComparison.OrdinalIgnoreCase));
+                if (deep && Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.steam.ask"), steam.Extra)))
+                    try { Process.Start(new ProcessStartInfo { FileName = $"steam://uninstall/{steam.Extra}", UseShellExecute = true }); } catch { }
+            }
 
             // GenTool d3d8.dll retiré/désactivé → vérifier que le DirectX 8 SYSTÈME (Windows) est sain.
             // Lecture seule ; si anomalie, proposer la réparation officielle de Windows (sfc /scannow).

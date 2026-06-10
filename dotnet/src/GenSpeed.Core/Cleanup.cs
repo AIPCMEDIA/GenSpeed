@@ -26,6 +26,7 @@ public sealed class CleanupItem
     public bool DefaultChecked { get; set; }
     public bool Removable { get; set; } = true;       // false = info seule (ex. redists système)
     public string? Extra { get; set; }                // donnée libre (ex. appId Steam, version)
+    public string? InstallDir { get; set; }           // install propriétaire ; null = trace GLOBALE (machine)
     public List<string>? Kind2Files { get; set; }     // lot de fichiers regroupés sous un item Info (ex. .speedbak)
     // Cohérence GenLauncher : si renseigné, après suppression on passe l'entrée à Installed:false dans le YAML.
     public string? GlYaml { get; set; }               // chemin du GenLauncherCfg.yaml de l'install
@@ -153,16 +154,26 @@ public static class Cleanup
         _ => 200,
     };
 
-    /// <summary>Scanne une install + les traces globales. Aucune écriture.</summary>
-    public static List<CleanupItem> Scan(string gameDir)
+    /// <summary>Scan MACHINE ENTIÈRE : chaque install découverte + les traces globales. Aucune écriture.
+    /// « Tout cocher » couvre désormais réellement toute la machine (plus d'« install active »).</summary>
+    public static List<CleanupItem> Scan(IReadOnlyList<string> installs)
+    {
+        var items = new List<CleanupItem>();
+        foreach (var dir in installs.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var it in ScanInstall(dir)) { it.InstallDir = dir; items.Add(it); }
+        items.AddRange(ScanGlobal(installs));
+        return items;
+    }
+
+    /// <summary>Éléments appartenant à UNE installation (son dossier de jeu).</summary>
+    private static List<CleanupItem> ScanInstall(string gameDir)
     {
         var items = new List<CleanupItem>();
         if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir)) return items;
 
-        // ── 🛠 GenTool : d3d8.dll (proxy DirectX 8 — DANGER) + variantes ───
-        foreach (var loc in new[] { gameDir }.Concat(UserDataDirs()).Where(Directory.Exists).Distinct())
+        // ── 🛠 GenTool : d3d8.dll du DOSSIER DU JEU (les copies Documents sont des traces globales) ──
         {
-            string d3d8 = Path.Combine(loc, "d3d8.dll");
+            string d3d8 = Path.Combine(gameDir, "d3d8.dll");
             if (System.IO.File.Exists(d3d8))
             {
                 var it = FileItem(d3d8, CleanupCategory.GenTool, CleanupRisk.Danger, "clean.explain.d3d8",
@@ -174,7 +185,7 @@ public static class Cleanup
             }
             foreach (var name in new[] { "d3d8x.dll", "gentool.dll", "GenTool.dll" })
             {
-                string p = Path.Combine(loc, name);
+                string p = Path.Combine(gameDir, name);
                 if (System.IO.File.Exists(p))
                     items.Add(FileItem(p, CleanupCategory.GenTool, CleanupRisk.Attention, "clean.explain.gentool", defaultChecked: false));
             }
@@ -184,44 +195,20 @@ public static class Cleanup
         if (System.IO.File.Exists(dbg))
             items.Add(FileItem(dbg, CleanupCategory.GenTool, CleanupRisk.Attention, "clean.explain.dbghelp", defaultChecked: false));
 
-        // ── 🩹 GenPatcher : dossiers "GenPatcher*" + exe (jeu/Bureau/Téléchargements/Documents) ──
-        string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        var gpRoots = new[]
+        // ── 🩹 GenPatcher dans le DOSSIER DU JEU (les copies Bureau/Téléchargements/Documents = global) ──
+        try
         {
-            gameDir,
-            Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
-            docs,
-        };
-        var seenGp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var root in gpRoots.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
-            try
+            foreach (var dir in Directory.EnumerateDirectories(gameDir, "GenPatcher*"))
             {
-                foreach (var dir in Directory.EnumerateDirectories(root, "GenPatcher*"))
-                    if (seenGp.Add(dir))
-                    {
-                        var gi = DirItem(dir, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher", defaultChecked: false);
-                        gi.ChosenMethod = CleanupMethod.SupprimerDirect;   // dossier téléchargé, re-téléchargeable
-                        items.Add(gi);
-                    }
-                foreach (var exe in Directory.EnumerateFiles(root, "GenPatcher*.exe"))
-                    if (seenGp.Add(exe))
-                        items.Add(FileItem(exe, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher", defaultChecked: false,
-                            methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
+                var gi = DirItem(dir, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher", defaultChecked: false);
+                gi.ChosenMethod = CleanupMethod.SupprimerDirect;   // dossier téléchargé, re-téléchargeable
+                items.Add(gi);
             }
-            catch { }
-        // GenPatcher se loge AUSSI dans les dossiers Data du jeu (Generals ET Zero Hour).
-        foreach (var data in new[]
-        {
-            Path.Combine(docs, "Command and Conquer Generals Data", "GenPatcher"),
-            Path.Combine(docs, "Command and Conquer Generals Zero Hour Data", "GenPatcher"),
-        })
-            if (Directory.Exists(data) && seenGp.Add(data))
-            {
-                var gd = DirItem(data, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher.data", defaultChecked: false);
-                gd.ChosenMethod = CleanupMethod.SupprimerDirect;
-                items.Add(gd);
-            }
+            foreach (var exe in Directory.EnumerateFiles(gameDir, "GenPatcher*.exe"))
+                items.Add(FileItem(exe, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher", defaultChecked: false,
+                    methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
+        }
+        catch { }
 
         string browser = Path.Combine(gameDir, "BrowserEngine.dll");
         if (System.IO.File.Exists(browser))
@@ -321,6 +308,88 @@ public static class Cleanup
             }
         }
         catch { }
+        // ── 🗺 Maps installées dans le dossier jeu (officielles + ajoutées) ─
+        string installMaps = Path.Combine(gameDir, "Maps");
+        if (Directory.Exists(installMaps))
+        {
+            var im = DirItem(installMaps, CleanupCategory.Jeu, CleanupRisk.Attention, "clean.explain.installmaps", defaultChecked: false);
+            im.Display = "Maps (dossier du jeu)";
+            items.Add(im);
+        }
+
+        // ── 💨 Steam : ne pas supprimer à la main → info + désinstall Steam ─
+        var (steam, appId) = SteamInfo(gameDir);
+        if (steam)
+            items.Add(new CleanupItem
+            {
+                Category = CleanupCategory.Steam, Kind = CleanupKind.Info, Path = gameDir,
+                Display = appId != null ? $"AppID {appId}" : "Steam", ExplainKey = "clean.explain.steam",
+                Risk = CleanupRisk.Attention, Removable = false, DefaultChecked = false, Extra = appId,
+                AllowedMethods = new(),
+            });
+        else
+        {
+            // Install hors Steam (retail / copie) : suppression du dossier jeu possible.
+            var gj = DirItem(gameDir, CleanupCategory.Jeu, CleanupRisk.Danger, "clean.explain.gamedir", defaultChecked: false);
+            gj.ChosenMethod = CleanupMethod.SupprimerDirect;   // réinstallable : pas de sauvegarde de 11 Go par défaut
+            items.Add(gj);
+        }
+
+        return items;
+    }
+
+    /// <summary>Traces GLOBALES (machine) : émises UNE fois, quel que soit le nombre d'installs.</summary>
+    private static List<CleanupItem> ScanGlobal(IReadOnlyList<string> installs)
+    {
+        var items = new List<CleanupItem>();
+        string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+
+        // ── 🛠 GenTool dans les dossiers Documents Data (copies hors dossier du jeu) ──
+        foreach (var loc in UserDataDirs().Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
+            foreach (var name in new[] { "d3d8.dll", "d3d8x.dll", "gentool.dll", "GenTool.dll" })
+            {
+                string p = Path.Combine(loc, name);
+                if (System.IO.File.Exists(p))
+                    items.Add(FileItem(p, CleanupCategory.GenTool, CleanupRisk.Attention, "clean.explain.gentool", defaultChecked: false));
+            }
+
+        // ── 🩹 GenPatcher : Bureau / Téléchargements / Documents (+ dossiers Data du jeu) ──
+        var gpRoots = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
+            docs,
+        };
+        var seenGp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var root in gpRoots.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
+            try
+            {
+                foreach (var dir in Directory.EnumerateDirectories(root, "GenPatcher*"))
+                    if (seenGp.Add(dir))
+                    {
+                        var gi = DirItem(dir, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher", defaultChecked: false);
+                        gi.ChosenMethod = CleanupMethod.SupprimerDirect;   // dossier téléchargé, re-téléchargeable
+                        items.Add(gi);
+                    }
+                foreach (var exe in Directory.EnumerateFiles(root, "GenPatcher*.exe"))
+                    if (seenGp.Add(exe))
+                        items.Add(FileItem(exe, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher", defaultChecked: false,
+                            methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
+            }
+            catch { }
+        // GenPatcher se loge AUSSI dans les dossiers Data du jeu (Generals ET Zero Hour).
+        foreach (var data in new[]
+        {
+            Path.Combine(docs, "Command and Conquer Generals Data", "GenPatcher"),
+            Path.Combine(docs, "Command and Conquer Generals Zero Hour Data", "GenPatcher"),
+        })
+            if (Directory.Exists(data) && seenGp.Add(data))
+            {
+                var gd = DirItem(data, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher.data", defaultChecked: false);
+                gd.ChosenMethod = CleanupMethod.SupprimerDirect;
+                items.Add(gd);
+            }
+
         // GenSpeed n'est PAS désinstallé par lui-même (il sert aussi à faire des installs propres),
         // mais on permet de le RÉINITIALISER : supprimer sa config = retour aux réglages par défaut.
         string gsCfg = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GenSpeed");
@@ -353,7 +422,8 @@ public static class Cleanup
         }
 
         // ── 🖇 Raccourcis bureau / menu démarrer pointant vers le jeu ──────
-        foreach (var lnk in FindGameShortcuts(gameDir))
+        var needles = installs.Select(d => Path.GetFileName(d.TrimEnd('\\', '/'))).Where(n => !string.IsNullOrEmpty(n)).ToList();
+        foreach (var lnk in FindGameShortcuts(needles))
             items.Add(FileItem(lnk, CleanupCategory.Raccourcis, CleanupRisk.Sur, "clean.explain.shortcut", defaultChecked: false,
                 methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
 
@@ -377,38 +447,11 @@ public static class Cleanup
                     });
 
             // ── 🧭 AppCompatFlags\Layers : valeurs orphelines / liées au jeu ──
-            foreach (var it in ScanAppCompat(gameDir)) items.Add(it);
+            foreach (var it in ScanAppCompat(needles)) items.Add(it);
 
             // ── 🧹 Traces Windows (journaux de diag auto-créés par Windows pour les exe du jeu).
             //     Inoffensif à retirer : Windows les recrée au besoin. Décoché par défaut (bruit).
             foreach (var it in ScanWinTraces()) items.Add(it);
-        }
-
-        // ── 🗺 Maps installées dans le dossier jeu (officielles + ajoutées) ─
-        string installMaps = Path.Combine(gameDir, "Maps");
-        if (Directory.Exists(installMaps))
-        {
-            var im = DirItem(installMaps, CleanupCategory.Jeu, CleanupRisk.Attention, "clean.explain.installmaps", defaultChecked: false);
-            im.Display = "Maps (dossier du jeu)";
-            items.Add(im);
-        }
-
-        // ── 💨 Steam : ne pas supprimer à la main → info + désinstall Steam ─
-        var (steam, appId) = SteamInfo(gameDir);
-        if (steam)
-            items.Add(new CleanupItem
-            {
-                Category = CleanupCategory.Steam, Kind = CleanupKind.Info, Path = gameDir,
-                Display = appId != null ? $"AppID {appId}" : "Steam", ExplainKey = "clean.explain.steam",
-                Risk = CleanupRisk.Attention, Removable = false, DefaultChecked = false, Extra = appId,
-                AllowedMethods = new(),
-            });
-        else
-        {
-            // Install hors Steam (retail / copie) : suppression du dossier jeu possible.
-            var gj = DirItem(gameDir, CleanupCategory.Jeu, CleanupRisk.Danger, "clean.explain.gamedir", defaultChecked: false);
-            gj.ChosenMethod = CleanupMethod.SupprimerDirect;   // réinstallable : pas de sauvegarde de 11 Go par défaut
-            items.Add(gj);
         }
 
         // ── ⚙ Système : redists VC++ (NON supprimables ici) ───────────────
@@ -424,7 +467,7 @@ public static class Cleanup
         return items;
     }
 
-    private static IEnumerable<string> FindGameShortcuts(string gameDir)
+    private static IEnumerable<string> FindGameShortcuts(IReadOnlyList<string> installNames)
     {
         var dirs = new List<string>
         {
@@ -433,7 +476,6 @@ public static class Cleanup
             Environment.GetFolderPath(Environment.SpecialFolder.Programs),
             Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms),
         };
-        string needle = Path.GetFileName(gameDir);
         foreach (var dir in dirs.Where(Directory.Exists).Distinct())
         {
             IEnumerable<string> lnks;
@@ -442,9 +484,9 @@ public static class Cleanup
             foreach (var lnk in lnks)
             {
                 string name = Path.GetFileNameWithoutExtension(lnk);
-                // Heuristique nom : "Generals", "Zero Hour", nom du dossier, mods connus.
+                // Heuristique nom : "Generals", "Zero Hour", noms des dossiers d'install, mods connus.
                 if (Regex.IsMatch(name, @"generals|zero\s*hour|genlauncher|reborn|contra|shockwave", RegexOptions.IgnoreCase)
-                    || name.Contains(needle, StringComparison.OrdinalIgnoreCase))
+                    || installNames.Any(n => name.Contains(n, StringComparison.OrdinalIgnoreCase)))
                     yield return lnk;
             }
         }
@@ -492,7 +534,7 @@ public static class Cleanup
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    private static IEnumerable<CleanupItem> ScanAppCompat(string gameDir)
+    private static IEnumerable<CleanupItem> ScanAppCompat(IReadOnlyList<string> installNames)
     {
         const string layers = @"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers";
         const string fullKey = @"HKCU\" + layers;
@@ -506,7 +548,7 @@ public static class Cleanup
             if (string.IsNullOrWhiteSpace(exePath)) continue;
             bool exists = System.IO.File.Exists(exePath);
             bool looksGame = Regex.IsMatch(exePath, @"generals|zero\s*hour|genlauncher|modded|worldbuilder|reborn|contra|shockwave|gentool", RegexOptions.IgnoreCase)
-                             || exePath.Contains(Path.GetFileName(gameDir), StringComparison.OrdinalIgnoreCase);
+                             || installNames.Any(n => exePath.Contains(n, StringComparison.OrdinalIgnoreCase));
             if (!looksGame) continue;                    // ne touche QU'AUX entrées liées au jeu (pas les orphelins d'autres logiciels)
             // Orpheline (chemin inexistant) = sûr à retirer ; existante liée au jeu = attention.
             yield return new CleanupItem
@@ -608,8 +650,16 @@ public static class Cleanup
         try { Directory.CreateDirectory(job.BackupDir); } catch { }
         var manifest = new List<object>();
 
-        // Ordre SÛR : contenu interne (et ses sauvegardes) AVANT le dossier jeu / Steam.
-        foreach (var it in job.Items.OrderBy(i => CategoryRank(i.Category)))
+        // Ordre SÛR et composite : install par install (contenu interne AVANT le dossier jeu),
+        // puis les traces globales (InstallDir == null) en dernier.
+        var installOrder = new List<string>();
+        foreach (var it in job.Items)
+            if (it.InstallDir != null && !installOrder.Contains(it.InstallDir, StringComparer.OrdinalIgnoreCase))
+                installOrder.Add(it.InstallDir);
+        int InstallRank(CleanupItem i) => i.InstallDir == null ? int.MaxValue
+            : installOrder.FindIndex(d => string.Equals(d, i.InstallDir, StringComparison.OrdinalIgnoreCase));
+
+        foreach (var it in job.Items.OrderBy(InstallRank).ThenBy(i => CategoryRank(i.Category)))
         {
             if (it.ChosenMethod == CleanupMethod.Laisser) continue;
             try

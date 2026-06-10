@@ -59,16 +59,16 @@ public partial class MainWindow
     /// <summary>Aide globale de l'application.</summary>
     private void OnHelp(object sender, RoutedEventArgs e) => HelpWindow.Show(this);
 
-    /// <summary>Re-choisir le dossier du jeu à tout moment (corrige un dossier mal sélectionné au 1er lancement).</summary>
-    private void OnCfgGameDir()
+    /// <summary>Ajouter une installation hors Steam / hors registre (copie manuelle, fork…).
+    /// Les installs Steam et registre EA sont découvertes AUTOMATIQUEMENT — pas besoin de les ajouter.</summary>
+    private void OnCfgAddInstall()
     {
-        Dialogs.Info(this, "GenSpeed", Loc.T("pick.game.help"));
+        Dialogs.Info(this, "GenSpeed", Loc.T("inst.add.help"));
         var dir = AskGameDir();
         if (dir == null) return;
-        _config.GameDir = dir;
-        ConfigStore.Save(_config);
-        Log(string.Format(Loc.T("log.gamedir"), dir));
-        LoadMods();   // ré-détecte mods + rafraîchit la grille
+        EnsureInstallListed(dir);
+        Log(string.Format(Loc.T("inst.added"), InstallLabel(dir)));
+        LoadMods();   // re-découvre tout + rafraîchit la grille groupée
     }
 
     /// <summary>Pointer le dossier des mods (GLM) si GenLauncher est installé hors du dossier du jeu.</summary>
@@ -122,36 +122,4 @@ public partial class MainWindow
         { _config.KnownInstalls.Add(dir); ConfigStore.Save(_config); }
     }
 
-    private void SwitchInstall(string dir)
-    {
-        if (string.Equals(dir, _gameDir, StringComparison.OrdinalIgnoreCase)) return;
-        _config.GameDir = dir;
-        ConfigStore.Save(_config);
-        Log(string.Format(Loc.T("inst.switched"), InstallLabel(dir)));
-        LoadMods();   // recharge la liste des mods de l'install choisie
-    }
-
-    /// <summary>Sélecteur d'installations : jeu de base + mods autonomes (ajout / bascule).</summary>
-    private void OnCfgInstalls()
-    {
-        EnsureInstallListed(_gameDir);
-        var installs = _config.KnownInstalls.ToList();
-        var options = installs.Select(p =>
-            (string.Equals(p, _gameDir, StringComparison.OrdinalIgnoreCase) ? "● " : "    ") + InstallLabel(p)).ToList();
-        options.Add(Loc.T("inst.add"));
-
-        string? pick = Dialogs.Choose(this, Loc.T("inst.title"), Loc.T("inst.msg"), options);
-        if (pick == null) return;
-
-        if (pick == Loc.T("inst.add"))
-        {
-            var dir = AskGameDir();           // sélecteur + validation IsZhFolder (existant)
-            if (dir == null) return;
-            EnsureInstallListed(dir);
-            SwitchInstall(dir);
-            return;
-        }
-        int idx = options.IndexOf(pick);
-        if (idx >= 0 && idx < installs.Count) SwitchInstall(installs[idx]);
-    }
 }

@@ -24,9 +24,7 @@ public partial class MainWindow
 
     private async Task RunPatch(string mode)
     {
-        if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
-        var rows = (ModGrid.ItemsSource as IEnumerable<ModRow>)?
-                   .Where(r => r.Sel && r.Target != null).ToList() ?? new List<ModRow>();
+        var rows = _rows.Where(r => r.Sel && r.Target != null).ToList();
         if (rows.Count == 0) { Log(Loc.T("log.nosel")); return; }
 
         // Dépatch : ne garder que les mods réellement patchés (présence d'un .speedbak).
@@ -43,16 +41,27 @@ public partial class MainWindow
         }
 
         if (mode == "apply" &&
-            !Dialogs.ConfirmApply(this, rows.Select(r => FriendlyLabel(r.Mod)), BuildChangeSummary(), _gameDir))
+            !Dialogs.ConfirmApply(this, rows.Select(r => $"{FriendlyLabel(r.Mod)}  ({InstallLabel(r.InstallDir)})"),
+                                  BuildChangeSummary(),
+                                  string.Join(" · ", rows.Select(r => r.InstallDir).Distinct(StringComparer.OrdinalIgnoreCase))))
             return;
 
+        // Multi-installs : un sous-job par install, UNE seule élévation UAC pour le tout.
         var job = new PatchJob
         {
-            Mode = mode, GameDir = _gameDir, ModsDir = _config.ModsDir, Factors = ReadFactors(), Cam = ReadCam(),
-            Labels = rows.Select(r => r.Mod).ToList(),
-            PrevHashes = rows.ToDictionary(r => r.Mod, r => r.PatchedFiles),
+            Mode = mode, Factors = ReadFactors(), Cam = ReadCam(),
             ResultPath = Path.Combine(Path.GetTempPath(), $"genspeed_result_{Guid.NewGuid():N}.json"),
         };
+        foreach (var g in rows.GroupBy(r => r.InstallDir, StringComparer.OrdinalIgnoreCase))
+            job.Installs.Add(new InstallPatch
+            {
+                GameDir = g.Key,
+                ModsDir = (!string.IsNullOrEmpty(_config.ModsDir) &&
+                           string.Equals(Path.GetDirectoryName(_config.ModsDir.TrimEnd('\\', '/')), g.Key, StringComparison.OrdinalIgnoreCase))
+                          ? _config.ModsDir : null,
+                Labels = g.Select(r => r.Mod).ToList(),
+                PrevHashes = g.ToDictionary(r => r.Mod, r => r.PatchedFiles),
+            });
         string jobPath = Path.Combine(Path.GetTempPath(), $"genspeed_job_{Guid.NewGuid():N}.json");
         File.WriteAllText(jobPath, JsonSerializer.Serialize(job));
 
@@ -72,20 +81,20 @@ public partial class MainWindow
                 ReadCam().Any(kv => kv.Key != "CameraYaw" && !string.IsNullOrEmpty(kv.Value));
             foreach (var r in rows)
             {
-                if (!res.Patched.TryGetValue(r.Mod, out var pf)) continue;
+                if (!res.Patched.TryGetValue(r.StateKey, out var pf)) continue;
                 r.PatchedFiles = pf;
                 if (mode == "apply")
                 {
                     r.Patched = $"{pf.Count}/{r.Target!.ArchiveCount}";
                     r.Vitesse = SpeedLabel.Text;
                     r.Camera = camApplied ? (_camIdx > 0 ? CamLabel.Text : Loc.T("cam.custom")) : Loc.T("orig");
-                    _config.PatchedState[r.Mod] = new PatchedInfo { Speed = r.Vitesse, Camera = r.Camera, Files = pf };
+                    _config.PatchedState[r.StateKey] = new PatchedInfo { Speed = r.Vitesse, Camera = r.Camera, Files = pf };
                     Log($"   • {FriendlyLabel(r.Mod)} : {pf.Count}/{r.Target!.ArchiveCount} " + Loc.T("log.filespatched"));
                 }
                 else
                 {
                     r.Patched = "—"; r.Vitesse = Loc.T("orig"); r.Camera = Loc.T("orig");
-                    _config.PatchedState.Remove(r.Mod);
+                    _config.PatchedState.Remove(r.StateKey);
                     Log($"   • {FriendlyLabel(r.Mod)} : " + Loc.T("log.restoredmod"));
                 }
             }
@@ -97,11 +106,14 @@ public partial class MainWindow
 
             if (mode == "apply")
             {
+                // Code LAN affiché : celui de l'install du PREMIER mod coché (celle qu'on va lancer).
+                string firstDir = rows[0].InstallDir;
+                var inDir = rows.Where(r => string.Equals(r.InstallDir, firstDir, StringComparison.OrdinalIgnoreCase)).ToList();
                 var lan = await Task.Run(() =>
                 {
-                    var files = ModDetection.BaseInstallFiles(_gameDir!).ToList();
-                    foreach (var r in rows) files.AddRange(r.Target!.Files);
-                    return Hashing.InstallHash(_gameDir!, files);
+                    var files = ModDetection.BaseInstallFiles(firstDir).ToList();
+                    foreach (var r in inDir) files.AddRange(r.Target!.Files);
+                    return Hashing.InstallHash(firstDir, files);
                 });
                 LanCodeLabel.Text = lan.Hash;
                 Dialogs.ApplyResult(this, Loc.T("result.body"), lan.Hash, LaunchGenLauncher);

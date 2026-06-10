@@ -32,7 +32,8 @@ public static class CleanupWindow
     }
 
     /// <summary>Affiche la fenêtre. Mute Selected/ChosenMethod des items. Retourne l'action choisie.</summary>
-    public static (CleanupAction action, List<CleanupItem> items) Show(Window owner, List<CleanupItem> items, string backupDir, string gameDir)
+    public static (CleanupAction action, List<CleanupItem> items) Show(Window owner, List<CleanupItem> items, string backupDir,
+                                                                       IReadOnlyDictionary<string, string> installHeaders)
     {
         bool ownerOk = owner.IsLoaded;   // l'owner peut avoir été fermé pendant le scan asynchrone
         var win = new Window
@@ -122,8 +123,29 @@ public static class CleanupWindow
             btnExec.IsEnabled = n > 0;
         }
 
+        // Sections : une PAR INSTALLATION (ordre d'apparition), puis les traces globales en dernier.
+        var sectionDirs = items.Where(i => i.InstallDir != null).Select(i => i.InstallDir!)
+                               .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var sections = sectionDirs
+            .Select(d => ((string?)d, items.Where(i => string.Equals(i.InstallDir, d, StringComparison.OrdinalIgnoreCase)).ToList()))
+            .ToList();
+        var globals = items.Where(i => i.InstallDir == null).ToList();
+        if (globals.Count > 0) sections.Add((null, globals));
+
         int step = 0;
-        foreach (var grp in items.GroupBy(i => i.Category).OrderBy(g => Cleanup.CategoryRank(g.Key)))
+        foreach (var (secDir, secItems) in sections)
+        {
+            // En-tête de SECTION : « 🖥 Install X · type » ou « 🌐 Traces globales ».
+            string secTitle = secDir == null ? Loc.T("clean.sec.global")
+                : (installHeaders.TryGetValue(secDir, out var h) ? h : "🖥 " + Path.GetFileName(secDir));
+            list.Children.Add(new Border
+            {
+                Background = B("bgFrame2"), CornerRadius = new CornerRadius(3),
+                Margin = new Thickness(0, 14, 0, 2), Padding = new Thickness(8, 6, 8, 6),
+                Child = new TextBlock { Text = secTitle, Foreground = B("orange"), FontWeight = FontWeights.Bold, FontSize = 14 },
+            });
+
+        foreach (var grp in secItems.GroupBy(i => i.Category).OrderBy(g => Cleanup.CategoryRank(g.Key)))
         {
             step++;
             var groupItems = grp.ToList();
@@ -146,15 +168,16 @@ public static class CleanupWindow
             list.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 0, 0, 4) });
 
             // Mods : recommander le désinstalleur natif de GenLauncher (le plus propre pour un retrait sélectif).
-            if (grp.Key == CleanupCategory.Mods)
+            if (grp.Key == CleanupCategory.Mods && secDir != null)
             {
-                string glExe = Path.Combine(gameDir, "GenLauncher.exe");
+                string glExe = Path.Combine(secDir, "GenLauncher.exe");
+                string glDir = secDir;
                 var note = new DockPanel { Margin = new Thickness(20, 0, 0, 8), LastChildFill = true };
                 if (File.Exists(glExe))
                 {
                     var openBtn = new Button { Content = Loc.T("clean.gl.open"), Padding = new Thickness(8, 2, 8, 2),
                         Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top };
-                    openBtn.Click += (_, _) => { try { Process.Start(new ProcessStartInfo { FileName = glExe, WorkingDirectory = gameDir, UseShellExecute = true }); } catch { } };
+                    openBtn.Click += (_, _) => { try { Process.Start(new ProcessStartInfo { FileName = glExe, WorkingDirectory = glDir, UseShellExecute = true }); } catch { } };
                     DockPanel.SetDock(openBtn, Dock.Right);
                     note.Children.Add(openBtn);
                 }
@@ -234,6 +257,7 @@ public static class CleanupWindow
             master.Checked += (_, _) => { foreach (var c in groupChecks) c.IsChecked = true; };
             master.Unchecked += (_, _) => { foreach (var c in groupChecks) c.IsChecked = false; };
         }
+        }   // fin de section (install / traces globales)
 
         if (checks.Count == 0)
             list.Children.Add(new TextBlock { Text = Loc.T("clean.nothing"), Foreground = B("dim"),

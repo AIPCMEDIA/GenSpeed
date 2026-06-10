@@ -23,7 +23,7 @@ public partial class MainWindow : Window
 
     private GenConfig _config = null!;
     private List<SpeedPreset> Speeds => _config.SpeedPresets;
-    private string? _gameDir;
+    private List<string> _installs = new();   // TOUTES les installs découvertes (plus d'« install active »)
     private List<Target> _targets = new();
 
     // (clé cat, symbole, couleur pastille)
@@ -131,42 +131,43 @@ public partial class MainWindow : Window
 
     private void OpenModFolder(Target t)
     {
-        if (_gameDir == null) return;
+        if (string.IsNullOrEmpty(t.InstallDir)) return;
         string folder = t.Type switch
         {
-            TargetType.Gib => Path.Combine(_gameDir, "GLM", t.Label),
-            TargetType.Ini => Path.Combine(_gameDir, "Data", "INI"),
-            _ => _gameDir,
+            TargetType.Gib => Path.Combine(t.InstallDir, "GLM", t.Label),
+            TargetType.Ini => Path.Combine(t.InstallDir, "Data", "INI"),
+            _ => t.InstallDir,
         };
-        if (!Directory.Exists(folder)) folder = _gameDir;
+        if (!Directory.Exists(folder)) folder = t.InstallDir;
         try { Process.Start(new ProcessStartInfo { FileName = "explorer.exe", Arguments = $"\"{folder}\"", UseShellExecute = true }); }
         catch { }
     }
 
     /// <summary>Nom affiché d'une cible : alias personnalisé si défini, sinon libellé convivial.</summary>
-    private string DisplayName(string label)
+    private string DisplayName(string installDir, string label)
     {
-        string key = (_gameDir ?? "") + "::" + label;
+        string key = installDir + "::" + label;
         return _config.ModAliases.TryGetValue(key, out var a) && !string.IsNullOrWhiteSpace(a) ? a : FriendlyLabel(label);
     }
 
     /// <summary>Renommer l'AFFICHAGE d'un mod dans le tableau (non destructif — n'affecte pas le patch ni le code LAN).</summary>
     private void OnRenameMod(Target t)
     {
-        string? name = Dialogs.Prompt(this, Loc.T("ctx.rename"), Loc.T("rename.mod.msg"), DisplayName(t.Label));
+        string? name = Dialogs.Prompt(this, Loc.T("ctx.rename"), Loc.T("rename.mod.msg"), DisplayName(t.InstallDir, t.Label));
         if (string.IsNullOrWhiteSpace(name)) return;
-        string key = (_gameDir ?? "") + "::" + t.Label;
+        string key = t.InstallDir + "::" + t.Label;
         if (name == FriendlyLabel(t.Label)) _config.ModAliases.Remove(key);   // remis au nom par défaut
         else _config.ModAliases[key] = name;
         ConfigStore.Save(_config);
-        if (ModGrid.ItemsSource is IEnumerable<ModRow> rows)
-            foreach (var r in rows) if (r.Mod == t.Label) r.Display = DisplayName(t.Label);
+        foreach (var r in _rows)
+            if (r.Mod == t.Label && r.InstallDir == t.InstallDir)
+                r.Display = DisplayName(t.InstallDir, t.Label);
     }
 
     private void WireToolbar()
     {
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare));
-        Dropdown(ConfigBtn, ("cfg.installs", OnCfgInstalls), ("cfg.gamedir", OnCfgGameDir), ("cfg.modsdir", OnCfgModsDir),
+        Dropdown(ConfigBtn, ("cfg.addinstall", OnCfgAddInstall), ("cfg.modsdir", OnCfgModsDir),
                             ("cfg.launcher", OnCfgLauncher),
                             ("cfg.uninstall", OnCfgUninstall),
                             ("cfg.reset", OnCfgReset), ("cfg.export", OnCfgExport), ("cfg.import", OnCfgImport));
@@ -208,8 +209,7 @@ public partial class MainWindow : Window
     private void OnToggleAll(object sender, RoutedEventArgs e)
     {
         bool check = (sender as CheckBox)?.IsChecked == true;
-        if (ModGrid.ItemsSource is IEnumerable<ModRow> rows)
-            foreach (var r in rows) r.Sel = check;
+        foreach (var r in _rows) r.Sel = check;
     }
 
     /// <summary>Libellé d'affichage convivial (Vanilla → « Jeu de base »), localisé.</summary>
@@ -221,8 +221,7 @@ public partial class MainWindow : Window
     };
 
     private List<Target> CheckedTargets() =>
-        (ModGrid.ItemsSource as IEnumerable<ModRow>)?.Where(r => r.Sel && r.Target != null)
-            .Select(r => r.Target!).ToList() ?? new List<Target>();
+        _rows.Where(r => r.Sel && r.Target != null).Select(r => r.Target!).ToList();
 
     // ===== Textes dépendant de la langue =====
     private void RefreshTexts()
@@ -240,59 +239,73 @@ public partial class MainWindow : Window
         foreach (var kv in _camControls) kv.Value.ToolTip = Loc.T("tip.cam." + kv.Key);
         LangBtn.Content = Loc.I.Lang == 0 ? "EN" : "FR";
         if (LogBtn != null) LogBtn.Content = Loc.T(_logVisible ? "tb.log" : "tb.logshow");
-        if (ModGrid.ItemsSource is IEnumerable<ModRow> mrows)
-            foreach (var r in mrows) r.Display = DisplayName(r.Mod);
+        foreach (var r in _rows) r.Display = DisplayName(r.InstallDir, r.Mod);
         UpdateSpeedLabel();
         if (CamLabel != null) CamLabel.Text = _camIdx == 0 ? Loc.T("cam.default") : _camNames[_camIdx];
-        if (_gameDir != null) Title = $"GenSpeed — {InstallLabel(_gameDir)}  ·  {InstallType(_gameDir)}";
     }
 
-    // ===== Liste des mods (détection réelle) =====
+    // ===== Liste des mods (détection réelle, TOUTES les installs) =====
+    private readonly ObservableCollection<ModRow> _rows = new();
+
     private async void LoadMods()
     {
-        _gameDir = (_config.GameDir != null && Directory.Exists(_config.GameDir))
-            ? _config.GameDir : GameLocator.Detect();
-        if (_gameDir == null) _gameDir = AskGameDir();   // 1er lancement : auto-détection échouée → sélection manuelle
-        if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
-        if (_config.GameDir != _gameDir) { _config.GameDir = _gameDir; ConfigStore.Save(_config); }
-        EnsureInstallListed(_gameDir);
-        Title = $"GenSpeed — {InstallLabel(_gameDir)}  ·  {InstallType(_gameDir)}";   // install active bien visible
-        Log(string.Format(Loc.T("log.gamedir"), _gameDir));
+        Title = "GenSpeed";
+        _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p));
+        _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
+        if (_installs.Count == 0)
+        {
+            var added = AskGameDir();          // rien trouvé : sélection manuelle (ajoutée aux installs connues)
+            if (added == null) { Log(Loc.T("log.nogame")); return; }
+            EnsureInstallListed(added);
+            _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
+        }
+        Log(string.Format(Loc.T("log.installs.found"), _installs.Count));
 
-        List<Target> targets;
-        try { targets = await Task.Run(() => ModDetection.DetectTargets(_gameDir)); }
-        catch (Exception ex) { Log("⚠ " + ex.Message); return; }
+        var targets = new List<Target>();
+        foreach (var dir in _installs)
+        {
+            try { targets.AddRange(await Task.Run(() => ModDetection.DetectTargets(dir))); }
+            catch (Exception ex) { Log("⚠ " + InstallLabel(dir) + " : " + ex.Message); }
+        }
 
         // Mods GenLauncher installés ailleurs (dossier GLM personnalisé, optionnel).
         if (!string.IsNullOrEmpty(_config.ModsDir) && Directory.Exists(_config.ModsDir)
-            && !string.Equals(_config.ModsDir, Path.Combine(_gameDir, "GLM"), StringComparison.OrdinalIgnoreCase))
+            && !_installs.Any(d => string.Equals(_config.ModsDir, Path.Combine(d, "GLM"), StringComparison.OrdinalIgnoreCase)))
         {
             try
             {
                 var extra = await Task.Run(() => ModDetection.DetectGlmMods(_config.ModsDir!));
-                var have = new HashSet<string>(targets.Select(t => t.Label));
-                foreach (var t in extra) if (have.Add(t.Label)) targets.Add(t);
-                if (extra.Count > 0) Log(string.Format(Loc.T("log.modsextra"), extra.Count, _config.ModsDir));
+                if (extra.Count > 0) { targets.AddRange(extra); Log(string.Format(Loc.T("log.modsextra"), extra.Count, _config.ModsDir)); }
             }
             catch (Exception ex) { Log("⚠ " + ex.Message); }
         }
 
         _targets = targets;
 
-        var rows = new ObservableCollection<ModRow>();
+        // Noms de groupe par install (calculés une fois — affichés en en-tête de groupe du tableau).
+        var headers = _installs.ToDictionary(d => d, d => $"{InstallLabel(d)}   ·   {InstallType(d)}", StringComparer.OrdinalIgnoreCase);
+        string HeaderFor(string dir) => headers.TryGetValue(dir, out var h) ? h : InstallLabel(dir);
+
+        _rows.Clear();
         foreach (var t in targets)
-            rows.Add(new ModRow
+            _rows.Add(new ModRow
             {
-                Target = t, Mod = t.Label, Display = DisplayName(t.Label),
+                Target = t, Mod = t.Label, Display = DisplayName(t.InstallDir, t.Label),
+                InstallDir = t.InstallDir, InstallName = HeaderFor(t.InstallDir),
                 Vitesse = Loc.T("orig"), Camera = Loc.T("orig"),
                 Archives = t.ArchiveCount.ToString(), Ini = t.IniCount().ToString(),
                 Patched = "—", Code = "…",
             });
-        ModGrid.ItemsSource = rows;
+        if (ModGrid.ItemsSource == null)
+        {
+            var view = new System.Windows.Data.ListCollectionView(_rows);
+            view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(ModRow.InstallName)));
+            ModGrid.ItemsSource = view;
+        }
         Log(string.Format(Loc.T("log.detected"), targets.Count));
 
         int alreadyPatched = 0;
-        foreach (var row in rows)
+        foreach (var row in _rows.ToList())
         {
             var t = row.Target!;
             // État persistant : un mod est « patché » s'il a des sauvegardes .speedbak (survit au redémarrage).
@@ -300,7 +313,7 @@ public partial class MainWindow : Window
             if (patched > 0)
             {
                 row.Patched = $"{patched}/{t.ArchiveCount}";
-                if (_config.PatchedState.TryGetValue(row.Mod, out var ps) && !string.IsNullOrWhiteSpace(ps.Speed))
+                if (_config.PatchedState.TryGetValue(row.StateKey, out var ps) && !string.IsNullOrWhiteSpace(ps.Speed))
                 {
                     row.Vitesse = ps.Speed;
                     row.Camera = string.IsNullOrWhiteSpace(ps.Camera) ? Loc.T("orig") : ps.Camera;
@@ -324,11 +337,11 @@ public partial class MainWindow : Window
     /// <summary>Code LAN avec cache : ne re-hache (lourd) que si la signature mtime/taille a changé.</summary>
     private async Task<string> CachedLanCode(Target t)
     {
-        string key = (_gameDir ?? "") + "::" + t.Label;
+        string key = t.InstallDir + "::" + t.Label;
         var sig = BuildSig(t.Files);
         if (_config.HashCache.TryGetValue(key, out var ce) && SigEqual(ce.Sig, sig))
             return ce.Hash;                                   // cache valide -> instantané
-        string h = await Task.Run(() => Hashing.InstallHash(_gameDir!, t.Files).Hash);
+        string h = await Task.Run(() => Hashing.InstallHash(t.InstallDir, t.Files).Hash);
         _config.HashCache[key] = new HashCacheEntry { Hash = h, Sig = sig };
         _hashCacheDirty = true;
         return h;
@@ -371,6 +384,9 @@ public partial class MainWindow : Window
         private bool _sel;
         public bool Sel { get => _sel; set { if (_sel != value) { _sel = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Sel))); } } }
         public string Mod { get; set; } = "";   // label interne (clé de patch) — NE PAS afficher pour Vanilla
+        public string InstallDir { get; set; } = "";    // install propriétaire (multi-installs)
+        public string InstallName { get; set; } = "";   // libellé de groupe (nom · type)
+        public string StateKey => InstallDir + "::" + Mod;   // clé PatchedState / résultats de patch
         private string _display = "";
         public string Display { get => _display; set { if (_display != value) { _display = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Display))); } } }
         public string Archives { get; set; } = "";

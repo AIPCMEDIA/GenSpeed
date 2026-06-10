@@ -21,7 +21,6 @@ public partial class MainWindow
     // ===== Aperçu =====
     private async void RunPreview(string mode, Target? target = null)
     {
-        if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
         var t = target ?? CheckedTargets().FirstOrDefault();
         if (t == null) { Dialogs.Info(this, "GenSpeed", Loc.T("preview.nosel")); return; }
         bool onlyChanged = mode == "mod";
@@ -29,7 +28,7 @@ public partial class MainWindow
         { Dialogs.Info(this, "GenSpeed", Loc.T("preview.notpatched")); return; }
 
         ISet<string>? wanted = mode == "key" ? Preview.KeyVars : null;
-        var (rows, patched, changed) = await Task.Run(() => Preview.Gather(_gameDir!, t, wanted, onlyChanged));
+        var (rows, patched, changed) = await Task.Run(() => Preview.Gather(t.InstallDir, t, wanted, onlyChanged));
         if (rows.Count == 0) { Dialogs.Info(this, "GenSpeed", Loc.T("preview.none")); return; }
 
         string changedStr = patched ? string.Format(Loc.T("preview.changed"), changed) : "";
@@ -53,25 +52,43 @@ public partial class MainWindow
     // ===== Code LAN =====
     private async void OnComputeLanCode(object sender, RoutedEventArgs e)
     {
-        if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
-        Log(Loc.T("lan.computing"));
         var targets = CheckedTargets();
+        string? dir = targets.FirstOrDefault()?.InstallDir ?? _installs.FirstOrDefault();
+        if (dir == null) { Log(Loc.T("log.nogame")); return; }
+        // Le code LAN est PAR install : base + mods cochés de cette install.
+        var inDir = targets.Where(t => string.Equals(t.InstallDir, dir, StringComparison.OrdinalIgnoreCase)).ToList();
+        Log(Loc.T("lan.computing"));
         var r = await Task.Run(() =>
         {
-            var files = ModDetection.BaseInstallFiles(_gameDir!).ToList();
-            foreach (var t in targets) files.AddRange(t.Files);
-            return Hashing.InstallHash(_gameDir!, files);
+            var files = ModDetection.BaseInstallFiles(dir).ToList();
+            foreach (var t in inDir) files.AddRange(t.Files);
+            return Hashing.InstallHash(dir, files);
         });
         LanCodeLabel.Text = r.Hash;
         Log(string.Format(Loc.T("lan.done"), r.Hash, r.FileCount, r.TotalBytes / 1048576));
     }
 
+    /// <summary>L'empreinte mismatch est PAR install (c'est l'install qu'on joue qui compte) :
+    /// une seule → directe ; plusieurs → on demande laquelle.</summary>
+    private string? PickInstall()
+    {
+        if (_installs.Count == 0) { Log(Loc.T("log.nogame")); return null; }
+        if (_installs.Count == 1) return _installs[0];
+        var options = _installs.Select(d => $"{InstallLabel(d)}   ·   {InstallType(d)}").ToList();
+        string? pick = Dialogs.Choose(this, Loc.T("diag.pick.title"), Loc.T("diag.pick.msg"), options);
+        if (pick == null) return null;
+        int idx = options.IndexOf(pick);
+        return idx >= 0 ? _installs[idx] : null;
+    }
+
     // ===== Diagnostic mismatch =====
     private async void OnDiagExport()
     {
-        if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
-        var modTargets = _targets.Where(t => t.Type == TargetType.Gib).ToList();
-        var fp = await Task.Run(() => Diagnostics.Build(_gameDir!, modTargets));
+        string? dir = PickInstall();
+        if (dir == null) return;
+        var modTargets = _targets.Where(t => t.Type == TargetType.Gib
+                                          && string.Equals(t.InstallDir, dir, StringComparison.OrdinalIgnoreCase)).ToList();
+        var fp = await Task.Run(() => Diagnostics.Build(dir, modTargets));
         var dlg = new SaveFileDialog { Filter = "JSON|*.json", FileName = "GenSpeed-diagnostic.json" };
         if (dlg.ShowDialog() == true)
         {
@@ -82,14 +99,16 @@ public partial class MainWindow
 
     private async void OnDiagCompare()
     {
-        if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
+        string? dir = PickInstall();
+        if (dir == null) return;
         var dlg = new OpenFileDialog { Filter = "JSON|*.json" };
         if (dlg.ShowDialog() != true) return;
         string json = File.ReadAllText(dlg.FileName);
         if (!Diagnostics.IsSyncFingerprint(json)) { Dialogs.Info(this, "GenSpeed", Loc.T("diag.badfile")); return; }
         var other = Diagnostics.Parse(json);
-        var modTargets = _targets.Where(t => t.Type == TargetType.Gib).ToList();
-        var mine = await Task.Run(() => Diagnostics.Build(_gameDir!, modTargets));
+        var modTargets = _targets.Where(t => t.Type == TargetType.Gib
+                                          && string.Equals(t.InstallDir, dir, StringComparison.OrdinalIgnoreCase)).ToList();
+        var mine = await Task.Run(() => Diagnostics.Build(dir, modTargets));
         DiagnosticWindow.Show(this, Diagnostics.Diff(mine, other));
     }
 }

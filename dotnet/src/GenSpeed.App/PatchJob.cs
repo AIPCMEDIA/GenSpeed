@@ -4,24 +4,31 @@ using GenSpeed.Core;
 
 namespace GenSpeed.App;
 
-/// <summary>Paramètres d'une opération patch/restore transmis au process élevé (JSON).</summary>
-public sealed class PatchJob
+/// <summary>Sous-job de patch pour UNE installation (multi-installs : plus d'« install active »).</summary>
+public sealed class InstallPatch
 {
-    public string Mode { get; set; } = "apply";          // "apply" | "restore"
     public string GameDir { get; set; } = "";
-    public string? ModsDir { get; set; }                 // dossier GLM externe (GenLauncher ailleurs)
-    public Dictionary<string, double> Factors { get; set; } = new();
-    public Dictionary<string, string?> Cam { get; set; } = new();
+    public string? ModsDir { get; set; }                 // dossier GLM externe rattaché à cette install
     public List<string> Labels { get; set; } = new();
     // label -> (chemin -> sha du dernier patch) : pour détecter les MAJ externes.
     public Dictionary<string, Dictionary<string, string>> PrevHashes { get; set; } = new();
+}
+
+/// <summary>Paramètres d'une opération patch/restore transmis au process élevé (JSON).
+/// Une seule élévation UAC pour TOUTES les installs concernées.</summary>
+public sealed class PatchJob
+{
+    public string Mode { get; set; } = "apply";          // "apply" | "restore"
+    public Dictionary<string, double> Factors { get; set; } = new();
+    public Dictionary<string, string?> Cam { get; set; } = new();
+    public List<InstallPatch> Installs { get; set; } = new();
     public string ResultPath { get; set; } = "";
 }
 
 /// <summary>Résultat renvoyé par le process élevé.</summary>
 public sealed class PatchResult
 {
-    // label -> (chemin -> sha) des fichiers réellement patchés (vide = restauré).
+    // "installDir::label" -> (chemin -> sha) des fichiers réellement patchés (vide = restauré).
     public Dictionary<string, Dictionary<string, string>> Patched { get; set; } = new();
     public List<string> Errors { get; set; } = new();
 }
@@ -35,36 +42,40 @@ public static class ElevatedRunner
         try
         {
             var job = JsonSerializer.Deserialize<PatchJob>(File.ReadAllText(jobPath))!;
-            var byLabel = ModDetection.DetectTargets(job.GameDir).ToDictionary(t => t.Label);
-
-            // Mods GenLauncher installés ailleurs : mêmes cibles que la fenêtre principale.
-            if (!string.IsNullOrEmpty(job.ModsDir) && Directory.Exists(job.ModsDir)
-                && !string.Equals(job.ModsDir, Path.Combine(job.GameDir, "GLM"), StringComparison.OrdinalIgnoreCase))
-                foreach (var t in ModDetection.DetectGlmMods(job.ModsDir))
-                    byLabel.TryAdd(t.Label, t);
-
-            foreach (var label in job.Labels)
+            foreach (var ip in job.Installs)
             {
-                if (!byLabel.TryGetValue(label, out var t)) continue;
-                var prev = job.PrevHashes.TryGetValue(label, out var p) ? p
-                           : new Dictionary<string, string>();
-                try
+                var byLabel = ModDetection.DetectTargets(ip.GameDir).ToDictionary(t => t.Label);
+
+                // Mods GenLauncher installés ailleurs : mêmes cibles que la fenêtre principale.
+                if (!string.IsNullOrEmpty(ip.ModsDir) && Directory.Exists(ip.ModsDir)
+                    && !string.Equals(ip.ModsDir, Path.Combine(ip.GameDir, "GLM"), StringComparison.OrdinalIgnoreCase))
+                    foreach (var t in ModDetection.DetectGlmMods(ip.ModsDir))
+                        byLabel.TryAdd(t.Label, t);
+
+                foreach (var label in ip.Labels)
                 {
-                    if (mode == "apply")
+                    if (!byLabel.TryGetValue(label, out var t)) continue;
+                    var prev = ip.PrevHashes.TryGetValue(label, out var p) ? p
+                               : new Dictionary<string, string>();
+                    string key = ip.GameDir + "::" + label;
+                    try
                     {
-                        var outcome = Patcher.PatchTarget(t, job.Factors, job.Cam, prev);
-                        result.Patched[label] = outcome.PatchedFiles;
+                        if (mode == "apply")
+                        {
+                            var outcome = Patcher.PatchTarget(t, job.Factors, job.Cam, prev);
+                            result.Patched[key] = outcome.PatchedFiles;
+                        }
+                        else // restore
+                        {
+                            var (toRestore, stale) = Patcher.ClassifyRestore(t, prev);
+                            Patcher.RestoreFiles(toRestore, stale);
+                            result.Patched[key] = new Dictionary<string, string>();
+                        }
                     }
-                    else // restore
+                    catch (Exception ex)
                     {
-                        var (toRestore, stale) = Patcher.ClassifyRestore(t, prev);
-                        Patcher.RestoreFiles(toRestore, stale);
-                        result.Patched[label] = new Dictionary<string, string>();
+                        result.Errors.Add($"{label}: {ex.Message}");
                     }
-                }
-                catch (Exception ex)
-                {
-                    result.Errors.Add($"{label}: {ex.Message}");
                 }
             }
             File.WriteAllText(job.ResultPath, JsonSerializer.Serialize(result));

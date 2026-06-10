@@ -11,6 +11,8 @@ public sealed class Target
     public required string Label { get; init; }
     public required TargetType Type { get; init; }
     public required List<string> Files { get; init; }
+    /// <summary>Dossier d'installation auquel appartient la cible (multi-installs : plus d'« install active »).</summary>
+    public string InstallDir { get; init; } = "";
 
     /// <summary>Nb d'archives (= nb de fichiers).</summary>
     public int ArchiveCount => Files.Count;
@@ -138,7 +140,7 @@ public static class ModDetection
                      || f.EndsWith(".gib", StringComparison.OrdinalIgnoreCase))
             .ToList();
         if (bigFiles.Count > 0)
-            targets.Add(new Target { Label = "🎮 Vanilla", Type = TargetType.Big, Files = bigFiles });
+            targets.Add(new Target { Label = "🎮 Vanilla", Type = TargetType.Big, Files = bigFiles, InstallDir = gameDir });
 
         string iniDir = Path.Combine(gameDir, "Data", "INI");
         if (Directory.Exists(iniDir))
@@ -151,7 +153,7 @@ public static class ModDetection
                     .Where(f => f.EndsWith(".ini", StringComparison.OrdinalIgnoreCase))
                     .OrderBy(p => p, StringComparer.Ordinal).ToList();
                 if (inis.Count > 0)
-                    targets.Add(new Target { Label = "VANILLA (Data/INI)", Type = TargetType.Ini, Files = inis });
+                    targets.Add(new Target { Label = "VANILLA (Data/INI)", Type = TargetType.Ini, Files = inis, InstallDir = gameDir });
             }
             catch { }
         }
@@ -166,6 +168,8 @@ public static class ModDetection
     {
         var targets = new List<Target>();
         if (string.IsNullOrEmpty(glmDir) || !Directory.Exists(glmDir)) return targets;
+        // L'install propriétaire = le parent du dossier GLM (GLM externe : son parent fait office d'install).
+        string installDir = Path.GetDirectoryName(glmDir.TrimEnd('\\', '/')) ?? glmDir;
         try
         {
             foreach (var modPath in Directory.EnumerateDirectories(glmDir)
@@ -175,7 +179,7 @@ public static class ModDetection
                 if (mod is "Addons" or "Patches" or "Tools") continue;
                 var arch = CollectStatArchives(modPath);
                 if (arch.Count > 0)
-                    targets.Add(new Target { Label = mod, Type = TargetType.Gib, Files = arch });
+                    targets.Add(new Target { Label = mod, Type = TargetType.Gib, Files = arch, InstallDir = installDir });
             }
         }
         catch { }
