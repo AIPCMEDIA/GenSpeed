@@ -62,11 +62,40 @@ public static class Cleanup
     //  Détection (lecture seule, sans admin)
     // ===================================================================
 
-    private static IEnumerable<string> UserDataDirs()
+    private static readonly string[] GameDataFolders =
+        { "Command and Conquer Generals Zero Hour Data", "Command and Conquer Generals Data" };
+
+    /// <summary>Tous les emplacements « Documents » possibles, RÉSOLUS par le système (respecte une
+    /// redirection vers OneDrive ou un autre disque) — jamais un C:\ codé en dur.</summary>
+    private static IEnumerable<string> DocumentsRoots()
     {
+        var roots = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        void Add(string? p) { if (!string.IsNullOrWhiteSpace(p)) roots.Add(Path.TrimEndingDirectorySeparator(p!)); }
+        Add(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments));   // Documents réel (redirection incluse)
         string up = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        yield return Path.Combine(up, "Documents", "Command and Conquer Generals Zero Hour Data");
-        yield return Path.Combine(up, "OneDrive", "Documents", "Command and Conquer Generals Zero Hour Data");
+        Add(Path.Combine(up, "Documents"));
+        Add(Path.Combine(up, "OneDrive", "Documents"));
+        string? od = Environment.GetEnvironmentVariable("OneDrive");
+        if (!string.IsNullOrEmpty(od)) Add(Path.Combine(od, "Documents"));
+        return roots;
+    }
+
+    /// <summary>Les dossiers de données du jeu (Generals ET Zero Hour) sous CHAQUE Documents résolu.</summary>
+    private static IEnumerable<string> UserDataDirs() =>
+        DocumentsRoots().SelectMany(r => GameDataFolders.Select(n => Path.Combine(r, n)));
+
+    /// <summary>Dossier « Téléchargements » réel (registre — respecte une redirection vers un autre disque).</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static string DownloadsDir()
+    {
+        try
+        {
+            using var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders");
+            if (k?.GetValue("{374DE290-123F-4565-9164-39C4925E467B}") is string p && p.Length > 0)
+                return Environment.ExpandEnvironmentVariables(p);
+        }
+        catch { }
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
     }
 
     private static long FileSize(string p) { try { return new FileInfo(p).Length; } catch { return 0; } }
@@ -364,7 +393,8 @@ public static class Cleanup
         var gpRoots = new[]
         {
             Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
+            OperatingSystem.IsWindows() ? DownloadsDir()
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
             docs,
         };
         var seenGp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -384,12 +414,8 @@ public static class Cleanup
                             methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
             }
             catch { }
-        // GenPatcher se loge AUSSI dans les dossiers Data du jeu (Generals ET Zero Hour).
-        foreach (var data in new[]
-        {
-            Path.Combine(docs, "Command and Conquer Generals Data", "GenPatcher"),
-            Path.Combine(docs, "Command and Conquer Generals Zero Hour Data", "GenPatcher"),
-        })
+        // GenPatcher se loge AUSSI dans les dossiers Data du jeu (Generals ET Zero Hour, tout Documents résolu).
+        foreach (var data in UserDataDirs().Select(d => Path.Combine(d, "GenPatcher")))
             if (Directory.Exists(data) && seenGp.Add(data))
             {
                 var gd = DirItem(data, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher.data", defaultChecked: false);
@@ -412,6 +438,8 @@ public static class Cleanup
         // Tout DÉCOCHÉ par défaut : ce sont des données personnelles.
         foreach (var ud in UserDataDirs().Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
         {
+            // Le DOSSIER ENTIER (option « table rase ») — couvre aussi un dossier devenu quasi vide.
+            items.Add(DirItem(ud, CleanupCategory.Joueur, CleanupRisk.Attention, "clean.explain.datafolder", defaultChecked: false));
             foreach (var (sub, key) in new[] { ("Maps", "usermaps"), ("Replays", "replays"), ("Save", "saves"), ("Screenshots", "screenshots"),
                                                ("MapPreviews", "mappreviews"), ("CrashDumps", "crashdumps") })
             {

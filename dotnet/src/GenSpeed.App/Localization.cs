@@ -334,6 +334,8 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.explain.genpatcher.data"] = ["Dossier laissé par GenPatcher dans les données du jeu (Documents). Résidu — sans danger à retirer.",
                                              "Folder left by GenPatcher in the game data (Documents). Leftover — safe to remove."],
         ["clean.explain.browserengine"] = ["DLL gérée par GenPatcher. À retirer avec précaution.", "DLL handled by GenPatcher. Remove with care."],
+        ["clean.explain.datafolder"] = ["TOUT le dossier de données du jeu (Documents) : maps, replays, sauvegardes, réglages. Option « table rase » — données perso, décoché par défaut.",
+                                        "The WHOLE game data folder (Documents): maps, replays, saves, settings. “Clean slate” option — personal data, unchecked by default."],
         ["clean.explain.usermaps"] = ["TES cartes personnelles / téléchargées (Documents). Données perso — décoché par défaut.",
                                       "YOUR personal / downloaded maps (Documents). Personal data — unchecked by default."],
         ["clean.explain.replays"]  = ["TES parties enregistrées (replays). Données perso — décoché par défaut.", "YOUR recorded games (replays). Personal data — unchecked by default."],
