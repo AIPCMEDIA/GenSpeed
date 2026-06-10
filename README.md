@@ -22,13 +22,15 @@
 ## ✨ Nouveau dans la v2.1 / New in v2.1
 
 🇫🇷
-- 🧹 **Désinstalleur propre** (menu ⚙ Config) : analyse l'installation et toutes les traces en **étapes ordonnées** (mods GenLauncher par mod **et par addon/patch**, GenLauncher, DLL GenTool, GenPatcher, données joueur, raccourcis, registre EA, résidus de compatibilité, traces de diagnostic Windows, le jeu — compatible Steam). Tout est expliqué, **rien n'est coché d'office**, tout est **sauvegardé dans un dossier daté avant suppression** (guide de restauration inclus), et un bouton **Simuler** montre ce qui se passerait sans rien toucher.
+- 🖥️ **Multi-installations automatique** : GenSpeed découvre **toutes** tes installations (bibliothèques Steam, registre EA, ajouts manuels) et regroupe le tableau **par installation** — fini la notion d'« install active » à basculer à la main.
+- 🧹 **Désinstalleur propre** (menu ⚙ Config) : analyse **toutes les installations détectées** et toutes les traces en **étapes ordonnées** (mods GenLauncher par mod **et par addon/patch**, GenLauncher, DLL GenTool, GenPatcher, données joueur, raccourcis, registre EA, résidus de compatibilité, traces de diagnostic Windows, le jeu — compatible Steam). Tout est expliqué, **rien n'est coché d'office**, tout est **sauvegardé dans un dossier daté avant suppression** (guide de restauration inclus), un **sélecteur de méthode global** applique un choix à tout en un clic, et un bouton **Simuler** montre ce qui se passerait sans rien toucher. Les **installeurs** (zip/exe de GenPatcher, GenTool, GenLauncher) ne sont **jamais touchés**.
 - ✏ **Renommer les mods dans la liste** (affichage seulement — n'affecte ni le jeu ni le code LAN).
 - 🔎 **Type d'installation dans la barre de titre** : Heure H d'origine / monde GenLauncher / fork autonome.
 - 🚀 Lanceur mémorisé **par mod coché**, case « tout cocher » dans le tableau, clic droit « ouvrir le dossier » corrigé.
 
 🇬🇧
-- 🧹 **Clean uninstaller** (⚙ Config menu): scans the install and every leftover in **ordered steps** (GenLauncher mods per mod **and per addon/patch**, GenLauncher, GenTool DLLs, GenPatcher, player data, shortcuts, EA registry, compatibility leftovers, Windows diagnostic traces, the game — Steam-aware). Everything is explained, **nothing pre-checked**, everything **backed up to a dated folder before deletion** (restore guide included), and a **Simulate** button shows what would happen without touching anything.
+- 🖥️ **Automatic multi-install** : GenSpeed discovers **all** your installs (Steam libraries, EA registry, manual adds) and groups the table **per install** — no more "active install" to switch by hand.
+- 🧹 **Clean uninstaller** (⚙ Config menu): scans **every detected install** and every leftover in **ordered steps** (GenLauncher mods per mod **and per addon/patch**, GenLauncher, GenTool DLLs, GenPatcher, player data, shortcuts, EA registry, compatibility leftovers, Windows diagnostic traces, the game — Steam-aware). Everything is explained, **nothing pre-checked**, everything **backed up to a dated folder before deletion** (restore guide included), a **global method selector** applies one choice to all in a click, and a **Simulate** button shows what would happen without touching anything. **Installers** (GenPatcher / GenTool / GenLauncher zips & exes) are **never touched**.
 - ✏ **Rename mods in the list** (display only — does not affect the game or the LAN code).
 - 🔎 **Install type in the title bar**: original Zero Hour / GenLauncher world / standalone fork.
 - 🚀 Launcher remembered **per checked mod**, select-all checkbox in the table, right-click "open folder" fixed.
@@ -230,7 +232,8 @@ MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage,
 ## 📝 Changelog
 
 ### v2.1
-- 🧹 **Désinstalleur propre** : scan en étapes ordonnées (mods par mod/addon/patch, GenLauncher, GenTool, GenPatcher, données joueur, raccourcis, registre EA, compatibilité, traces Windows, jeu — compatible Steam), méthode au choix par élément (laisser / désactiver / sauvegarder+supprimer / supprimer), **sauvegarde datée + guide de restauration**, mode **Simuler**, mise à jour du catalogue GenLauncher après retrait
+- 🖥️ **Multi-installations automatique** : découverte de toutes les installations (bibliothèques Steam, registre EA, ajouts manuels), tableau **groupé par installation** — suppression de la notion d'« install active »
+- 🧹 **Désinstalleur propre** : scan **machine entière** en étapes ordonnées (mods par mod/addon/patch, GenLauncher, GenTool, GenPatcher, données joueur, raccourcis, registre EA + racine « EA Games » coquille vide, compatibilité, traces Windows, jeu — compatible Steam), méthode au choix par élément (laisser / désactiver / sauvegarder+supprimer / supprimer) **ou méthode globale en un clic**, **sauvegarde datée + guide de restauration**, mode **Simuler**, vérification DirectX 8 système après retrait de GenTool, mise à jour du catalogue GenLauncher après retrait. Les **installeurs ne sont jamais touchés**.
 - ✏ **Renommage des mods** dans la liste (alias d'affichage par installation)
 - 🔎 **Type d'installation** détecté et affiché (origine / monde GenLauncher / fork autonome)
 - 🚀 Lanceur mémorisé **par mod coché** · case « tout cocher » · clic droit « ouvrir le dossier » corrigé

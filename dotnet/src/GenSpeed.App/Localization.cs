@@ -195,8 +195,8 @@ public sealed class Loc : INotifyPropertyChanged
         ["help.s6.b"]    = ["Avant chaque modification, GenSpeed crée une sauvegarde .speedbak à côté du fichier : « Annuler » restaure l'original à l'identique. Au premier lancement, Windows SmartScreen peut afficher « éditeur inconnu » (l'exe n'est pas signé) → Informations complémentaires → Exécuter quand même.",
                             "Before each change, GenSpeed creates a .speedbak backup next to the file: \"Cancel\" restores the original exactly. On first launch, Windows SmartScreen may show \"unknown publisher\" (the exe isn't signed) → More info → Run anyway."],
         ["help.s7.h"]    = ["À propos", "About"],
-        ["help.s7.b"]    = ["GenSpeed v2.0 — gratuit, open-source (licence MIT). Aucune télémétrie, aucune connexion internet. Code écrit par IA, conçu et dirigé par l'auteur. Non affilié à Electronic Arts.\nProjet : github.com/AIPCMEDIA/GenSpeed",
-                            "GenSpeed v2.0 — free, open-source (MIT license). No telemetry, no internet connection. Code written by AI, designed and directed by the author. Not affiliated with Electronic Arts.\nProject: github.com/AIPCMEDIA/GenSpeed"],
+        ["help.s7.b"]    = ["GenSpeed v2.1 — gratuit, open-source (licence MIT). Aucune télémétrie, aucune connexion internet. Code écrit par IA, conçu et dirigé par l'auteur. Non affilié à Electronic Arts.\nProjet : github.com/AIPCMEDIA/GenSpeed",
+                            "GenSpeed v2.1 — free, open-source (MIT license). No telemetry, no internet connection. Code written by AI, designed and directed by the author. Not affiliated with Electronic Arts.\nProject: github.com/AIPCMEDIA/GenSpeed"],
         ["confirm.ok"]      = ["✅ Valider", "✅ Confirm"],
         ["confirm.cancel"]  = ["Annuler", "Cancel"],
         // Résultat après application
