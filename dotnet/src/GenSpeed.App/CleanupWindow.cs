@@ -86,6 +86,18 @@ public static class CleanupWindow
         topRow.Children.Add(legend);
 
         headPanel.Children.Add(topRow);
+
+        // Sélecteur de MÉTHODE GLOBALE : applique en un clic la même méthode à tous les éléments compatibles
+        // (pratique pour « tout supprimer directement » d'un coup ; le réglage par élément reste possible après).
+        var methodRow = new DockPanel { Margin = new Thickness(14, 0, 14, 8), LastChildFill = false };
+        methodRow.Children.Add(new TextBlock { Text = Loc.T("clean.method.all"), Foreground = B("dim"),
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+        var globalMethod = new ComboBox { MinWidth = 210, VerticalAlignment = VerticalAlignment.Center };
+        foreach (var m in new[] { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect, CleanupMethod.Desactiver })
+            globalMethod.Items.Add(new ComboBoxItem { Content = Loc.T($"clean.method.{m}"), Tag = m });
+        methodRow.Children.Add(globalMethod);
+        headPanel.Children.Add(methodRow);
+
         headPanel.Children.Add(new Border { Height = 2, Background = B("orange") });
         root.Children.Add(headPanel);
 
@@ -115,6 +127,7 @@ public static class CleanupWindow
         root.Children.Add(scroll);
 
         var checks = new List<(CheckBox cb, CleanupItem it)>();
+        var methodCombos = new List<(ComboBox combo, CleanupItem it)>();
         void RecomputeTotal()
         {
             long total = checks.Where(c => c.cb.IsChecked == true).Sum(c => c.it.SizeBytes);
@@ -220,6 +233,7 @@ public static class CleanupWindow
                     {
                         if (combo.SelectedItem is ComboBoxItem ci && ci.Tag is CleanupMethod m) it.ChosenMethod = m;
                     };
+                    methodCombos.Add((combo, it));
                     DockPanel.SetDock(combo, Dock.Right);
                     row.Children.Add(combo);
                 }
@@ -266,6 +280,17 @@ public static class CleanupWindow
         // Case globale « tout cocher / décocher » (toutes catégories).
         checkAll.Checked += (_, _) => { foreach (var (cb, _) in checks) cb.IsChecked = true; };
         checkAll.Unchecked += (_, _) => { foreach (var (cb, _) in checks) cb.IsChecked = false; };
+
+        // Méthode GLOBALE : applique la méthode choisie à tous les éléments qui la supportent.
+        globalMethod.SelectionChanged += (_, _) =>
+        {
+            if (globalMethod.SelectedItem is not ComboBoxItem ci || ci.Tag is not CleanupMethod m) return;
+            foreach (var (combo, it) in methodCombos)
+            {
+                int idx = it.AllowedMethods.IndexOf(m);
+                if (idx >= 0) combo.SelectedIndex = idx;   // déclenche le SelectionChanged par élément → MAJ ChosenMethod
+            }
+        };
 
         RecomputeTotal();
         win.ShowDialog();

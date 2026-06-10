@@ -286,6 +286,7 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.method.SauvegarderSupprimer"] = ["Sauvegarder puis supprimer", "Backup then delete"],
         ["clean.method.SupprimerDirect"]      = ["Supprimer directement", "Delete directly"],
         ["clean.method.DesinstallerSteam"]    = ["Désinstaller via Steam (officiel)", "Uninstall via Steam (official)"],
+        ["clean.method.all"] = ["⚙ Méthode pour tout (éléments compatibles) :", "⚙ Method for everything (compatible items):"],
 
         // Explications par élément
         ["clean.explain.d3d8"]     = ["GenTool (proxy DirectX 8 dans le dossier du jeu). Le retirer = le jeu retombe sur le DirectX 8 de Windows (vérifié automatiquement après nettoyage) ; seules les fonctions GenTool sont perdues. Conseillé : Désactiver (réversible).",
