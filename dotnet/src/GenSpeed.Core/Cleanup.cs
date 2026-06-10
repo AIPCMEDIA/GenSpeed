@@ -84,19 +84,6 @@ public static class Cleanup
     private static IEnumerable<string> UserDataDirs() =>
         DocumentsRoots().SelectMany(r => GameDataFolders.Select(n => Path.Combine(r, n)));
 
-    /// <summary>Dossier « Téléchargements » réel (registre — respecte une redirection vers un autre disque).</summary>
-    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-    private static string DownloadsDir()
-    {
-        try
-        {
-            using var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders");
-            if (k?.GetValue("{374DE290-123F-4565-9164-39C4925E467B}") is string p && p.Length > 0)
-                return Environment.ExpandEnvironmentVariables(p);
-        }
-        catch { }
-        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-    }
 
     private static long FileSize(string p) { try { return new FileInfo(p).Length; } catch { return 0; } }
 
@@ -378,7 +365,6 @@ public static class Cleanup
     private static List<CleanupItem> ScanGlobal(IReadOnlyList<string> installs)
     {
         var items = new List<CleanupItem>();
-        string docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
         // ── 🛠 GenTool dans les dossiers Documents Data (copies hors dossier du jeu) ──
         foreach (var loc in UserDataDirs().Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
@@ -389,32 +375,10 @@ public static class Cleanup
                     items.Add(FileItem(p, CleanupCategory.GenTool, CleanupRisk.Attention, "clean.explain.gentool", defaultChecked: false));
             }
 
-        // ── 🩹 GenPatcher : Bureau / Téléchargements / Documents (+ dossiers Data du jeu) ──
-        var gpRoots = new[]
-        {
-            Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-            OperatingSystem.IsWindows() ? DownloadsDir()
-                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
-            docs,
-        };
+        // ── 🩹 GenPatcher : UNIQUEMENT le dossier de données qu'il LAISSE (Documents Data). ──
+        // On NE TOUCHE PAS aux installeurs (zip/exe/dossiers GenPatcher dans Téléchargements, Bureau…) :
+        // ce qui permet de réinstaller appartient à l'utilisateur, jamais supprimé par GenSpeed.
         var seenGp = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var root in gpRoots.Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
-            try
-            {
-                foreach (var dir in Directory.EnumerateDirectories(root, "GenPatcher*"))
-                    if (seenGp.Add(dir))
-                    {
-                        var gi = DirItem(dir, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher", defaultChecked: false);
-                        gi.ChosenMethod = CleanupMethod.SupprimerDirect;   // dossier téléchargé, re-téléchargeable
-                        items.Add(gi);
-                    }
-                foreach (var exe in Directory.EnumerateFiles(root, "GenPatcher*.exe"))
-                    if (seenGp.Add(exe))
-                        items.Add(FileItem(exe, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.genpatcher", defaultChecked: false,
-                            methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
-            }
-            catch { }
-        // GenPatcher se loge AUSSI dans les dossiers Data du jeu (Generals ET Zero Hour, tout Documents résolu).
         foreach (var data in UserDataDirs().Select(d => Path.Combine(d, "GenPatcher")))
             if (Directory.Exists(data) && seenGp.Add(data))
             {
@@ -477,6 +441,18 @@ public static class Cleanup
                         Category = CleanupCategory.Registre, Kind = CleanupKind.CleRegistre, Path = key,
                         Display = key.Replace(@"HKLM\SOFTWARE\", ""), ExplainKey = "clean.explain.eareg",
                         Risk = CleanupRisk.Attention, Reversible = true, DefaultChecked = false,
+                        AllowedMethods = new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect },
+                        ChosenMethod = CleanupMethod.SauvegarderSupprimer,
+                    });
+            // Racine « EA Games » : ne la proposer QUE si elle ne contient plus que des sous-clés du jeu
+            // (coquilles vides laissées après désinstall) — sinon d'autres jeux EA y vivent, on n'y touche pas.
+            foreach (var eaRoot in new[] { @"HKLM\SOFTWARE\WOW6432Node\Electronic Arts\EA Games", @"HKLM\SOFTWARE\Electronic Arts\EA Games" })
+                if (RegSubKeysAllGame(eaRoot))
+                    items.Add(new CleanupItem
+                    {
+                        Category = CleanupCategory.Registre, Kind = CleanupKind.CleRegistre, Path = eaRoot,
+                        Display = eaRoot.Replace(@"HKLM\SOFTWARE\", "") + "  (coquille vide)", ExplainKey = "clean.explain.earoot",
+                        Risk = CleanupRisk.Sur, Reversible = true, DefaultChecked = false,
                         AllowedMethods = new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect },
                         ChosenMethod = CleanupMethod.SauvegarderSupprimer,
                     });
@@ -564,6 +540,33 @@ public static class Cleanup
             using var bk2 = RegistryKey.OpenBaseKey(p.Value.hive, RegistryView.Registry64);
             using var k2 = bk2.OpenSubKey(p.Value.sub);
             return k2 != null;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Vrai si la clé existe, ne contient AUCUNE valeur, et toutes ses sous-clés sont des
+    /// coquilles de jeu (Generals / Zero Hour). Sert à proposer la racine « EA Games » SEULEMENT
+    /// quand il n'y reste que des coquilles vides du jeu (jamais si un autre jeu EA y vit).</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static bool RegSubKeysAllGame(string full)
+    {
+        var p = ParseRegPath(full);
+        if (p == null) return false;
+        try
+        {
+            using var bk = RegistryKey.OpenBaseKey(p.Value.hive, p.Value.view);
+            using var k = bk.OpenSubKey(p.Value.sub);
+            if (k == null) return false;
+            if (k.GetValueNames().Length > 0) return false;          // la racine porte des valeurs → on n'y touche pas
+            var subs = k.GetSubKeyNames();
+            if (subs.Length == 0) return false;                      // vide tout court : laissé tel quel
+            foreach (var s in subs)
+                if (!Regex.IsMatch(s, @"generals|zero\s*hour", RegexOptions.IgnoreCase)) return false;  // un autre jeu EA
+            // Toutes les sous-clés du jeu doivent elles-mêmes être vides (de simples coquilles).
+            foreach (var s in subs)
+                using (var sk = k.OpenSubKey(s))
+                    if (sk != null && (sk.GetValueNames().Length > 0 || sk.GetSubKeyNames().Length > 0)) return false;
+            return true;
         }
         catch { return false; }
     }

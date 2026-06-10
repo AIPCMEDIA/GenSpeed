@@ -322,6 +322,8 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.explain.shortcut"] = ["Raccourci lié au jeu / aux mods.", "Shortcut related to the game / mods."],
         ["clean.explain.eareg"]    = ["Clé registre EA (chemin d'install). La retirer empêche les lanceurs de trouver le jeu — utile seulement en désinstallation totale.",
                                       "EA registry key (install path). Removing it stops launchers from finding the game — only for full uninstall."],
+        ["clean.explain.earoot"]   = ["Racine « EA Games » devenue une coquille vide : il n'y reste que des sous-clés du jeu, toutes vides (aucune valeur). Sûr à retirer — Steam la recrée au besoin. Conservée si un autre jeu EA y vit encore.",
+                                      "“EA Games” root now an empty shell: only game subkeys remain, all empty (no values). Safe to remove — Steam recreates it if needed. Kept if another EA game still lives there."],
         ["clean.explain.appcompat"] = ["Réglage de compatibilité Windows lié à un exe du jeu.", "Windows compatibility setting tied to a game exe."],
         ["clean.explain.appcompat.orphan"] = ["Réglage de compatibilité ORPHELIN (l'exe n'existe plus). Sans danger à retirer.", "ORPHAN compatibility setting (the exe no longer exists). Safe to remove."],
         ["clean.explain.steam"]    = ["Jeu installé par Steam. Coche pour lancer sa désinstallation OFFICIELLE via Steam à la fin du nettoyage — GenSpeed ne supprime jamais ces fichiers à la main (Steam le croirait encore installé).",
