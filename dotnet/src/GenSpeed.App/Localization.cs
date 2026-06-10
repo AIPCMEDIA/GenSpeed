@@ -274,8 +274,14 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.method.SupprimerDirect"]      = ["Supprimer directement", "Delete directly"],
 
         // Explications par élément
-        ["clean.explain.d3d8"]     = ["GenTool. C'est un proxy DirectX 8 : le supprimer peut priver le jeu de DirectX 8 sur Windows 10/11. Conseillé : Désactiver (réversible).",
-                                      "GenTool. This is a DirectX 8 proxy: removing it may deprive the game of DirectX 8 on Windows 10/11. Recommended: Disable (reversible)."],
+        ["clean.explain.d3d8"]     = ["GenTool (proxy DirectX 8 dans le dossier du jeu). Le retirer = le jeu retombe sur le DirectX 8 de Windows (vérifié automatiquement après nettoyage) ; seules les fonctions GenTool sont perdues. Conseillé : Désactiver (réversible).",
+                                      "GenTool (DirectX 8 proxy in the game folder). Removing it = the game falls back to Windows' own DirectX 8 (verified automatically after cleanup); only GenTool features are lost. Recommended: Disable (reversible)."],
+        ["clean.dx.checking"]   = ["🔎 Vérification du DirectX 8 système (celui de Windows)…", "🔎 Checking the system DirectX 8 (Windows' own)…"],
+        ["clean.dx.ok"]         = ["DirectX 8 d'origine Windows vérifié — le jeu est bon. ({0})", "Genuine Windows DirectX 8 verified — the game is fine. ({0})"],
+        ["clean.dx.bad"]        = ["DirectX 8 système anormal : {0}", "System DirectX 8 looks abnormal: {0}"],
+        ["clean.dx.sfc.ask"]    = ["Le DirectX 8 de Windows semble anormal. Lancer la réparation officielle de Windows (« sfc /scannow ») ?\n\n⚠ C'est LA méthode sûre (aucun téléchargement), mais ça peut être LONG (souvent 5 à 20 minutes). Une fenêtre noire va s'ouvrir : laisse-la travailler jusqu'à 100 %.",
+                                   "Windows' DirectX 8 looks abnormal. Launch Windows' official repair (“sfc /scannow”)?\n\n⚠ This is THE safe method (no download), but it can take a WHILE (often 5–20 minutes). A black window will open: let it run to 100%."],
+        ["clean.dx.sfc.started"] = ["🛠 Réparation Windows lancée (sfc /scannow) — laisse la fenêtre aller jusqu'à 100 %.", "🛠 Windows repair started (sfc /scannow) — let the window reach 100%."],
         ["clean.explain.gentool"]  = ["Composant GenTool. Sans danger à retirer (sauvegarde recommandée).", "GenTool component. Safe to remove (backup recommended)."],
         ["clean.explain.dbghelp"]  = ["Gestionnaire de crash (GenTool) ou DLL renommée par GenPatcher. À retirer avec précaution.", "Crash handler (GenTool) or DLL renamed by GenPatcher. Remove with care."],
         ["clean.explain.glfolder"] = ["Données et config de GenLauncher (catalogue, images, GenLauncherCfg.yaml).", "GenLauncher data and config (catalog, images, GenLauncherCfg.yaml)."],

@@ -750,6 +750,47 @@ public static class Cleanup
         }
     }
 
+    // ===================================================================
+    //  Vérification DirectX 8 système (après retrait du proxy GenTool)
+    // ===================================================================
+
+    /// <summary>Vérifie que le d3d8.dll SYSTÈME (celui de Windows, pas le proxy GenTool) est présent
+    /// et authentique (signé Microsoft). Lecture seule. Valable Windows 10 et 11 (x64 : SysWOW64 ;
+    /// x86 : System32). Si KO, la réparation officielle est « sfc /scannow » — jamais un téléchargement.</summary>
+    public static (bool Ok, string Detail) VerifySystemDirectX8()
+    {
+        string win = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        // Le jeu est 32 bits : sur Windows x64 il charge SysWOW64\d3d8.dll, sur x86 System32\d3d8.dll.
+        string p = Path.Combine(win, "SysWOW64", "d3d8.dll");
+        if (!System.IO.File.Exists(p)) p = Path.Combine(win, "System32", "d3d8.dll");
+        if (!System.IO.File.Exists(p)) return (false, "d3d8.dll absent (SysWOW64/System32)");
+
+        string ver = PeVersion(p) ?? "?";
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -ExecutionPolicy Bypass -Command \"$s = Get-AuthenticodeSignature '" + p +
+                            "'; Write-Output ($s.Status.ToString() + '|' + $s.IsOSBinary)\"",
+                UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true,
+            };
+            using var proc = Process.Start(psi);
+            string outp = proc!.StandardOutput.ReadToEnd().Trim();
+            proc.WaitForExit(30000);
+            var parts = outp.Split('|');
+            bool valid = parts.Length >= 1 && parts[0].Equals("Valid", StringComparison.OrdinalIgnoreCase);
+            bool osBin = parts.Length >= 2 && parts[1].Equals("True", StringComparison.OrdinalIgnoreCase);
+            if (valid && osBin) return (true, $"{p} · v{ver} · signé Microsoft / Microsoft-signed");
+            return (false, $"{p} · v{ver} · signature: {outp}");
+        }
+        catch (Exception ex)
+        {
+            // Impossible de vérifier la signature : on reporte la présence + version sans conclure.
+            return (false, $"{p} · v{ver} · vérification signature impossible: {ex.Message}");
+        }
+    }
+
     private static string RestoreReadme() =>
         "=== GenSpeed — sauvegarde de désinstallation / cleanup backup ===\n\n" +
         "FR : Cette sauvegarde a été créée AVANT suppression. Pour restaurer :\n" +

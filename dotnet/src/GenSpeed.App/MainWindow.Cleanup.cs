@@ -118,6 +118,31 @@ public partial class MainWindow
             bool deep = chosen.Any(i => i.Category == CleanupCategory.Registre || i.Category == CleanupCategory.Jeu);
             if (steam != null && deep && Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.steam.ask"), steam.Extra)))
                 try { Process.Start(new ProcessStartInfo { FileName = $"steam://uninstall/{steam.Extra}", UseShellExecute = true }); } catch { }
+
+            // GenTool d3d8.dll retiré/désactivé → vérifier que le DirectX 8 SYSTÈME (Windows) est sain.
+            // Lecture seule ; si anomalie, proposer la réparation officielle de Windows (sfc /scannow).
+            if (chosen.Any(i => i.Category == CleanupCategory.GenTool &&
+                                i.Path.EndsWith("d3d8.dll", StringComparison.OrdinalIgnoreCase)))
+            {
+                Log(Loc.T("clean.dx.checking"));
+                var (ok, detail) = await Task.Run(Cleanup.VerifySystemDirectX8);
+                if (ok)
+                {
+                    Log("✅ " + string.Format(Loc.T("clean.dx.ok"), detail));
+                }
+                else
+                {
+                    Log("⚠ " + string.Format(Loc.T("clean.dx.bad"), detail));
+                    if (IsLoaded && Dialogs.Confirm(this, Loc.T("clean.title"), Loc.T("clean.dx.sfc.ask")))
+                        try
+                        {
+                            Process.Start(new ProcessStartInfo
+                            { FileName = "cmd.exe", Arguments = "/k sfc /scannow", Verb = "runas", UseShellExecute = true });
+                            Log(Loc.T("clean.dx.sfc.started"));
+                        }
+                        catch (System.ComponentModel.Win32Exception) { Log(Loc.T("log.uaccancel")); }
+                }
+            }
         }
         finally
         {
