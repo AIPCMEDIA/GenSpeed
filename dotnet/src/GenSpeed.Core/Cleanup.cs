@@ -336,16 +336,20 @@ public static class Cleanup
         // Tout DÉCOCHÉ par défaut : ce sont des données personnelles.
         foreach (var ud in UserDataDirs().Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase))
         {
-            foreach (var (sub, key) in new[] { ("Maps", "usermaps"), ("Replays", "replays"), ("Save", "saves"), ("Screenshots", "screenshots") })
+            foreach (var (sub, key) in new[] { ("Maps", "usermaps"), ("Replays", "replays"), ("Save", "saves"), ("Screenshots", "screenshots"),
+                                               ("MapPreviews", "mappreviews"), ("CrashDumps", "crashdumps") })
             {
                 string p = Path.Combine(ud, sub);
                 if (Directory.Exists(p))
                     items.Add(DirItem(p, CleanupCategory.Joueur, CleanupRisk.Attention, $"clean.explain.{key}", defaultChecked: false));
             }
-            string opt = Path.Combine(ud, "options.ini");
-            if (System.IO.File.Exists(opt))
-                items.Add(FileItem(opt, CleanupCategory.Joueur, CleanupRisk.Attention, "clean.explain.options", defaultChecked: false,
-                    methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
+            foreach (var ini in new[] { "options.ini", "Network.ini" })
+            {
+                string opt = Path.Combine(ud, ini);
+                if (System.IO.File.Exists(opt))
+                    items.Add(FileItem(opt, CleanupCategory.Joueur, CleanupRisk.Attention, "clean.explain.options", defaultChecked: false,
+                        methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
+            }
         }
 
         // ── 🖇 Raccourcis bureau / menu démarrer pointant vers le jeu ──────
@@ -656,6 +660,20 @@ public static class Cleanup
         return s.Replace('/', Path.DirectorySeparatorChar);
     }
 
+    /// <summary>Retire lecture-seule/caché/système (récursif pour un dossier) — sinon Delete échoue en
+    /// « Access denied » même élevé (cas réel : contenus extraits de ModDB marqués lecture seule).</summary>
+    private static void ClearAttributes(string path, bool isDir)
+    {
+        try
+        {
+            if (isDir)
+                foreach (var e in Directory.EnumerateFileSystemEntries(path, "*", SearchOption.AllDirectories))
+                    try { System.IO.File.SetAttributes(e, FileAttributes.Normal); } catch { }
+            System.IO.File.SetAttributes(path, FileAttributes.Normal);
+        }
+        catch { }
+    }
+
     private static void ExecFileOrDir(CleanupItem it, CleanupJob job, CleanupResult res, List<object> manifest)
     {
         bool isDir = it.Kind == CleanupKind.Dossier;
@@ -680,6 +698,7 @@ public static class Cleanup
             manifest.Add(new { action = "backup+delete", kind = it.Kind.ToString(), original = it.Path, backup = dest });
         }
 
+        ClearAttributes(it.Path, isDir);
         if (isDir) Directory.Delete(it.Path, recursive: true); else System.IO.File.Delete(it.Path);
         res.FreedBytes += size;
         res.Done.Add($"🗑 {it.Display}");
@@ -698,6 +717,7 @@ public static class Cleanup
                 System.IO.File.Copy(fp, dest, overwrite: true);
                 manifest.Add(new { action = "backup+delete", kind = "Fichier", original = fp, backup = dest });
             }
+            ClearAttributes(fp, isDir: false);
             System.IO.File.Delete(fp);
             res.FreedBytes += size;
         }

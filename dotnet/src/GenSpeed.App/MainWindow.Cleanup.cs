@@ -180,6 +180,11 @@ public partial class MainWindow
             }
 
             SaveJournal();
+
+            // Rafraîchir l'application : l'install active ou ses mods ont pu disparaître.
+            // LoadMods re-détecte (et bascule automatiquement sur une install existante si besoin).
+            _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p));
+            LoadMods();
         }
         finally
         {
