@@ -49,6 +49,10 @@ public partial class MainWindow
                     Log(string.Format(Loc.T("clean.steam.started"), s.Extra));
                 }
                 catch { }
+        // Steam ne supprime que SES fichiers : les ajouts tiers (addons GenPatcher, DXVK, .bak…)
+        // peuvent rester dans le dossier. Au prochain scan, ce dossier (devenu non-Steam) sera
+        // proposé en suppression normale — on prévient l'utilisateur.
+        if (steamChosen.Count > 0) Log(Loc.T("clean.steam.residue"));
     }
 
     private async void OnCfgUninstall()
