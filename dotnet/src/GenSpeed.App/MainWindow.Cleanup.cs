@@ -110,7 +110,38 @@ public partial class MainWindow
             if (res == null) { Log("⚠ " + Loc.T("log.noresult")); return; }
             foreach (var d in res.Done) Log("   " + d);
             foreach (var er in res.Errors) Log("⚠ " + er);
-            if (!IsLoaded) return;   // fenêtre fermée pendant le nettoyage : le travail est fait, pas de dialogues
+
+            // Journal écrit DANS le dossier de sauvegarde (utile pour relire/diagnostiquer après coup).
+            var jl = new System.Text.StringBuilder();
+            jl.AppendLine("=== GenSpeed — journal de nettoyage / cleanup log ===");
+            jl.AppendLine($"Date    : {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            jl.AppendLine($"Install : {gameDir}");
+            jl.AppendLine();
+            jl.AppendLine($"--- Éléments choisis / selected items ({chosen.Count}) ---");
+            foreach (var g in chosen.GroupBy(i => i.Category).OrderBy(x => Cleanup.CategoryRank(x.Key)))
+                foreach (var it in g)
+                    jl.AppendLine($"[{g.Key}] [{Loc.T($"clean.method.{it.ChosenMethod}")}] {it.Display}  ({it.Path})");
+            jl.AppendLine();
+            jl.AppendLine($"--- Effectué / done ({res.Done.Count}) ---");
+            foreach (var d in res.Done) jl.AppendLine(d);
+            jl.AppendLine();
+            jl.AppendLine($"--- Erreurs / errors ({res.Errors.Count}) ---");
+            foreach (var er in res.Errors) jl.AppendLine(er);
+            jl.AppendLine();
+            jl.AppendLine($"Espace libéré / freed : {FmtBytes(res.FreedBytes)}");
+            jl.AppendLine($"Sauvegarde / backup   : {res.BackupDir}");
+            void SaveJournal()
+            {
+                try
+                {
+                    Directory.CreateDirectory(backupDir);
+                    File.WriteAllText(Path.Combine(backupDir, "cleanup.log"), jl.ToString(), System.Text.Encoding.UTF8);
+                    Log(string.Format(Loc.T("clean.log.saved"), Path.Combine(backupDir, "cleanup.log")));
+                }
+                catch { }
+            }
+
+            if (!IsLoaded) { SaveJournal(); return; }   // fenêtre fermée pendant le nettoyage : journal quand même
             Dialogs.Info(this, Loc.T("clean.title"),
                 string.Format(Loc.T("clean.report"), res.Done.Count, res.Errors.Count, FmtBytes(res.FreedBytes), res.BackupDir));
 
@@ -130,20 +161,25 @@ public partial class MainWindow
                 if (ok)
                 {
                     Log("✅ " + string.Format(Loc.T("clean.dx.ok"), detail));
+                    jl.AppendLine($"DirectX 8 système : OK — {detail}");
                 }
                 else
                 {
                     Log("⚠ " + string.Format(Loc.T("clean.dx.bad"), detail));
+                    jl.AppendLine($"DirectX 8 système : ANORMAL — {detail}");
                     if (IsLoaded && Dialogs.Confirm(this, Loc.T("clean.title"), Loc.T("clean.dx.sfc.ask")))
                         try
                         {
                             Process.Start(new ProcessStartInfo
                             { FileName = "cmd.exe", Arguments = "/k sfc /scannow", Verb = "runas", UseShellExecute = true });
                             Log(Loc.T("clean.dx.sfc.started"));
+                            jl.AppendLine("Réparation lancée : sfc /scannow");
                         }
                         catch (System.ComponentModel.Win32Exception) { Log(Loc.T("log.uaccancel")); }
                 }
             }
+
+            SaveJournal();
         }
         finally
         {

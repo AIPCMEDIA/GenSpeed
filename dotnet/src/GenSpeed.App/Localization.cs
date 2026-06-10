@@ -282,6 +282,7 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.dx.sfc.ask"]    = ["Le DirectX 8 de Windows semble anormal. Lancer la réparation officielle de Windows (« sfc /scannow ») ?\n\n⚠ C'est LA méthode sûre (aucun téléchargement), mais ça peut être LONG (souvent 5 à 20 minutes). Une fenêtre noire va s'ouvrir : laisse-la travailler jusqu'à 100 %.",
                                    "Windows' DirectX 8 looks abnormal. Launch Windows' official repair (“sfc /scannow”)?\n\n⚠ This is THE safe method (no download), but it can take a WHILE (often 5–20 minutes). A black window will open: let it run to 100%."],
         ["clean.dx.sfc.started"] = ["🛠 Réparation Windows lancée (sfc /scannow) — laisse la fenêtre aller jusqu'à 100 %.", "🛠 Windows repair started (sfc /scannow) — let the window reach 100%."],
+        ["clean.log.saved"]      = ["📄 Journal enregistré : {0}", "📄 Log saved: {0}"],
         ["clean.explain.gentool"]  = ["Composant GenTool. Sans danger à retirer (sauvegarde recommandée).", "GenTool component. Safe to remove (backup recommended)."],
         ["clean.explain.dbghelp"]  = ["Gestionnaire de crash (GenTool) ou DLL renommée par GenPatcher. À retirer avec précaution.", "Crash handler (GenTool) or DLL renamed by GenPatcher. Remove with care."],
         ["clean.explain.glfolder"] = ["Données et config de GenLauncher (catalogue, images, GenLauncherCfg.yaml).", "GenLauncher data and config (catalog, images, GenLauncherCfg.yaml)."],
