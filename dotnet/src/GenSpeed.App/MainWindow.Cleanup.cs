@@ -49,9 +49,10 @@ public partial class MainWindow
         if (!IsLoaded) return;   // fenêtre principale fermée pendant l'analyse : abandonner proprement
         if (items.Count == 0) { Dialogs.Info(this, Loc.T("clean.title"), Loc.T("clean.nothing")); return; }
 
+        // Dossier dédié (pas le Bureau) : toutes les sauvegardes GenSpeed regroupées au même endroit.
         string backupDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-            $"GenSpeed-Cleanup-Backup-{DateTime.Now:yyyyMMdd-HHmmss}");
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+            "GenSpeed", "Backups", $"Cleanup-{DateTime.Now:yyyyMMdd-HHmmss}");
 
         var (action, result) = CleanupWindow.Show(this, items, backupDir, gameDir);
         if (action == CleanupAction.Cancel) return;
