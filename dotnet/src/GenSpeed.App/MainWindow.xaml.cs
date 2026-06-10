@@ -115,6 +115,8 @@ public partial class MainWindow : Window
         Add("preview.mod", t => RunPreview("mod", t));
         cm.Items.Add(new Separator());
         Add("ctx.open", OpenModFolder);
+        cm.Items.Add(new Separator());
+        Add("ctx.rename", OnRenameMod);
         cm.Opened += (_, _) => { foreach (var (mi, key) in _ctxItems) mi.Header = Loc.T(key); };
         ModGrid.ContextMenu = cm;
 
@@ -130,10 +132,35 @@ public partial class MainWindow : Window
     private void OpenModFolder(Target t)
     {
         if (_gameDir == null) return;
-        string folder = t.Type == TargetType.Gib ? Path.Combine(_gameDir, "GLM", t.Label) : _gameDir;
+        string folder = t.Type switch
+        {
+            TargetType.Gib => Path.Combine(_gameDir, "GLM", t.Label),
+            TargetType.Ini => Path.Combine(_gameDir, "Data", "INI"),
+            _ => _gameDir,
+        };
         if (!Directory.Exists(folder)) folder = _gameDir;
         try { Process.Start(new ProcessStartInfo { FileName = "explorer.exe", Arguments = $"\"{folder}\"", UseShellExecute = true }); }
         catch { }
+    }
+
+    /// <summary>Nom affiché d'une cible : alias personnalisé si défini, sinon libellé convivial.</summary>
+    private string DisplayName(string label)
+    {
+        string key = (_gameDir ?? "") + "::" + label;
+        return _config.ModAliases.TryGetValue(key, out var a) && !string.IsNullOrWhiteSpace(a) ? a : FriendlyLabel(label);
+    }
+
+    /// <summary>Renommer l'AFFICHAGE d'un mod dans le tableau (non destructif — n'affecte pas le patch ni le code LAN).</summary>
+    private void OnRenameMod(Target t)
+    {
+        string? name = Dialogs.Prompt(this, Loc.T("ctx.rename"), Loc.T("rename.mod.msg"), DisplayName(t.Label));
+        if (string.IsNullOrWhiteSpace(name)) return;
+        string key = (_gameDir ?? "") + "::" + t.Label;
+        if (name == FriendlyLabel(t.Label)) _config.ModAliases.Remove(key);   // remis au nom par défaut
+        else _config.ModAliases[key] = name;
+        ConfigStore.Save(_config);
+        if (ModGrid.ItemsSource is IEnumerable<ModRow> rows)
+            foreach (var r in rows) if (r.Mod == t.Label) r.Display = DisplayName(t.Label);
     }
 
     private void WireToolbar()
@@ -141,6 +168,7 @@ public partial class MainWindow : Window
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare));
         Dropdown(ConfigBtn, ("cfg.installs", OnCfgInstalls), ("cfg.gamedir", OnCfgGameDir), ("cfg.modsdir", OnCfgModsDir),
                             ("cfg.launcher", OnCfgLauncher),
+                            ("cfg.uninstall", OnCfgUninstall),
                             ("cfg.reset", OnCfgReset), ("cfg.export", OnCfgExport), ("cfg.import", OnCfgImport));
         Dropdown(PreviewBtn, ("preview.key", () => RunPreview("key")),
                              ("preview.full", () => RunPreview("full")),
@@ -417,6 +445,34 @@ public partial class MainWindow : Window
 
     private static string InstallLabel(string dir) => Path.GetFileName(dir.TrimEnd('\\', '/'));
 
+    /// <summary>Type d'install (pour bien différencier) : 🎮 Jeu d'origine / 🧩 GenLauncher / 🔧 Mod autonome (fork).</summary>
+    /// <summary>Un fork ships son PROPRE exe de jeu (ex. « Reborn Omega 1.01.exe »), souvent avec dossier renommé.
+    /// GenLauncher.exe n'en est pas un : c'est le monde GenLauncher dans le dossier ZH d'origine.</summary>
+    private static bool IsForkExe(string file)
+        => IsLauncherCandidate(file) && Path.GetFileName(file).ToLowerInvariant() != "genlauncher.exe";
+
+    private static string InstallType(string dir)
+    {
+        // 1) Fork = exe de jeu propre au mod présent à la racine (signal fiable, indépendant du nom du dossier).
+        try
+        {
+            if (Directory.EnumerateFiles(dir, "*.exe").Any(IsForkExe))
+                return Loc.T("inst.type.fork");
+        }
+        catch { }
+        // 2) Monde GenLauncher = dossier GLM contenant au moins un mod (reste dans le dossier ZH d'origine).
+        try
+        {
+            string g = Path.Combine(dir, "GLM");
+            if (Directory.Exists(g) && Directory.EnumerateDirectories(g)
+                  .Any(d => Path.GetFileName(d) is not ("Addons" or "Patches" or "Tools")))
+                return Loc.T("inst.type.genl");
+        }
+        catch { }
+        // 3) Sinon : jeu Zero Hour d'origine, sans mods.
+        return Loc.T("inst.type.orig");
+    }
+
     private void EnsureInstallListed(string? dir)
     {
         if (string.IsNullOrEmpty(dir)) return;
@@ -457,6 +513,113 @@ public partial class MainWindow : Window
         if (idx >= 0 && idx < installs.Count) SwitchInstall(installs[idx]);
     }
 
+    // ===== Désinstalleur propre =====
+    /// <summary>Process du jeu/outils potentiellement en cours (verrous fichiers + symlinks GenLauncher actifs).</summary>
+    private static List<string> RunningGameProcs()
+    {
+        var found = new List<string>();
+        foreach (var n in new[] { "generals", "generalszh", "modded", "GenLauncher", "WorldBuilder", "GenTool", "GenPatcher" })
+            try { if (Process.GetProcessesByName(n).Length > 0) found.Add(n); } catch { }
+        return found;
+    }
+
+    private static string FmtBytes(long b)
+    {
+        if (b <= 0) return "0";
+        string[] u = { "o", "Ko", "Mo", "Go" };
+        double v = b; int i = 0;
+        while (v >= 1024 && i < u.Length - 1) { v /= 1024; i++; }
+        return $"{v:0.#} {u[i]}";
+    }
+
+    private async void OnCfgUninstall()
+    {
+        if (_gameDir == null) { Dialogs.Info(this, "GenSpeed", Loc.T("log.nogame")); return; }
+        string gameDir = _gameDir;
+
+        Log(Loc.T("clean.scanning"));
+        List<CleanupItem> items;
+        try { items = await Task.Run(() => Cleanup.Scan(gameDir)); }
+        catch (Exception ex) { Log("⚠ " + ex.Message); return; }
+        if (!IsLoaded) return;   // fenêtre principale fermée pendant l'analyse : abandonner proprement
+        if (items.Count == 0) { Dialogs.Info(this, Loc.T("clean.title"), Loc.T("clean.nothing")); return; }
+
+        string backupDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+            $"GenSpeed-Cleanup-Backup-{DateTime.Now:yyyyMMdd-HHmmss}");
+
+        var (action, result) = CleanupWindow.Show(this, items, backupDir, gameDir);
+        if (action == CleanupAction.Cancel) return;
+
+        var chosen = result.Where(i => i.Selected && i.Removable && i.ChosenMethod != CleanupMethod.Laisser).ToList();
+        if (chosen.Count == 0) { Log(Loc.T("clean.none.sel")); return; }
+
+        if (action == CleanupAction.Simulate)
+        {
+            Log(Loc.T("clean.sim.head"));
+            // Même ordre par étapes que la fenêtre ET que la suppression réelle (CategoryRank).
+            int simStep = 0;
+            foreach (var g in chosen.GroupBy(i => i.Category).OrderBy(x => Cleanup.CategoryRank(x.Key)))
+            {
+                simStep++;
+                Log("  " + string.Format(Loc.T("clean.step"), simStep, Loc.T($"clean.cat.{g.Key}")));
+                foreach (var it in g)
+                    Log($"     • [{Loc.T($"clean.method.{it.ChosenMethod}")}] {it.Display}");
+            }
+            Log(string.Format(Loc.T("clean.sim.foot"), backupDir));
+            return;
+        }
+
+        // Étape 0 : vérifier qu'aucun process du jeu/outil ne tourne (verrous + symlinks GenLauncher actifs).
+        var running = RunningGameProcs();
+        if (running.Count > 0 &&
+            !Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.proc.warn"), string.Join(", ", running))))
+            return;
+
+        // Exécution réelle : confirmation forte.
+        if (!Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.confirm"), chosen.Count, backupDir)))
+            return;
+
+        // Réinitialisation GenSpeed : si on supprime sa config, empêcher qu'il la réécrive à la
+        // fermeture (sinon le reset serait annulé — « ne pas scier la branche »). GenSpeed reste installé.
+        string gsCfgPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GenSpeed");
+        if (chosen.Any(i => string.Equals(i.Path.TrimEnd('\\'), gsCfgPath, StringComparison.OrdinalIgnoreCase)))
+            ConfigStore.Suppressed = true;
+
+        var job = new CleanupJob
+        {
+            BackupDir = backupDir, Items = chosen,
+            ResultPath = Path.Combine(Path.GetTempPath(), $"genspeed_cleanup_result_{Guid.NewGuid():N}.json"),
+        };
+        string jobPath = Path.Combine(Path.GetTempPath(), $"genspeed_cleanup_job_{Guid.NewGuid():N}.json");
+        File.WriteAllText(jobPath, JsonSerializer.Serialize(job));
+
+        Log(Loc.T("clean.running"));
+        try
+        {
+            int code = await RunElevated("--cleanup", jobPath);
+            if (code < 0) { Log(Loc.T("log.uaccancel")); ConfigStore.Suppressed = false; return; }
+            CleanupResult? res = File.Exists(job.ResultPath)
+                ? JsonSerializer.Deserialize<CleanupResult>(File.ReadAllText(job.ResultPath)) : null;
+            if (res == null) { Log("⚠ " + Loc.T("log.noresult")); return; }
+            foreach (var d in res.Done) Log("   " + d);
+            foreach (var er in res.Errors) Log("⚠ " + er);
+            if (!IsLoaded) return;   // fenêtre fermée pendant le nettoyage : le travail est fait, pas de dialogues
+            Dialogs.Info(this, Loc.T("clean.title"),
+                string.Format(Loc.T("clean.report"), res.Done.Count, res.Errors.Count, FmtBytes(res.FreedBytes), res.BackupDir));
+
+            // Désinstallation profonde (clés EA / dossier jeu) : proposer la désinstall Steam propre.
+            var steam = result.FirstOrDefault(i => i.Category == CleanupCategory.Steam && !string.IsNullOrEmpty(i.Extra));
+            bool deep = chosen.Any(i => i.Category == CleanupCategory.Registre || i.Category == CleanupCategory.Jeu);
+            if (steam != null && deep && Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.steam.ask"), steam.Extra)))
+                try { Process.Start(new ProcessStartInfo { FileName = $"steam://uninstall/{steam.Extra}", UseShellExecute = true }); } catch { }
+        }
+        finally
+        {
+            try { File.Delete(jobPath); File.Delete(job.ResultPath); } catch { }
+        }
+    }
+
     // ===== Textes dépendant de la langue =====
     private void RefreshTexts()
     {
@@ -474,9 +637,10 @@ public partial class MainWindow : Window
         LangBtn.Content = Loc.I.Lang == 0 ? "EN" : "FR";
         if (LogBtn != null) LogBtn.Content = Loc.T(_logVisible ? "tb.log" : "tb.logshow");
         if (ModGrid.ItemsSource is IEnumerable<ModRow> mrows)
-            foreach (var r in mrows) r.Display = FriendlyLabel(r.Mod);
+            foreach (var r in mrows) r.Display = DisplayName(r.Mod);
         UpdateSpeedLabel();
         if (CamLabel != null) CamLabel.Text = _camIdx == 0 ? Loc.T("cam.default") : _camNames[_camIdx];
+        if (_gameDir != null) Title = $"GenSpeed — {InstallLabel(_gameDir)}  ·  {InstallType(_gameDir)}";
     }
 
     // ===== Liste des mods (détection réelle) =====
@@ -488,6 +652,7 @@ public partial class MainWindow : Window
         if (_gameDir == null) { Log(Loc.T("log.nogame")); return; }
         if (_config.GameDir != _gameDir) { _config.GameDir = _gameDir; ConfigStore.Save(_config); }
         EnsureInstallListed(_gameDir);
+        Title = $"GenSpeed — {InstallLabel(_gameDir)}  ·  {InstallType(_gameDir)}";   // install active bien visible
         Log(string.Format(Loc.T("log.gamedir"), _gameDir));
 
         List<Target> targets;
@@ -514,7 +679,7 @@ public partial class MainWindow : Window
         foreach (var t in targets)
             rows.Add(new ModRow
             {
-                Target = t, Mod = t.Label, Display = FriendlyLabel(t.Label),
+                Target = t, Mod = t.Label, Display = DisplayName(t.Label),
                 Vitesse = Loc.T("orig"), Camera = Loc.T("orig"),
                 Archives = t.ArchiveCount.ToString(), Ini = t.IniCount().ToString(),
                 Patched = "—", Code = "…",

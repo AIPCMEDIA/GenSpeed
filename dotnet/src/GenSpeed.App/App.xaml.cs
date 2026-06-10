@@ -37,6 +37,16 @@ public partial class App : Application
             return;
         }
 
+        // Mode élevé désinstalleur propre (sauvegarde + suppression).
+        if (e.Args.Length >= 2 && e.Args[0] == "--cleanup")
+        {
+            int code;
+            try { code = CleanupRunner.Run(e.Args[1]); }
+            catch { code = 2; }
+            Shutdown(code);
+            return;
+        }
+
         new MainWindow().Show();
     }
 }

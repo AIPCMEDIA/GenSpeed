@@ -42,6 +42,8 @@ public sealed class GenConfig
     [JsonPropertyName("patched_state")]  public Dictionary<string, PatchedInfo> PatchedState { get; set; } = new();
     // "dossier::label" -> code LAN mis en cache (évite de re-hacher des Go à chaque chargement).
     [JsonPropertyName("hash_cache")]     public Dictionary<string, HashCacheEntry> HashCache { get; set; } = new();
+    // "dossier::label" -> nom d'affichage personnalisé (renommage non destructif, n'affecte pas le patch).
+    [JsonPropertyName("mod_aliases")]    public Dictionary<string, string> ModAliases { get; set; } = new();
     [JsonPropertyName("speed_presets")]  public List<SpeedPreset> SpeedPresets { get; set; } = new();
     // nom -> { variable -> valeur } ; "Reset camera" = {} est conservé.
     [JsonPropertyName("camera_presets")] public Dictionary<string, Dictionary<string, string>> CameraPresets { get; set; } = new();
@@ -147,8 +149,13 @@ public static class ConfigStore
         return null;
     }
 
+    /// <summary>Si vrai, Save() ne fait rien : empêche GenSpeed de recréer sa config qu'on est en train
+    /// de supprimer (auto-désinstallation — « ne pas scier la branche »).</summary>
+    public static bool Suppressed { get; set; }
+
     public static void Save(GenConfig cfg)
     {
+        if (Suppressed) return;
         try
         {
             Directory.CreateDirectory(Dir);

@@ -86,3 +86,32 @@ public static class ElevatedRunner
         }
     }
 }
+
+/// <summary>Exécuté DANS le process élevé (admin) : sauvegarde + suppression du désinstalleur propre.</summary>
+public static class CleanupRunner
+{
+    public static int Run(string jobPath)
+    {
+        CleanupJob? job = null;
+        try
+        {
+            job = JsonSerializer.Deserialize<CleanupJob>(File.ReadAllText(jobPath))!;
+            var result = Cleanup.Execute(job);
+            File.WriteAllText(job.ResultPath, JsonSerializer.Serialize(result));
+            return result.Errors.Count == 0 ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            try
+            {
+                if (job != null)
+                {
+                    var result = new CleanupResult { BackupDir = job.BackupDir, Errors = { ex.Message } };
+                    File.WriteAllText(job.ResultPath, JsonSerializer.Serialize(result));
+                }
+            }
+            catch { }
+            return 2;
+        }
+    }
+}
