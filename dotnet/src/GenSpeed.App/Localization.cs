@@ -297,6 +297,8 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.explain.glfolder"] = ["Données et config de GenLauncher (catalogue, images, GenLauncherCfg.yaml).", "GenLauncher data and config (catalog, images, GenLauncherCfg.yaml)."],
         ["clean.explain.genlauncher"] = ["Exécutable / fichiers de GenLauncher.", "GenLauncher executable / files."],
         ["clean.explain.launcherdir"] = ["Dossier de ressources du lanceur.", "Launcher resources folder."],
+        ["clean.explain.moddedexe"] = ["Exe moteur modifié (fork) utilisé par l'option « Use modded .exe » de GenLauncher. Inutile sans GenLauncher.",
+                                       "Modified engine exe (fork) used by GenLauncher's “Use modded .exe” option. Useless without GenLauncher."],
         ["clean.explain.glm"]      = ["Tous les mods téléchargés par GenLauncher (peut peser plusieurs Go). Les retirer = retélécharger plus tard.",
                                       "All mods downloaded by GenLauncher (can be several GB). Removing = re-download later."],
         ["clean.explain.mod"]      = ["Mod GenLauncher (inclut ses versions, addons et patches). Re-téléchargeable plus tard.",

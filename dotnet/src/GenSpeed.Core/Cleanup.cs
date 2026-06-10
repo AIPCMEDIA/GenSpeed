@@ -227,6 +227,10 @@ public static class Cleanup
         string launcherDir = Path.Combine(gameDir, "launcher");
         if (Directory.Exists(launcherDir))
             items.Add(DirItem(launcherDir, CleanupCategory.GenLauncher, CleanupRisk.Sur, "clean.explain.launcherdir", defaultChecked: false));
+        // modded.exe : exe moteur modifié (fork TSH) utilisé par l'option « Use modded .exe » de GenLauncher.
+        string modded = Path.Combine(gameDir, "modded.exe");
+        if (System.IO.File.Exists(modded))
+            items.Add(FileItem(modded, CleanupCategory.GenLauncher, CleanupRisk.Attention, "clean.explain.moddedexe", defaultChecked: false));
 
         // ── 🧩 Mods (GLM) : gros volume, décoché par défaut ────────────────
         string glm = Path.Combine(gameDir, "GLM");
@@ -412,7 +416,7 @@ public static class Cleanup
                 if (Directory.Exists(p))
                     items.Add(DirItem(p, CleanupCategory.Joueur, CleanupRisk.Attention, $"clean.explain.{key}", defaultChecked: false));
             }
-            foreach (var ini in new[] { "options.ini", "Network.ini" })
+            foreach (var ini in new[] { "options.ini", "Network.ini", "Skirmish.ini", "ReleaseCrashInfo.txt", "ReleaseCrashInfoPrev.txt" })
             {
                 string opt = Path.Combine(ud, ini);
                 if (System.IO.File.Exists(opt))
@@ -691,6 +695,24 @@ public static class Cleanup
             }
             catch (Exception ex) { res.Errors.Add($"{it.Display}: {ex.Message}"); }
         }
+
+        // Balayage final : si la suppression des mods a laissé une racine GLM vide, on la retire
+        // (sinon il reste une coquille « GLM » 0 fichier — constaté en test réel).
+        foreach (var glmRoot in job.Items
+                     .Where(i => i.Category == CleanupCategory.Mods && i.Kind == CleanupKind.Dossier
+                                 && i.ChosenMethod != CleanupMethod.Laisser)
+                     .Select(i => System.IO.Path.GetDirectoryName(i.Path.TrimEnd('\\', '/')))
+                     .Where(p => p != null && System.IO.Path.GetFileName(p)!.Equals("GLM", StringComparison.OrdinalIgnoreCase))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+            try
+            {
+                if (Directory.Exists(glmRoot!) && !Directory.EnumerateFileSystemEntries(glmRoot!).Any())
+                {
+                    Directory.Delete(glmRoot!);
+                    res.Done.Add("🗑 GLM (racine vide)");
+                }
+            }
+            catch { }
 
         // Manifeste + mode d'emploi de restauration.
         try
