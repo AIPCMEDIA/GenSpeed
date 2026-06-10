@@ -258,8 +258,10 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.running"]   = ["🧹 Nettoyage en cours (sauvegarde puis suppression)…", "🧹 Cleaning up (backup then removal)…"],
         ["clean.report"]    = ["Terminé : {0} action(s), {1} erreur(s), ~{2} libéré(s).\n\nSauvegarde de secours :\n{3}\n\n(Voir RESTORE.txt pour restaurer.)",
                                "Done: {0} action(s), {1} error(s), ~{2} freed.\n\nSafety backup:\n{3}\n\n(See RESTORE.txt to restore.)"],
-        ["clean.steam.ask"] = ["Veux-tu lancer la désinstallation du jeu via Steam (AppID {0}) ? C'est la façon propre de retirer un jeu installé par Steam.",
-                               "Launch the game's uninstall via Steam (AppID {0})? This is the clean way to remove a Steam-installed game."],
+        ["clean.steam.ask"] = ["Lancer la désinstallation du jeu via Steam (AppID {0}) ? Steam affichera sa propre confirmation.",
+                               "Launch the game's uninstall via Steam (AppID {0})? Steam will show its own confirmation."],
+        ["clean.steam.started"] = ["💨 Désinstallation Steam lancée (AppID {0}) — confirme dans la fenêtre Steam.",
+                                   "💨 Steam uninstall launched (AppID {0}) — confirm in the Steam window."],
 
         // Catégories du désinstalleur (clé = nom d'enum CleanupCategory)
         ["clean.cat.Jeu"]         = ["🎮 Jeu", "🎮 Game"],
@@ -281,6 +283,7 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.method.Desactiver"]           = ["Désactiver (renommer .off)", "Disable (rename .off)"],
         ["clean.method.SauvegarderSupprimer"] = ["Sauvegarder puis supprimer", "Backup then delete"],
         ["clean.method.SupprimerDirect"]      = ["Supprimer directement", "Delete directly"],
+        ["clean.method.DesinstallerSteam"]    = ["Désinstaller via Steam (officiel)", "Uninstall via Steam (official)"],
 
         // Explications par élément
         ["clean.explain.d3d8"]     = ["GenTool (proxy DirectX 8 dans le dossier du jeu). Le retirer = le jeu retombe sur le DirectX 8 de Windows (vérifié automatiquement après nettoyage) ; seules les fonctions GenTool sont perdues. Conseillé : Désactiver (réversible).",
@@ -318,8 +321,8 @@ public sealed class Loc : INotifyPropertyChanged
                                       "EA registry key (install path). Removing it stops launchers from finding the game — only for full uninstall."],
         ["clean.explain.appcompat"] = ["Réglage de compatibilité Windows lié à un exe du jeu.", "Windows compatibility setting tied to a game exe."],
         ["clean.explain.appcompat.orphan"] = ["Réglage de compatibilité ORPHELIN (l'exe n'existe plus). Sans danger à retirer.", "ORPHAN compatibility setting (the exe no longer exists). Safe to remove."],
-        ["clean.explain.steam"]    = ["Jeu installé par Steam. Ne supprime pas les fichiers à la main (Steam le croirait encore installé) : utilise la désinstallation Steam.",
-                                      "Game installed by Steam. Don't delete files by hand (Steam would still think it's installed): use Steam's uninstall."],
+        ["clean.explain.steam"]    = ["Jeu installé par Steam. Coche pour lancer sa désinstallation OFFICIELLE via Steam à la fin du nettoyage — GenSpeed ne supprime jamais ces fichiers à la main (Steam le croirait encore installé).",
+                                      "Game installed by Steam. Check to launch its OFFICIAL uninstall via Steam at the end of the cleanup — GenSpeed never deletes these files by hand (Steam would still think it's installed)."],
         ["clean.explain.gamedir"]  = ["Dossier du jeu (hors Steam). Le supprimer retire le jeu et tout son contenu.", "Game folder (non-Steam). Removing it deletes the game and all its content."],
         ["clean.explain.vcredist"] = ["Redistribuable système partagé par d'autres logiciels. Ne pas retirer ici — passe par « Programmes et fonctionnalités » de Windows.",
                                       "System redistributable shared by other software. Don't remove here — use Windows “Programs and Features”."],

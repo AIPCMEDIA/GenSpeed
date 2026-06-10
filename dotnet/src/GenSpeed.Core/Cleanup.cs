@@ -8,7 +8,7 @@ namespace GenSpeed.Core;
 
 public enum CleanupCategory { Jeu, Mods, GenTool, GenLauncher, GenPatcher, Registre, Raccourcis, AppCompat, Steam, GenSpeed, Systeme, Joueur, TracesWin }
 public enum CleanupRisk { Sur, Attention, Danger }
-public enum CleanupMethod { Laisser, Desactiver, SauvegarderSupprimer, SupprimerDirect }
+public enum CleanupMethod { Laisser, Desactiver, SauvegarderSupprimer, SupprimerDirect, DesinstallerSteam }
 public enum CleanupKind { Fichier, Dossier, CleRegistre, ValeurRegistre, Info }
 
 /// <summary>Un élément détecté par le scanner de désinstallation (fichier, dossier, clé/valeur registre, info).</summary>
@@ -321,15 +321,18 @@ public static class Cleanup
             items.Add(im);
         }
 
-        // ── 💨 Steam : ne pas supprimer à la main → info + désinstall Steam ─
+        // ── 💨 Steam : jamais supprimé à la main. COCHABLE → lance la désinstallation OFFICIELLE
+        //    via Steam à la fin du nettoyage (steam://uninstall). Géré côté UI, hors job élevé.
         var (steam, appId) = SteamInfo(gameDir);
         if (steam)
             items.Add(new CleanupItem
             {
                 Category = CleanupCategory.Steam, Kind = CleanupKind.Info, Path = gameDir,
-                Display = appId != null ? $"AppID {appId}" : "Steam", ExplainKey = "clean.explain.steam",
-                Risk = CleanupRisk.Attention, Removable = false, DefaultChecked = false, Extra = appId,
-                AllowedMethods = new(),
+                Display = appId != null ? $"Désinstaller le jeu via Steam (AppID {appId})" : "Steam",
+                ExplainKey = "clean.explain.steam",
+                Risk = CleanupRisk.Danger, Removable = appId != null, DefaultChecked = false, Extra = appId,
+                AllowedMethods = appId != null ? new() { CleanupMethod.DesinstallerSteam, CleanupMethod.Laisser } : new(),
+                ChosenMethod = CleanupMethod.DesinstallerSteam,
             });
         else
         {

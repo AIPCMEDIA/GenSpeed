@@ -37,6 +37,20 @@ public partial class MainWindow
         return $"{v:0.#} {u[i]}";
     }
 
+    /// <summary>Lance la désinstallation OFFICIELLE Steam (steam://uninstall) pour chaque jeu coché —
+    /// avec confirmation par jeu. La fenêtre de confirmation Steam prend ensuite le relais.</summary>
+    private void LaunchSteamUninstalls(List<CleanupItem> steamChosen)
+    {
+        foreach (var s in steamChosen)
+            if (Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.steam.ask"), s.Extra)))
+                try
+                {
+                    Process.Start(new ProcessStartInfo { FileName = $"steam://uninstall/{s.Extra}", UseShellExecute = true });
+                    Log(string.Format(Loc.T("clean.steam.started"), s.Extra));
+                }
+                catch { }
+    }
+
     private async void OnCfgUninstall()
     {
         // MACHINE ENTIÈRE : toutes les installs découvertes + traces globales (plus d'« install active »).
@@ -62,6 +76,10 @@ public partial class MainWindow
 
         var chosen = result.Where(i => i.Selected && i.Removable && i.ChosenMethod != CleanupMethod.Laisser).ToList();
         if (chosen.Count == 0) { Log(Loc.T("clean.none.sel")); return; }
+        // Les jeux Steam cochés ne passent PAS par le job élevé : on lance la désinstallation
+        // OFFICIELLE via Steam à la fin (GenSpeed ne supprime jamais ces fichiers à la main).
+        var steamChosen = chosen.Where(i => i.Category == CleanupCategory.Steam && !string.IsNullOrEmpty(i.Extra)).ToList();
+        var jobChosen = chosen.Where(i => i.Category != CleanupCategory.Steam).ToList();
 
         // Description groupée (même ordre que la fenêtre ET que la suppression réelle) :
         // sections par install puis traces globales ; à l'intérieur, l'ordre des étapes.
@@ -111,9 +129,18 @@ public partial class MainWindow
         if (chosen.Any(i => string.Equals(i.Path.TrimEnd('\\'), gsCfgPath, StringComparison.OrdinalIgnoreCase)))
             ConfigStore.Suppressed = true;
 
+        if (jobChosen.Count == 0)
+        {
+            // Seuls des jeux Steam sont cochés : pas d'élévation nécessaire, désinstallation Steam directe.
+            LaunchSteamUninstalls(steamChosen);
+            _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p));
+            LoadMods();
+            return;
+        }
+
         var job = new CleanupJob
         {
-            BackupDir = backupDir, Items = chosen,
+            BackupDir = backupDir, Items = jobChosen,
             ResultPath = Path.Combine(Path.GetTempPath(), $"genspeed_cleanup_result_{Guid.NewGuid():N}.json"),
         };
         string jobPath = Path.Combine(Path.GetTempPath(), $"genspeed_cleanup_job_{Guid.NewGuid():N}.json");
@@ -162,15 +189,8 @@ public partial class MainWindow
             Dialogs.Info(this, Loc.T("clean.title"),
                 string.Format(Loc.T("clean.report"), res.Done.Count, res.Errors.Count, FmtBytes(res.FreedBytes), res.BackupDir));
 
-            // Désinstallation profonde (clés EA / dossier jeu) : proposer la désinstall Steam propre, PAR install gérée Steam.
-            bool deepGlobal = chosen.Any(i => i.Category == CleanupCategory.Registre);
-            foreach (var steam in result.Where(i => i.Category == CleanupCategory.Steam && !string.IsNullOrEmpty(i.Extra)))
-            {
-                bool deep = deepGlobal || chosen.Any(c => c.Category == CleanupCategory.Jeu &&
-                            string.Equals(c.InstallDir, steam.InstallDir, StringComparison.OrdinalIgnoreCase));
-                if (deep && Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.steam.ask"), steam.Extra)))
-                    try { Process.Start(new ProcessStartInfo { FileName = $"steam://uninstall/{steam.Extra}", UseShellExecute = true }); } catch { }
-            }
+            // Jeux Steam COCHÉS : lancer la désinstallation officielle via Steam (jamais de suppression manuelle).
+            LaunchSteamUninstalls(steamChosen);
 
             // GenTool d3d8.dll retiré/désactivé → vérifier que le DirectX 8 SYSTÈME (Windows) est sain.
             // Lecture seule ; si anomalie, proposer la réparation officielle de Windows (sfc /scannow).
