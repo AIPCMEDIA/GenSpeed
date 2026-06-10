@@ -23,6 +23,11 @@ GenSpeed-rapport*.json
 dotnet/tests/_tmp/
 genspeed-crash.txt
 
+# ===== Local / personnel (commandes Claude Code, mémoire — NE PAS publier) =====
+.claude/
+# Brouillon promo à copier-coller sur ModDB (gardé en local, pas dans le dépôt)
+docs/ModDB-article.md
+
 # ===== OS / éditeurs =====
 Thumbs.db
 desktop.ini
