@@ -153,7 +153,11 @@ public partial class MainWindow
         Log(Loc.T("clean.running"));
         try
         {
-            int code = await RunElevated("--cleanup", jobPath);
+            // Tout le job dans le périmètre utilisateur (HKCU / VirtualStore) → exécution directe,
+            // sans invite UAC. Sinon, process élevé comme avant.
+            int code = Cleanup.NeedsElevation(jobChosen)
+                ? await RunElevated("--cleanup", jobPath)
+                : await Task.Run(() => CleanupRunner.Run(jobPath));
             if (code < 0) { Log(Loc.T("log.uaccancel")); ConfigStore.Suppressed = false; return; }
             CleanupResult? res = File.Exists(job.ResultPath)
                 ? JsonSerializer.Deserialize<CleanupResult>(File.ReadAllText(job.ResultPath)) : null;

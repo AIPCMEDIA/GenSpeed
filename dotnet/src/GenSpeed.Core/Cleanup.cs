@@ -457,6 +457,15 @@ public static class Cleanup
                         ChosenMethod = CleanupMethod.SauvegarderSupprimer,
                     });
 
+            // ── 👻 VirtualStore REGISTRE (HKCU) : clés EA fantômes avec vieux serial ergc.
+            //     La virtualisation registre les fait lire EN PRIORITÉ par le vieil exe du jeu,
+            //     masquant le serial HKLM (GenPatcher) → « serial is in use » en LAN.
+            foreach (var it in ScanVirtualStoreRegistry()) items.Add(it);
+
+            // ── 👻 VirtualStore FICHIERS (%LOCALAPPDATA%) : copies fantômes d'écritures
+            //     du jeu dans Program Files sans droits admin — lues en priorité elles aussi.
+            foreach (var it in ScanVirtualStoreDirs()) items.Add(it);
+
             // ── 🧭 AppCompatFlags\Layers : valeurs orphelines / liées au jeu ──
             foreach (var it in ScanAppCompat(needles)) items.Add(it);
 
@@ -569,6 +578,103 @@ public static class Cleanup
             return true;
         }
         catch { return false; }
+    }
+
+    /// <summary>Clés EA fantômes du VirtualStore (HKCU\Software\Classes\VirtualStore\MACHINE\…).
+    /// Mêmes motifs de noms que RegSubKeysAllGame : on ne touche JAMAIS aux autres jeux EA voisins
+    /// (ex. Freedom Fighters) — seuls Generals / Zero Hour sont proposés.</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static IEnumerable<CleanupItem> ScanVirtualStoreRegistry()
+    {
+        foreach (var eaRoot in new[]
+        {
+            @"Software\Classes\VirtualStore\MACHINE\SOFTWARE\WOW6432Node\Electronic Arts\EA Games",
+            @"Software\Classes\VirtualStore\MACHINE\SOFTWARE\Electronic Arts\EA Games",
+        })
+        {
+            string[] subs;
+            try
+            {
+                using var k = Registry.CurrentUser.OpenSubKey(eaRoot);
+                if (k == null) continue;
+                subs = k.GetSubKeyNames();
+            }
+            catch { continue; }
+            foreach (var s in subs)
+            {
+                if (!Regex.IsMatch(s, @"generals|zero\s*hour", RegexOptions.IgnoreCase)) continue;
+                yield return new CleanupItem
+                {
+                    Category = CleanupCategory.Registre, Kind = CleanupKind.CleRegistre,
+                    Path = @"HKCU\" + eaRoot + @"\" + s,
+                    Display = @"VirtualStore\…\EA Games\" + s + "  (fantôme)",
+                    ExplainKey = "clean.explain.vstore.reg",
+                    Risk = CleanupRisk.Sur, Reversible = true, DefaultChecked = false,
+                    AllowedMethods = new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect },
+                    ChosenMethod = CleanupMethod.SauvegarderSupprimer,
+                };
+            }
+        }
+    }
+
+    /// <summary>Dossiers fantômes du VirtualStore fichiers (%LOCALAPPDATA%\VirtualStore\Program Files…)
+    /// liés au jeu — mêmes motifs de noms que les installs (Generals / Zero Hour uniquement).</summary>
+    private static IEnumerable<CleanupItem> ScanVirtualStoreDirs()
+    {
+        string vstore = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualStore");
+        foreach (var pf in new[] { "Program Files (x86)", "Program Files" })
+        {
+            string root = Path.Combine(vstore, pf);
+            if (!Directory.Exists(root)) continue;
+            // Profondeur 4 : couvre « EA Games\<jeu> » comme « Steam\steamapps\common\<jeu> ».
+            foreach (var hit in FindGameNamedDirs(root, depth: 4))
+            {
+                var it = DirItem(hit, CleanupCategory.TracesWin, CleanupRisk.Sur, "clean.explain.vstore.dir", defaultChecked: false);
+                it.Display = @"VirtualStore\" + Path.GetRelativePath(vstore, hit);
+                it.AllowedMethods = new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect };
+                yield return it;
+            }
+        }
+    }
+
+    /// <summary>Descente limitée en profondeur ; rend chaque dossier dont le NOM matche le jeu,
+    /// sans descendre dedans (le dossier entier est proposé d'un bloc).</summary>
+    private static IEnumerable<string> FindGameNamedDirs(string root, int depth)
+    {
+        IEnumerable<string> subs;
+        try { subs = Directory.EnumerateDirectories(root); }
+        catch { yield break; }
+        foreach (var d in subs)
+        {
+            string name = Path.GetFileName(d.TrimEnd('\\', '/'));
+            if (Regex.IsMatch(name, @"generals|zero\s*hour", RegexOptions.IgnoreCase))
+                yield return d;
+            else if (depth > 1)
+                foreach (var sub in FindGameNamedDirs(d, depth - 1))
+                    yield return sub;
+        }
+    }
+
+    /// <summary>Vrai si au moins un élément du job exige les droits admin. Les clés HKCU et les
+    /// fichiers du VirtualStore (%LOCALAPPDATA%) appartiennent à l'utilisateur : si TOUT le job
+    /// est dans ce périmètre, l'exécution se fait sans élévation (aucune invite UAC).</summary>
+    public static bool NeedsElevation(IEnumerable<CleanupItem> items)
+    {
+        string vstore = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "VirtualStore")
+                        + Path.DirectorySeparatorChar;
+        foreach (var it in items)
+        {
+            bool userScoped = it.Kind switch
+            {
+                CleanupKind.CleRegistre or CleanupKind.ValeurRegistre =>
+                    it.Path.StartsWith(@"HKCU\", StringComparison.OrdinalIgnoreCase),
+                CleanupKind.Fichier or CleanupKind.Dossier =>
+                    it.Path.StartsWith(vstore, StringComparison.OrdinalIgnoreCase),
+                _ => false,   // Info (lots de fichiers dans le dossier jeu) et inconnus : prudence → admin
+            };
+            if (!userScoped) return true;
+        }
+        return false;
     }
 
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
