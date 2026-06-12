@@ -178,7 +178,7 @@ public static class Diagnostics
 
         // ── 🛠 Outils & overlays ────────────────────────────────────────
         string d3d8 = Path.Combine(gameDir, "d3d8.dll");
-        d["🛠 GenTool (d3d8.dll)"] = File.Exists(d3d8) ? (PeVersion(d3d8) ?? Sha8(d3d8)) : "absent";
+        d["🛠 d3d8.dll (proxy DirectX)"] = File.Exists(d3d8) ? IdentifyD3d8(d3d8) : "absent";
         foreach (var (file, label) in new[]
                  { ("GenLauncher.exe", "GenLauncher"), ("EdgeScroller.exe", "EdgeScroller"),
                    ("WorldBuilder.exe", "WorldBuilder"), ("modded.exe", "modded.exe") })
@@ -188,6 +188,12 @@ public static class Diagnostics
         }
         // dbghelp.dll est souvent renommé par GenPatcher → sa présence/absence est un signal.
         d["🛠 dbghelp.dll"] = File.Exists(Path.Combine(gameDir, "dbghelp.dll")) ? "présent" : "absent (renommé)";
+
+        // dbghelp.dll est souvent renommé par GenPatcher → sa présence/absence est un signal. (déjà ajouté plus haut)
+        if (OperatingSystem.IsWindows()) d["🛠 Serial LAN (ergc)"] = DetectLanSerial();
+
+        // ── 🎚 Réglages multijoueur (options.ini) — DOIVENT être identiques entre joueurs ──
+        AddMismatchOptions(d);
 
         // ── ⚙ Système & en ligne ───────────────────────────────────────
         foreach (var vc in DetectVcRedists()) d[$"⚙ Système: {vc}"] = "installé";
@@ -298,6 +304,68 @@ public static class Diagnostics
             catch { }
         string p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GameRanger");
         return Directory.Exists(p);
+    }
+
+    /// <summary>Les 7 réglages d'options.ini que GenPatcher impose pour réduire les mismatchs en multijoueur
+    /// (changelog v2.12) — ils DOIVENT être identiques entre joueurs. MaxParticleCount surtout est un classique.</summary>
+    private static readonly string[] MismatchKeys =
+        { "DynamicLOD", "ExtraAnimations", "HeatEffects", "MaxParticleCount", "SendDelay", "ShowSoftWaterEdge", "ShowTrees" };
+
+    /// <summary>Lit les 7 réglages anti-mismatch du premier options.ini trouvé et les ajoute à l'inventaire.</summary>
+    private static void AddMismatchOptions(Dictionary<string, string> d)
+    {
+        foreach (var ud in UserDataDirs())
+        {
+            string opt = Path.Combine(ud, "options.ini");
+            if (!File.Exists(opt)) continue;
+            try
+            {
+                var vals = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var line in File.ReadLines(opt))
+                {
+                    var m = Regex.Match(line, @"^\s*(\w+)\s*=\s*(.+?)\s*$");
+                    if (m.Success) vals[m.Groups[1].Value] = m.Groups[2].Value;
+                }
+                foreach (var key in MismatchKeys)
+                    if (vals.TryGetValue(key, out var v)) d[$"🎚 Multi: {key}"] = v;
+                return;   // un seul options.ini (le dossier Documents est partagé par toutes les installs)
+            }
+            catch { }
+        }
+    }
+
+    /// <summary>Identifie le d3d8.dll du dossier jeu : GenTool (proxy xezon, ~3,8 Mo) vs d3d8to9 (wrapper, petit,
+    /// AUGMENTE le risque de mismatch en ligne) vs inconnu. La taille est le signal le plus fiable (les métadonnées
+    /// PE d'un proxy DLL sont souvent vides) ; le hash known-good confirme la version GenTool de référence.</summary>
+    private static string IdentifyD3d8(string path)
+    {
+        long size = 0;
+        try { size = new FileInfo(path).Length; } catch { }
+        string sha = Hashing.FileSha256(path) ?? "";
+        // Référence known-good GenTool (KB §10, 2026-06-11).
+        if (sha.StartsWith("BE5276180D04B3DE", StringComparison.OrdinalIgnoreCase))
+            return $"GenTool {PeVersion(path)} ✓ (connu)".Replace("  ", " ").Trim();
+        if (size >= 2_500_000)                                  // GenTool ≈ 3,8 Mo
+            return $"GenTool {PeVersion(path) ?? Sha8(path)}".Trim();
+        return $"⚠ d3d8to9 / wrapper — augmente le risque de mismatch en ligne ({Sha8(path)})";
+    }
+
+    /// <summary>État du serial LAN « ergc » (écrit par GenPatcher pour le LAN Steam) : présent / absent,
+    /// et alerte si un FANTÔME VirtualStore existe (peut masquer le vrai serial → « serial is in use »).</summary>
+    [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+    private static string DetectLanSerial()
+    {
+        bool Has(RegistryKey root, string sub)
+        {
+            try { using var k = root.OpenSubKey(sub); return k?.GetValue("") is string s && s.Length > 0; }
+            catch { return false; }
+        }
+        const string ergc = @"SOFTWARE\WOW6432Node\Electronic Arts\EA Games\Command and Conquer Generals Zero Hour\ergc";
+        const string ghost = @"SOFTWARE\Classes\VirtualStore\MACHINE\SOFTWARE\WOW6432Node\Electronic Arts\EA Games\Command and Conquer Generals Zero Hour\ergc";
+        bool real = Has(Registry.LocalMachine, ergc);
+        bool phantom = Has(Registry.CurrentUser, ghost);
+        if (phantom) return "⚠ fantôme VirtualStore présent (peut masquer le vrai → « serial in use » en LAN)";
+        return real ? "présent" : "absent";
     }
 
     /// <summary>Construit l'empreinte de synchro complète de la machine.</summary>
@@ -411,9 +479,9 @@ public static class Diagnostics
             foreach (var k in mine.Components.Keys.Union(other.Components.Keys).OrderBy(x => x, StringComparer.Ordinal))
             {
                 bool ina = mine.Components.TryGetValue(k, out var va), inb = other.Components.TryGetValue(k, out var vb);
-                // Gravité par couche : 🎮 jeu / 🧩 mods = critique ; 📦 addons = attention ; 🛠 ⚙ = info.
+                // Gravité par couche : 🎮 jeu / 🧩 mods = critique ; 📦 addons / 🎚 réglages multi = attention ; 🛠 ⚙ = info.
                 Severity sev = (k.StartsWith("🎮") || k.StartsWith("🧩")) ? Severity.Critique
-                             : k.StartsWith("📦") ? Severity.Attention : Severity.Info;
+                             : (k.StartsWith("📦") || k.StartsWith("🎚")) ? Severity.Attention : Severity.Info;
                 if (!ina) diffs.Add(new DiffEntry("sec.components", k, DiffStatus.AbsentMine, sev, null, vb));
                 else if (!inb) diffs.Add(new DiffEntry("sec.components", k, DiffStatus.AbsentOther, sev, va, null));
                 else if (va != vb) diffs.Add(new DiffEntry("sec.components", k, DiffStatus.Different, sev, va, vb));
