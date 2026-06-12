@@ -512,6 +512,35 @@ public static class Cleanup
                     items.Add(FileItem(opt, CleanupCategory.Joueur, CleanupRisk.Attention, "clean.explain.options", defaultChecked: false,
                         methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
             }
+
+            // ── 🛠 Maps de ladder téléchargées AUTOMATIQUEMENT par GenTool ([RANK]/[NMC]). ──
+            // Ciblage GRANULAIRE : on retire CES maps-là sans toucher aux maps perso de l'utilisateur
+            // (le dossier Maps entier reste proposé séparément en catégorie Joueur, option « table rase »).
+            string gtMapsDir = Path.Combine(ud, "Maps");
+            if (Directory.Exists(gtMapsDir))
+            {
+                List<string> gtMaps;
+                try
+                {
+                    gtMaps = Directory.EnumerateDirectories(gtMapsDir)
+                        .Where(d => { string n = Path.GetFileName(d);
+                            return n.StartsWith("[RANK]", StringComparison.OrdinalIgnoreCase)
+                                || n.StartsWith("[NMC]", StringComparison.OrdinalIgnoreCase); })
+                        .ToList();
+                }
+                catch { gtMaps = new(); }
+                if (gtMaps.Count > 0)
+                    items.Add(new CleanupItem
+                    {
+                        Category = CleanupCategory.GenTool, Kind = CleanupKind.Info, Path = gtMapsDir,
+                        Display = $"{gtMaps.Count} maps [RANK]/[NMC] (téléchargées par GenTool)",
+                        ExplainKey = "clean.explain.gentoolmaps",
+                        SizeBytes = gtMaps.Sum(DirSize), Risk = CleanupRisk.Sur, Reversible = true,
+                        DefaultChecked = false, Removable = true, Kind2Files = gtMaps,
+                        AllowedMethods = new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect },
+                        ChosenMethod = CleanupMethod.SupprimerDirect,   // re-téléchargeable par GenTool
+                    });
+            }
         }
 
         // ── 🖇 Raccourcis bureau / menu démarrer pointant vers le jeu ──────
@@ -1013,21 +1042,24 @@ public static class Cleanup
         res.Done.Add($"🗑 {it.Display}");
     }
 
+    /// <summary>Supprime un LOT d'entrées (Kind2Files) — fichiers OU dossiers (ex. .speedbak, maps GenTool).
+    /// Chaque entrée est sauvegardée avant suppression si la méthode l'exige.</summary>
     private static void ExecFileBatch(CleanupItem it, CleanupJob job, CleanupResult res, List<object> manifest)
     {
         foreach (var fp in it.Kind2Files!)
         {
-            if (!System.IO.File.Exists(fp)) continue;
-            long size = FileSize(fp);
+            bool isDir = Directory.Exists(fp);
+            if (!isDir && !System.IO.File.Exists(fp)) continue;
+            long size = isDir ? DirSize(fp) : FileSize(fp);
             if (it.ChosenMethod == CleanupMethod.SauvegarderSupprimer)
             {
                 string dest = Path.Combine(job.BackupDir, "files", SanitizeForBackup(fp));
                 Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-                System.IO.File.Copy(fp, dest, overwrite: true);
-                manifest.Add(new { action = "backup+delete", kind = "Fichier", original = fp, backup = dest });
+                if (isDir) CopyDir(fp, dest); else System.IO.File.Copy(fp, dest, overwrite: true);
+                manifest.Add(new { action = "backup+delete", kind = isDir ? "Dossier" : "Fichier", original = fp, backup = dest });
             }
-            ClearAttributes(fp, isDir: false);
-            System.IO.File.Delete(fp);
+            ClearAttributes(fp, isDir);
+            if (isDir) Directory.Delete(fp, recursive: true); else System.IO.File.Delete(fp);
             res.FreedBytes += size;
         }
         res.Done.Add($"🗑 {it.Display}");
