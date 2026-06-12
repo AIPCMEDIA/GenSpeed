@@ -279,6 +279,7 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.cat.Systeme"]     = ["⚙ Système", "⚙ System"],
         ["clean.cat.Joueur"]      = ["📁 Données joueur (Documents)", "📁 Player data (Documents)"],
         ["clean.cat.TracesWin"]   = ["🧹 Traces Windows (diagnostics)", "🧹 Windows traces (diagnostics)"],
+        ["clean.cat.Restauration"]= ["🔧 Restaurer les fichiers d'origine", "🔧 Restore original files"],
 
         // Méthodes (clé = nom d'enum CleanupMethod)
         ["clean.method.Laisser"]              = ["Laisser", "Leave"],
@@ -286,6 +287,7 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.method.SauvegarderSupprimer"] = ["Sauvegarder puis supprimer", "Backup then delete"],
         ["clean.method.SupprimerDirect"]      = ["Supprimer directement", "Delete directly"],
         ["clean.method.DesinstallerSteam"]    = ["Désinstaller via Steam (officiel)", "Uninstall via Steam (official)"],
+        ["clean.method.Restaurer"]            = ["Restaurer l'original", "Restore the original"],
         ["clean.method.all"] = ["⚙ Méthode pour tout (éléments compatibles) :", "⚙ Method for everything (compatible items):"],
 
         // Explications par élément
@@ -303,6 +305,10 @@ public sealed class Loc : INotifyPropertyChanged
                                       "GenTool config (d3d8.cfg): rewritten every game session. Safe to remove; the game recreates it if GenTool is still present."],
         ["clean.explain.gentoolupdater"] = ["Auto-updater de GenTool (déposé dans le dossier du jeu et dans %TEMP%). Sans danger à retirer ; il revient à la prochaine mise à jour de GenTool.",
                                       "GenTool auto-updater (dropped in the game folder and in %TEMP%). Safe to remove; it comes back on GenTool's next update."],
+        ["clean.explain.restorebak"] = ["Remet l'original que GenPatcher/GenTool avait sauvegardé en « .bak » avant de le patcher (Game.dat, BrowserEngine.dll, WindowZH.big…). C'est le « dé-patch » que ces outils n'offrent pas. La version patchée actuelle est sauvegardée avant. Note : si GenTool/GenPatcher est encore actif, il pourra re-patcher à la prochaine session.",
+                                      "Restores the original that GenPatcher/GenTool had backed up as “.bak” before patching it (Game.dat, BrowserEngine.dll, WindowZH.big…). This is the “un-patch” those tools don't offer. The current patched version is backed up first. Note: if GenTool/GenPatcher is still active, it may re-patch on the next session."],
+        ["clean.explain.restoreglr"] = ["Fichiers renommés « .GLR » par GenLauncher pendant une partie et JAMAIS remis en place (résidu d'un plantage/fermeture forcée). Les restaurer rend au jeu sa control bar / ses hotkeys / ses fichiers. Sans danger — c'est une simple remise du nom d'origine.",
+                                      "Files renamed “.GLR” by GenLauncher during a game and NEVER restored (leftover from a crash/forced close). Restoring them gives the game back its control bar / hotkeys / files. Safe — it just renames them back."],
         ["clean.explain.dbghelp"]  = ["Gestionnaire de crash (GenTool) ou DLL renommée par GenPatcher. À retirer avec précaution.", "Crash handler (GenTool) or DLL renamed by GenPatcher. Remove with care."],
         ["clean.explain.glfolder"] = ["Données et config de GenLauncher (catalogue, images, GenLauncherCfg.yaml).", "GenLauncher data and config (catalog, images, GenLauncherCfg.yaml)."],
         ["clean.explain.genlauncher"] = ["Exécutable / fichiers de GenLauncher.", "GenLauncher executable / files."],

@@ -6,10 +6,11 @@ using Microsoft.Win32;
 
 namespace GenSpeed.Core;
 
-public enum CleanupCategory { Jeu, Mods, GenTool, GenLauncher, GenPatcher, Registre, Raccourcis, AppCompat, Steam, GenSpeed, Systeme, Joueur, TracesWin }
+// NB : valeurs ajoutées EN FIN d'enum (le job est sérialisé en JSON, les entiers ne doivent pas se décaler).
+public enum CleanupCategory { Jeu, Mods, GenTool, GenLauncher, GenPatcher, Registre, Raccourcis, AppCompat, Steam, GenSpeed, Systeme, Joueur, TracesWin, Restauration }
 public enum CleanupRisk { Sur, Attention, Danger }
-public enum CleanupMethod { Laisser, Desactiver, SauvegarderSupprimer, SupprimerDirect, DesinstallerSteam }
-public enum CleanupKind { Fichier, Dossier, CleRegistre, ValeurRegistre, Info }
+public enum CleanupMethod { Laisser, Desactiver, SauvegarderSupprimer, SupprimerDirect, DesinstallerSteam, Restaurer }
+public enum CleanupKind { Fichier, Dossier, CleRegistre, ValeurRegistre, Info, RestaurerOriginal }
 
 /// <summary>Un élément détecté par le scanner de désinstallation (fichier, dossier, clé/valeur registre, info).</summary>
 public sealed class CleanupItem
@@ -149,11 +150,81 @@ public static class Cleanup
             ChosenMethod = CleanupMethod.SauvegarderSupprimer,
         };
 
+    /// <summary>Item de RESTAURATION : remet un original en place depuis sa sauvegarde (.bak / .GLR).
+    /// Seule méthode = Restaurer (l'action n'est PAS une suppression). Jamais coché d'office.</summary>
+    private static CleanupItem RestoreItem(string source, CleanupRisk risk, string explainKey, string display)
+        => new()
+        {
+            Category = CleanupCategory.Restauration, Kind = CleanupKind.RestaurerOriginal,
+            Path = source, Display = display, ExplainKey = explainKey, SizeBytes = FileSize(source),
+            Risk = risk, Reversible = true, DefaultChecked = false,
+            AllowedMethods = new() { CleanupMethod.Restaurer },
+            ChosenMethod = CleanupMethod.Restaurer,
+        };
+
+    /// <summary>L'original correspondant à une sauvegarde : « X.bak » ou « X.GLR » → « X ». null si non reconnu.</summary>
+    private static string? OriginalFromBackup(string path)
+    {
+        foreach (var suffix in new[] { ".bak", ".GLR" })
+            if (path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                return path[..^suffix.Length];
+        return null;
+    }
+
+    /// <summary>Vrai si une instance du jeu tourne (alors les « .GLR » du dossier sont NORMAUX, pas des orphelins).</summary>
+    private static bool GameRunning()
+    {
+        foreach (var name in new[] { "modded", "generals", "GeneralsZH" })
+            try { if (Process.GetProcessesByName(name).Length > 0) return true; } catch { }
+        return false;
+    }
+
+    /// <summary>Sauvegardes d'originaux restaurables proprement (le « dé-patch » absent des outils tiers) :
+    /// (1) « *.bak » de REMPLACEMENT — GenPatcher/GenTool a remplacé un binaire (Game.dat, WindowZH.big…) et
+    /// gardé l'original en « .bak » ; le fichier patché ET son .bak coexistent → on peut revenir à l'original.
+    /// (2) « *.GLR » ORPHELINS — résidus d'un plantage de GenLauncher en pleine session (un .GLR est normal
+    /// PENDANT le jeu, anormal quand le jeu est fermé).
+    /// DÉLIBÉRÉMENT EXCLU : les « .bak » de DÉSACTIVATION (BrowserEngine.dll, PatchWindow.big neutralisés par
+    /// GenPatcher = renommés SANS remplaçant). Les réactiver à l'aveugle réintroduirait le bug que le fix corrige ;
+    /// un vrai retour vanilla passe plutôt par « Vérifier les fichiers » de Steam, pas par un dé-renommage.</summary>
+    private static IEnumerable<CleanupItem> ScanRestorable(string gameDir)
+    {
+        // (1) *.bak (racine du jeu) dont l'original est un binaire de jeu ENCORE PRÉSENT (= remplacement, pas désactivation).
+        IEnumerable<string> baks;
+        try { baks = Directory.EnumerateFiles(gameDir, "*.bak"); }
+        catch { baks = Enumerable.Empty<string>(); }
+        foreach (var bak in baks)
+        {
+            string orig = bak[..^4];                                  // retire « .bak »
+            if (Path.GetExtension(orig).ToLowerInvariant() is not (".dat" or ".dll" or ".big")) continue;
+            if (!System.IO.File.Exists(orig)) continue;               // original absent = DÉSACTIVATION → on n'y touche pas (voir résumé)
+            yield return RestoreItem(bak, CleanupRisk.Attention, "clean.explain.restorebak",
+                "↩ " + Path.GetFileName(orig));
+        }
+
+        // (2) *.GLR orphelins — UNIQUEMENT si le jeu n'est pas en cours.
+        if (!GameRunning())
+        {
+            List<string> glr;
+            try { glr = Directory.EnumerateFiles(gameDir, "*.GLR", SearchOption.AllDirectories).ToList(); }
+            catch { glr = new(); }
+            if (glr.Count > 0)
+            {
+                var it = RestoreItem(glr[0], CleanupRisk.Sur, "clean.explain.restoreglr",
+                    $"↩ {glr.Count} fichier(s) .GLR (résidu GenLauncher)");
+                it.Kind2Files = glr;                                  // restauration EN LOT
+                it.SizeBytes = glr.Sum(FileSize);
+                yield return it;
+            }
+        }
+    }
+
     /// <summary>Ordre SÛR (exécution ET affichage) : contenu interne du dossier jeu d'abord (avec ses
     /// sauvegardes), puis l'indépendant, puis le dossier jeu lui-même, puis Steam en tout dernier.
     /// Évite de supprimer le dossier jeu avant d'avoir sauvegardé ce qu'il contient.</summary>
     public static int CategoryRank(CleanupCategory c) => c switch
     {
+        CleanupCategory.Restauration => 5,    // remettre les originaux d'aplomb AVANT tout retrait
         CleanupCategory.Mods => 10,           // le contenu géré AVANT l'outil qui le gère
         CleanupCategory.GenLauncher => 20,
         CleanupCategory.GenTool => 30,
@@ -186,6 +257,9 @@ public static class Cleanup
     {
         var items = new List<CleanupItem>();
         if (string.IsNullOrWhiteSpace(gameDir) || !Directory.Exists(gameDir)) return items;
+
+        // ── 🔧 Restauration des originaux (.bak / .GLR orphelins) — le « dé-patch » que les outils n'offrent pas ──
+        items.AddRange(ScanRestorable(gameDir));
 
         // ── 🛠 GenTool : d3d8.dll du DOSSIER DU JEU (les copies Documents sont des traces globales) ──
         {
@@ -842,6 +916,9 @@ public static class Cleanup
                         if (it.Kind2Files is { Count: > 0 })       // ex. lot de .speedbak
                             ExecFileBatch(it, job, res, manifest);
                         break;
+                    case CleanupKind.RestaurerOriginal:
+                        ExecRestore(it, job, res, manifest);
+                        break;
                 }
 
                 // Cohérence GenLauncher : marquer le mod/addon non installé dans le YAML (s'il existe encore).
@@ -954,6 +1031,35 @@ public static class Cleanup
             res.FreedBytes += size;
         }
         res.Done.Add($"🗑 {it.Display}");
+    }
+
+    /// <summary>Restaure le(s) original(aux) depuis leur sauvegarde (.bak / .GLR). La version ACTUELLE
+    /// (patchée ou renommée) est d'abord copiée dans le dossier de sauvegarde daté (réversibilité totale),
+    /// puis remplacée par la sauvegarde. Action NON destructive : on remet le fichier d'origine en place.</summary>
+    private static void ExecRestore(CleanupItem it, CleanupJob job, CleanupResult res, List<object> manifest)
+    {
+        var sources = it.Kind2Files is { Count: > 0 } ? it.Kind2Files : new List<string> { it.Path };
+        int done = 0;
+        foreach (var src in sources)
+        {
+            if (!System.IO.File.Exists(src)) continue;
+            string? target = OriginalFromBackup(src);
+            if (target == null) continue;
+
+            string? patchedBackup = null;
+            if (System.IO.File.Exists(target))                 // sauvegarde la version actuelle avant de l'écraser
+            {
+                patchedBackup = Path.Combine(job.BackupDir, "files", SanitizeForBackup(target));
+                Directory.CreateDirectory(Path.GetDirectoryName(patchedBackup)!);
+                System.IO.File.Copy(target, patchedBackup, overwrite: true);
+                ClearAttributes(target, isDir: false);
+                System.IO.File.Delete(target);
+            }
+            System.IO.File.Move(src, target);                  // la sauvegarde redevient l'original
+            manifest.Add(new { action = "restore-original", target, restoredFrom = src, patchedBackup });
+            done++;
+        }
+        if (done > 0) res.Done.Add($"🔧 {it.Display}  (×{done})");
     }
 
     private static void ExecRegistry(CleanupItem it, CleanupJob job, CleanupResult res, List<object> manifest)
