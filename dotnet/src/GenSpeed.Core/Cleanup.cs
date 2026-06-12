@@ -205,6 +205,16 @@ public static class Cleanup
                 if (System.IO.File.Exists(p))
                     items.Add(FileItem(p, CleanupCategory.GenTool, CleanupRisk.Attention, "clean.explain.gentool", defaultChecked: false));
             }
+            // Config GenTool (d3d8.cfg) — réécrite à chaque session de jeu ; inoffensive à retirer.
+            string d3d8cfg = Path.Combine(gameDir, "d3d8.cfg");
+            if (System.IO.File.Exists(d3d8cfg))
+                items.Add(FileItem(d3d8cfg, CleanupCategory.GenTool, CleanupRisk.Sur, "clean.explain.d3d8cfg", defaultChecked: false,
+                    methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
+            // GenToolUpdater.exe : l'auto-updater que GenTool dépose dans le dossier du jeu (copie aussi dans %TEMP%, vue en global).
+            string gtUp = Path.Combine(gameDir, "GenToolUpdater.exe");
+            if (System.IO.File.Exists(gtUp))
+                items.Add(FileItem(gtUp, CleanupCategory.GenTool, CleanupRisk.Sur, "clean.explain.gentoolupdater", defaultChecked: false,
+                    methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
         }
         // dbghelp.dll (crash handler GenTool, OU renommé par GenPatcher) : signal, à manipuler avec soin.
         string dbg = Path.Combine(gameDir, "dbghelp.dll");
@@ -374,6 +384,16 @@ public static class Cleanup
                 if (System.IO.File.Exists(p))
                     items.Add(FileItem(p, CleanupCategory.GenTool, CleanupRisk.Attention, "clean.explain.gentool", defaultChecked: false));
             }
+
+        // ── 🛠 GenToolUpdater.exe extrait dans %TEMP% (l'updater s'y dépose puis s'élève) ──
+        try
+        {
+            string tmpUp = Path.Combine(Path.GetTempPath(), "GenToolUpdater.exe");
+            if (System.IO.File.Exists(tmpUp))
+                items.Add(FileItem(tmpUp, CleanupCategory.GenTool, CleanupRisk.Sur, "clean.explain.gentoolupdater", defaultChecked: false,
+                    methods: new() { CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect }));
+        }
+        catch { }
 
         // ── 🩹 GenPatcher : UNIQUEMENT le dossier de données qu'il LAISSE (Documents Data). ──
         // On NE TOUCHE PAS aux installeurs (zip/exe/dossiers GenPatcher dans Téléchargements, Bureau…) :
