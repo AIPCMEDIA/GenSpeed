@@ -91,6 +91,19 @@ switch (args[0])
             Console.WriteLine($"[{d.Severity,-9}] {d.SectionKey,-16} {d.Item}  |  {d.Status}  {(d.Mine ?? "")} ↔ {(d.Other ?? "")}");
         return 0;
     }
+    case "cleanup":     // <install...> : scan LECTURE SEULE, items regroupés par catégorie
+    {
+        var installs = args.Skip(1).ToList();
+        var items = Cleanup.Scan(installs);
+        foreach (var g in items.GroupBy(i => i.Category).OrderBy(g => Cleanup.CategoryRank(g.Key)))
+        {
+            Console.WriteLine($"── {g.Key} ({g.Count()}) ──");
+            foreach (var it in g)
+                Console.WriteLine($"   [{it.Risk,-9}] {it.Kind,-16} {it.Display}");
+        }
+        Console.WriteLine($"\nTOTAL : {items.Count} éléments détectés.");
+        return 0;
+    }
     case "roundtrip":   // <bigfile> <factorsJson> : patch -> backup -> restore
     {
         string file = args[1];
