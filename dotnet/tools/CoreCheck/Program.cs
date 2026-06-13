@@ -104,6 +104,26 @@ switch (args[0])
         Console.WriteLine($"\nTOTAL : {items.Count} éléments détectés.");
         return 0;
     }
+    case "installcheck":  // <dir> : garde-fous de l'assistant (vierge ? moddée ? NTFS ? espace ?)
+    {
+        string d = args[1];
+        Console.WriteLine($"Dossier   : {d}");
+        Console.WriteLine($"Existe    : {Directory.Exists(d)}");
+        Console.WriteLine($"Vierge    : {InstallManager.IsVanilla(d)}");
+        Console.WriteLine($"Moddée    : {InstallManager.IsModded(d)}");
+        Console.WriteLine($"NTFS      : {InstallManager.IsNtfs(d)}");
+        Console.WriteLine($"Taille    : {InstallManager.DirSizeBytes(d) >> 20} Mo");
+        Console.WriteLine($"Libre dest: {InstallManager.FreeSpaceBytes(d) >> 20} Mo");
+        var intrus = InstallManager.NonVanillaItems(d);
+        if (intrus.Count > 0) { Console.WriteLine("Intrus (non vierge) :"); foreach (var i in intrus) Console.WriteLine("   - " + i); }
+        return 0;
+    }
+    case "installcopy":   // <src> <dest> : copie robuste d'une install
+    {
+        var r = InstallManager.CopyInstall(args[1], args[2]);
+        Console.WriteLine(r.Ok ? $"✅ Copié ({r.Bytes >> 20} Mo)" : $"❌ {r.Error}");
+        return r.Ok ? 0 : 1;
+    }
     case "verify":      // <install...> : statut known-good + URL VirusTotal des binaires tiers
     {
         var names = new[] { "d3d8.dll", "GenLauncher.exe", "GenToolUpdater.exe", "modded.exe", "EdgeScroller.exe", "Game.dat" };
