@@ -104,6 +104,22 @@ switch (args[0])
         Console.WriteLine($"\nTOTAL : {items.Count} éléments détectés.");
         return 0;
     }
+    case "verify":      // <install...> : statut known-good + URL VirusTotal des binaires tiers
+    {
+        var names = new[] { "d3d8.dll", "GenLauncher.exe", "GenToolUpdater.exe", "modded.exe", "EdgeScroller.exe", "Game.dat" };
+        foreach (var dir in args.Skip(1))
+        {
+            Console.WriteLine($"── {dir} ──");
+            foreach (var n in names)
+            {
+                string p = Path.Combine(dir, n);
+                if (!File.Exists(p)) continue;
+                Console.WriteLine($"   {n,-20} {KnownBinaries.Describe(p)}");
+                Console.WriteLine($"   {"",-20} {KnownBinaries.VirusTotalUrl(p)}");
+            }
+        }
+        return 0;
+    }
     case "roundtrip":   // <bigfile> <factorsJson> : patch -> backup -> restore
     {
         string file = args[1];
