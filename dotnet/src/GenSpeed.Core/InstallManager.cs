@@ -14,6 +14,18 @@ public sealed record CopyResult(bool Ok, long Bytes, string? Error);
 /// VANILLA Zero Hour, GenTool can cause issues ») + contenu du fork collé dessus.</summary>
 public static class InstallManager
 {
+    // AppIDs Steam (Ultimate Collection).
+    public const string AppIdZeroHour = "2732960";
+    public const string AppIdGenerals = "2229870";
+
+    /// <summary>Déclenche une action du cycle de vie Steam via son protocole — l'utilisateur valide DANS Steam
+    /// (GenSpeed ne télécharge rien lui-même). verb = "install" | "run" | "uninstall". Pendant du désinstall « juste valider ».</summary>
+    public static bool SteamLifecycle(string verb, string appId)
+    {
+        try { System.Diagnostics.Process.Start(new ProcessStartInfo($"steam://{verb}/{appId}") { UseShellExecute = true }); return true; }
+        catch { return false; }
+    }
+
     // Fichiers/dossiers qui signent un outil tiers ou un mod (= PAS vierge).
     private static readonly string[] ToolFiles =
         { "d3d8.dll", "d3d8x.dll", "gentool.dll", "d3d8.cfg", "GenToolUpdater.exe",
