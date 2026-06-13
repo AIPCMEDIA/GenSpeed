@@ -255,9 +255,9 @@ public partial class MainWindow : Window
         _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
         if (_installs.Count == 0)
         {
-            var added = AskGameDir();          // rien trouvé : sélection manuelle (ajoutée aux installs connues)
-            if (added == null) { Log(Loc.T("log.nogame")); return; }
-            EnsureInstallListed(added);
+            // Rien trouvé : proposer 2 choix clairs (Installer via Steam → assistant / Indiquer un dossier),
+            // plutôt qu'un sélecteur de dossier Windows brut.
+            if (!PromptNoInstall()) { Log(Loc.T("log.nogame")); return; }
             _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
         }
         Log(string.Format(Loc.T("log.installs.found"), _installs.Count));

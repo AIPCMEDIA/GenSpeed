@@ -74,6 +74,36 @@ public static class InstallManager
         || File.Exists(Path.Combine(dir, "modded.exe"))
         || NonVanillaItems(dir).Any(s => s.Contains("fork", StringComparison.OrdinalIgnoreCase));
 
+    /// <summary>Le jeu n'a pas encore été initialisé (jamais lancé) : `Data\INI\INIZH.big` encore présent.
+    /// Le 1er lancement (ou GenPatcher) le supprime → présent = fraîchement installé, pas encore lancé.
+    /// (Vérifié sur machine réelle : install Steam fraîche = INIZH.big présent + clés EA vides.)</summary>
+    public static bool NeedsInit(string dir)
+        => !string.IsNullOrWhiteSpace(dir) && File.Exists(Path.Combine(dir, "Data", "INI", "INIZH.big"));
+
+    /// <summary>AppID Steam qui gère ce dossier (via son appmanifest), ou null si hors Steam (copie manuelle / fork).
+    /// Sert au « lancer une fois pour initialiser » (steam://run/&lt;appId&gt;).</summary>
+    public static string? SteamAppId(string gameDir)
+    {
+        if (string.IsNullOrWhiteSpace(gameDir)) return null;
+        int idx = gameDir.IndexOf(@"\steamapps\common\", StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) return null;
+        string steamapps = gameDir.Substring(0, idx) + @"\steamapps";
+        try
+        {
+            foreach (var acf in Directory.EnumerateFiles(steamapps, "appmanifest_*.acf"))
+            {
+                var m = Regex.Match(File.ReadAllText(acf), "\"installdir\"\\s*\"([^\"]+)\"");
+                if (m.Success && string.Equals(m.Groups[1].Value, Path.GetFileName(gameDir), StringComparison.OrdinalIgnoreCase))
+                {
+                    var a = Regex.Match(Path.GetFileName(acf), @"appmanifest_(\d+)\.acf");
+                    if (a.Success) return a.Groups[1].Value;
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
     /// <summary>Le volume du chemin est-il NTFS (requis pour les symlinks de GenLauncher) ?</summary>
     public static bool IsNtfs(string path)
     {

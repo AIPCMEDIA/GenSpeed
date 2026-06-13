@@ -119,16 +119,38 @@ public sealed class InstallWizardWindow : Window
         var installs = InstallDiscovery.DiscoverAll(_config.KnownInstalls);
         if (installs.Count > 0)
         {
+            if (_sourceDir == null && installs.Count == 1) _sourceDir = installs[0];   // une seule : présélection
             _body.Children.Add(new TextBlock { Text = Loc.T("wiz.s1.found"), Foreground = B("dim"), Margin = new Thickness(0, 0, 0, 6) });
             foreach (var dir in installs) _body.Children.Add(SourceRow(dir));
+
+            // Garde-fou d'initialisation : la source choisie n'a jamais été lancée (INIZH.big présent) →
+            // l'avertir + proposer de la lancer une fois, AVANT de passer à la suite.
+            if (_sourceDir != null && InstallManager.NeedsInit(_sourceDir))
+            {
+                _body.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 10, 0, 8) });
+                _body.Children.Add(new TextBlock
+                {
+                    Text = Loc.T("wiz.s1.init.warn"), Foreground = B("orange"),
+                    TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 6),
+                });
+                _body.Children.Add(MakeButton("wiz.s1.init.btn", () => InitInstall(_sourceDir!), primary: true));
+                _body.Children.Add(MakeButton("wiz.s1.init.recheck", Render));
+            }
         }
         else
         {
             _body.Children.Add(new TextBlock { Text = Loc.T("wiz.s1.none"), Foreground = B("orange"),
                 FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) });
 
+            // Zero Hour = choix principal : il embarque les fichiers de Generals (cf. ZH_Generals), donc il suffit.
+            _body.Children.Add(MakeButton("wiz.s1.install.zh", () => SteamInstall(InstallManager.AppIdZeroHour), primary: true));
+            _body.Children.Add(new TextBlock
+            {
+                Text = Loc.T("wiz.s1.install.note"), Foreground = B("dim"), FontSize = 11,
+                TextWrapping = TextWrapping.Wrap, LineHeight = 16, Margin = new Thickness(2, 2, 0, 8),
+            });
+            // Generals = facultatif (campagne d'origine uniquement).
             _body.Children.Add(MakeButton("wiz.s1.install.gen", () => SteamInstall(InstallManager.AppIdGenerals)));
-            _body.Children.Add(MakeButton("wiz.s1.install.zh", () => SteamInstall(InstallManager.AppIdZeroHour)));
             _body.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 8, 0, 8) });
             _body.Children.Add(MakeButton("wiz.s1.refresh", Render));
         }
@@ -138,7 +160,10 @@ public sealed class InstallWizardWindow : Window
 
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
         var next = NavButton("wiz.next", primary: true);
-        next.IsEnabled = _sourceDir != null;
+        // Bloqué tant que la source n'est pas choisie OU pas initialisée (init obligatoire avant la suite).
+        bool ready = _sourceDir != null && !InstallManager.NeedsInit(_sourceDir);
+        next.IsEnabled = ready;
+        if (_sourceDir != null && !ready) next.ToolTip = Loc.T("wiz.s1.init.blocked");
         next.Click += (_, _) => { _step = Step.Goal; Render(); };
         AddFooter(cancel, next);
     }
@@ -156,7 +181,9 @@ public sealed class InstallWizardWindow : Window
         });
         var col = new StackPanel();
         col.Children.Add(new TextBlock { Text = Path.GetFileName(dir.TrimEnd('\\', '/')), Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
-        col.Children.Add(new TextBlock { Text = dir + "   ·   " + Loc.T(badgeKey), Foreground = B("dim"), FontSize = 11 });
+        string sub = dir + "   ·   " + Loc.T(badgeKey);
+        if (InstallManager.NeedsInit(dir)) sub += "   ·   ⚠ " + Loc.T("wiz.s1.needinit");
+        col.Children.Add(new TextBlock { Text = sub, Foreground = B("dim"), FontSize = 11 });
         inner.Children.Add(col);
 
         var border = new Border
@@ -181,10 +208,25 @@ public sealed class InstallWizardWindow : Window
 
     private void SteamInstall(string appId)
     {
+        // Message AVANT : Steam ouvre l'install ; rappeler de LANCER le jeu une fois après (initialisation),
+        // puis de revenir cliquer « Rechercher à nouveau ». Pas de bouton « lancer » dédié : on lance depuis Steam.
+        if (!Dialogs.Confirm(this, Loc.T("wiz.title"), Loc.T("wiz.s1.steam.before"))) return;
         if (InstallManager.SteamLifecycle("install", appId))
             Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.steam.started"));
         else
             Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.steam.failed"));
+    }
+
+    /// <summary>Initialise une install non lancée : la démarre une fois via Steam (steam://run/&lt;appId&gt;).
+    /// Hors Steam (copie/fork) : pas d'appId → conseiller un lancement manuel.</summary>
+    private void InitInstall(string dir)
+    {
+        string? appId = InstallManager.SteamAppId(dir);
+        if (appId != null)
+            Dialogs.Info(this, Loc.T("wiz.title"),
+                InstallManager.SteamLifecycle("run", appId) ? Loc.T("wiz.s1.init.started") : Loc.T("wiz.s1.steam.failed"));
+        else
+            Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.init.manual"));
     }
 
     private void PickSourceFolder()
@@ -310,7 +352,7 @@ public sealed class InstallWizardWindow : Window
         return ok;
     }
 
-    private static string Mb(long bytes) => bytes < 0 ? "?" : $"{bytes >> 20} Mo";
+    private static string Mb(long bytes) => bytes < 0 ? "?" : $"{bytes >> 20} {Loc.T("unit.mb")}";
 
     // ----- Étape 4 : Copie -----
     private void RenderRun()
@@ -395,7 +437,7 @@ public sealed class InstallWizardWindow : Window
     }
 
     // ----- Bouton « action » pleine largeur, aligné à gauche -----
-    private Button MakeButton(string key, System.Action act)
+    private Button MakeButton(string key, System.Action act, bool primary = false)
     {
         var b = new Button
         {
@@ -403,6 +445,7 @@ public sealed class InstallWizardWindow : Window
             HorizontalAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(12, 7, 12, 7),
             Margin = new Thickness(0, 3, 0, 3),
         };
+        if (primary && St("PrimaryButton") is { } s) b.Style = s;
         b.Click += (_, _) => act();
         return b;
     }
