@@ -21,7 +21,11 @@ namespace GenSpeed.App;
 public sealed class InstallWizardWindow : Window
 {
     private enum Step { Source, Goal, Destination, Run, Done }
-    private enum Goal { KeepM0, BaseM1, PlayableM2, Fork }
+    // Modèle 3 tiers (validé) : M0 = install Steam (vierge OU patchée+GenLauncher en place) ;
+    // M1 = copie vierge de sauvegarde (master, AVANT tout patch) ; M2 = copie de M1 + fork autonome.
+    // KeepVanilla = garder M0 vierge ; BackupM1 = créer M1 ; ModdedSteam = GenPatcher+GenLauncher sur M0
+    // (guidé, pas de copie — Phase C l'automatisera) ; ForkM2 = copie de M1 + fork.
+    private enum Goal { KeepVanilla, BackupM1, ModdedSteam, ForkM2 }
 
     private static Brush B(string key) => (Brush)Application.Current.FindResource(key);
     private static Style? St(string key) => Application.Current.TryFindResource(key) as Style;
@@ -31,7 +35,7 @@ public sealed class InstallWizardWindow : Window
     private readonly System.Action<string> _register;   // EnsureInstallListed(dir) + LoadMods()
 
     private Step _step = Step.Source;
-    private Goal _goal = Goal.BaseM1;
+    private Goal _goal = Goal.BackupM1;
     private string? _sourceDir;
     private string? _destDir;
     private CopyResult? _copyResult;
@@ -245,18 +249,19 @@ public sealed class InstallWizardWindow : Window
         _body.Children.Add(Title2("wiz.s2.title"));
         _body.Children.Add(Para("wiz.s2.intro"));
 
-        _body.Children.Add(GoalRow(Goal.KeepM0, "wiz.goal.keep", "wiz.goal.keep.desc"));
-        _body.Children.Add(GoalRow(Goal.BaseM1, "wiz.goal.base", "wiz.goal.base.desc"));
-        _body.Children.Add(GoalRow(Goal.PlayableM2, "wiz.goal.play", "wiz.goal.play.desc"));
-        _body.Children.Add(GoalRow(Goal.Fork, "wiz.goal.fork", "wiz.goal.fork.desc"));
+        _body.Children.Add(GoalRow(Goal.KeepVanilla, "wiz.goal.keep", "wiz.goal.keep.desc"));
+        _body.Children.Add(GoalRow(Goal.BackupM1, "wiz.goal.m1", "wiz.goal.m1.desc"));
+        _body.Children.Add(GoalRow(Goal.ModdedSteam, "wiz.goal.modded", "wiz.goal.modded.desc"));
+        _body.Children.Add(GoalRow(Goal.ForkM2, "wiz.goal.fork", "wiz.goal.fork.desc"));
 
         var back = NavButton("wiz.back"); back.Click += (_, _) => { _step = Step.Source; Render(); };
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
         var next = NavButton("wiz.next", primary: true);
         next.Click += (_, _) =>
         {
-            if (_goal == Goal.KeepM0) { _step = Step.Done; Render(); }   // pas de copie : on garde M0
-            else { _step = Step.Destination; Render(); }
+            // Sans copie : garder M0 vierge, ou préparer le jeu moddé EN PLACE sur l'install Steam (guidé).
+            if (_goal == Goal.KeepVanilla || _goal == Goal.ModdedSteam) { _step = Step.Done; Render(); }
+            else { _step = Step.Destination; Render(); }   // BackupM1 / ForkM2 = une copie
         };
         AddFooter(cancel, back, next);
     }
@@ -326,15 +331,15 @@ public sealed class InstallWizardWindow : Window
         if (string.Equals(Path.GetFullPath(_sourceDir).TrimEnd('\\'), Path.GetFullPath(_destDir).TrimEnd('\\'), System.StringComparison.OrdinalIgnoreCase))
         { Line(false, Loc.T("wiz.guard.same")); return false; }
 
-        // Source vierge — exigée pour un fork (consigne des mods), conseillée pour M1.
+        // Source vierge — exigée pour un fork (consigne des mods), exigée aussi pour M1 (c'est un master VIERGE).
         var intrus = InstallManager.NonVanillaItems(_sourceDir);
-        if (_goal == Goal.Fork || _goal == Goal.BaseM1)
+        if (_goal == Goal.ForkM2 || _goal == Goal.BackupM1)
         {
             if (intrus.Count == 0) Line(true, Loc.T("wiz.guard.vanilla.ok"));
             else
             {
                 Line(false, string.Format(Loc.T("wiz.guard.vanilla.warn"), string.Join(", ", intrus.Take(5))));
-                if (_goal == Goal.Fork) ok = false;   // fork : bloquant ; M1 : simple avertissement
+                if (_goal == Goal.ForkM2) ok = false;   // fork : bloquant ; M1 : simple avertissement
             }
         }
 
@@ -385,10 +390,13 @@ public sealed class InstallWizardWindow : Window
         });
 
         string? finalDir;
-        if (_goal == Goal.KeepM0)
+        if (_goal == Goal.KeepVanilla || _goal == Goal.ModdedSteam)
         {
+            // Sans copie : on enregistre l'install Steam (M0) telle quelle.
             finalDir = _sourceDir;
-            _body.Children.Add(new TextBlock { Text = Loc.T("wiz.done.keep"), Foreground = B("fg"),
+            bool modded = _goal == Goal.ModdedSteam;
+            _body.Children.Add(new TextBlock { Text = Loc.T(modded ? "wiz.done.modded" : "wiz.done.keep"),
+                Foreground = modded ? B("orange") : B("fg"),
                 TextWrapping = TextWrapping.Wrap, LineHeight = 18, Margin = new Thickness(0, 0, 0, 8) });
         }
         else if (_copyResult is { Ok: true })
@@ -399,14 +407,8 @@ public sealed class InstallWizardWindow : Window
                 Text = string.Format(Loc.T("wiz.done.copyok"), _destDir, Mb(_copyResult.Bytes)),
                 Foreground = B("fg"), TextWrapping = TextWrapping.Wrap, LineHeight = 18, Margin = new Thickness(0, 0, 0, 6),
             });
-            // Prochaine étape selon l'objectif (GenPatcher = guidé ; orchestration CLI = Phase C).
-            string nextKey = _goal switch
-            {
-                Goal.BaseM1 => "wiz.done.next.base",
-                Goal.PlayableM2 => "wiz.done.next.play",
-                Goal.Fork => "wiz.done.next.fork",
-                _ => "wiz.done.next.base",
-            };
+            // Prochaine étape selon l'objectif.
+            string nextKey = _goal == Goal.ForkM2 ? "wiz.done.next.fork" : "wiz.done.next.m1";
             _body.Children.Add(new TextBlock { Text = Loc.T(nextKey), Foreground = B("orange"),
                 TextWrapping = TextWrapping.Wrap, LineHeight = 18, Margin = new Thickness(0, 0, 0, 8) });
         }
