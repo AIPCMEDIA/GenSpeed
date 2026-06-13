@@ -350,22 +350,29 @@ public static class Diagnostics
         return $"⚠ d3d8to9 / wrapper — augmente le risque de mismatch en ligne ({Sha8(path)})";
     }
 
-    /// <summary>État du serial LAN « ergc » (écrit par GenPatcher pour le LAN Steam) : présent / absent,
-    /// et alerte si un FANTÔME VirtualStore existe (peut masquer le vrai serial → « serial is in use »).</summary>
+    /// <summary>État du serial LAN « ergc » (écrit par GenPatcher pour le LAN Steam). Un FANTÔME VirtualStore
+    /// (recréé quand le jeu écrit le serial sans droits admin) n'est un PROBLÈME que s'il DIVERGE du vrai serial
+    /// HKLM : dans ce cas il le masque et provoque « serial is in use » en LAN. S'il est identique, inoffensif.</summary>
     [System.Runtime.Versioning.SupportedOSPlatform("windows")]
     private static string DetectLanSerial()
     {
-        bool Has(RegistryKey root, string sub)
+        string? Val(RegistryKey root, string sub)
         {
-            try { using var k = root.OpenSubKey(sub); return k?.GetValue("") is string s && s.Length > 0; }
-            catch { return false; }
+            try { using var k = root.OpenSubKey(sub); return k?.GetValue("") as string; }
+            catch { return null; }
         }
-        const string ergc = @"SOFTWARE\WOW6432Node\Electronic Arts\EA Games\Command and Conquer Generals Zero Hour\ergc";
+        const string ergc  = @"SOFTWARE\WOW6432Node\Electronic Arts\EA Games\Command and Conquer Generals Zero Hour\ergc";
         const string ghost = @"SOFTWARE\Classes\VirtualStore\MACHINE\SOFTWARE\WOW6432Node\Electronic Arts\EA Games\Command and Conquer Generals Zero Hour\ergc";
-        bool real = Has(Registry.LocalMachine, ergc);
-        bool phantom = Has(Registry.CurrentUser, ghost);
-        if (phantom) return "⚠ fantôme VirtualStore présent (peut masquer le vrai → « serial in use » en LAN)";
-        return real ? "présent" : "absent";
+        string? real    = Val(Registry.LocalMachine, ergc);
+        string? phantom = Val(Registry.CurrentUser, ghost);
+        bool hasReal = !string.IsNullOrEmpty(real);
+        bool hasPhantom = !string.IsNullOrEmpty(phantom);
+
+        if (hasPhantom && !string.Equals(phantom, real, StringComparison.Ordinal))
+            return "⚠ fantôme VirtualStore DIVERGENT (masque le vrai serial → « serial in use » en LAN)";
+        if (hasPhantom)   // copie VirtualStore identique au vrai serial → sans conséquence
+            return "présent (copie VirtualStore identique)";
+        return hasReal ? "présent" : "absent";
     }
 
     /// <summary>Construit l'empreinte de synchro complète de la machine.</summary>
