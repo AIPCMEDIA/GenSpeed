@@ -19,21 +19,26 @@
 
 ---
 
-## ✨ Nouveau dans la v2.1 / New in v2.1
+## ✨ Nouveau dans la v2.2 / New in v2.2
 
 🇫🇷
-- 🖥️ **Multi-installations automatique** : GenSpeed découvre **toutes** tes installations (bibliothèques Steam, registre EA, ajouts manuels) et regroupe le tableau **par installation** — fini la notion d'« install active » à basculer à la main.
-- 🧹 **Désinstalleur propre** (menu ⚙ Config) : analyse **toutes les installations détectées** et toutes les traces en **étapes ordonnées** (mods GenLauncher par mod **et par addon/patch**, GenLauncher, DLL GenTool, GenPatcher, données joueur, raccourcis, registre EA, résidus de compatibilité, traces de diagnostic Windows, le jeu — compatible Steam). Tout est expliqué, **rien n'est coché d'office**, tout est **sauvegardé dans un dossier daté avant suppression** (guide de restauration inclus), un **sélecteur de méthode global** applique un choix à tout en un clic, et un bouton **Simuler** montre ce qui se passerait sans rien toucher. Les **installeurs** (zip/exe de GenPatcher, GenTool, GenLauncher) ne sont **jamais touchés**.
-- ✏ **Renommer les mods dans la liste** (affichage seulement — n'affecte ni le jeu ni le code LAN).
-- 🔎 **Type d'installation dans la barre de titre** : Heure H d'origine / monde GenLauncher / fork autonome.
-- 🚀 Lanceur mémorisé **par mod coché**, case « tout cocher » dans le tableau, clic droit « ouvrir le dossier » corrigé.
+- 🛡️ **Vérifier les fichiers** (menu 🩺 Diagnostic) : pour chaque outil (GenTool, GenLauncher, GenPatcher…), un **verdict en clair** — connu et sans danger, avec les faux positifs antivirus expliqués — et un bouton **VirusTotal**. Fini le jargon technique anxiogène.
+- 🩺 **Diagnostic mismatch enrichi** : compare les **7 réglages anti-mismatch** d'`options.ini`, **distingue GenTool du wrapper d3d8to9** (qui augmente les désyncs en ligne), et vérifie le **serial LAN** (n'alerte que si un fantôme VirtualStore masque vraiment le bon → cause cachée de « serial in use »).
+- 🧹 **Désinstalleur durci** : couvre désormais le **VirtualStore** (vieux serials fantômes), **GenTool au complet** (config, updater, maps de ladder), les **addons GenPatcher** (Control Bar, hotkeys, décals), et une nouvelle catégorie **« Restaurer les fichiers d'origine »** — le « dé-patch » que les outils n'offrent pas.
 
 🇬🇧
-- 🖥️ **Automatic multi-install** : GenSpeed discovers **all** your installs (Steam libraries, EA registry, manual adds) and groups the table **per install** — no more "active install" to switch by hand.
-- 🧹 **Clean uninstaller** (⚙ Config menu): scans **every detected install** and every leftover in **ordered steps** (GenLauncher mods per mod **and per addon/patch**, GenLauncher, GenTool DLLs, GenPatcher, player data, shortcuts, EA registry, compatibility leftovers, Windows diagnostic traces, the game — Steam-aware). Everything is explained, **nothing pre-checked**, everything **backed up to a dated folder before deletion** (restore guide included), a **global method selector** applies one choice to all in a click, and a **Simulate** button shows what would happen without touching anything. **Installers** (GenPatcher / GenTool / GenLauncher zips & exes) are **never touched**.
-- ✏ **Rename mods in the list** (display only — does not affect the game or the LAN code).
-- 🔎 **Install type in the title bar**: original Zero Hour / GenLauncher world / standalone fork.
-- 🚀 Launcher remembered **per checked mod**, select-all checkbox in the table, right-click "open folder" fixed.
+- 🛡️ **Verify files** (🩺 Diagnostic menu): for each tool (GenTool, GenLauncher, GenPatcher…), a **plain-language verdict** — known and safe, with antivirus false positives explained — plus a **VirusTotal** button. No more scary jargon.
+- 🩺 **Enriched mismatch diagnostic**: compares the **7 anti-mismatch** `options.ini` settings, **tells GenTool apart from the d3d8to9 wrapper** (which increases online desyncs), and checks the **LAN serial** (only warns if a VirtualStore phantom truly masks the real one → a hidden "serial in use" cause).
+- 🧹 **Hardened uninstaller**: now covers the **VirtualStore** (old phantom serials), **full GenTool** (config, updater, ladder maps), **GenPatcher add-ons** (Control Bar, hotkeys, decals), and a new **"Restore original files"** category — the "un-patch" the tools don't offer.
+
+<details>
+<summary>✨ v2.1 — multi-installations + désinstalleur propre</summary>
+
+- 🖥️ **Multi-installations automatique** : découverte de toutes les installations, tableau groupé par installation.
+- 🧹 **Désinstalleur propre** (étapes ordonnées, sauvegarde datée, simulation, méthode globale).
+- ✏ Renommage des mods · 🔎 type d'installation affiché · 🚀 lanceur mémorisé par mod.
+
+</details>
 
 <details>
 <summary>✨ v2.0</summary>
@@ -230,6 +235,12 @@ MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage,
 ---
 
 ## 📝 Changelog
+
+### v2.2
+- 🛡️ **Volet « Vérifier les fichiers »** (menu Diagnostic) : verdict en clair par binaire tiers (référence connue / non répertorié / non suivi, pastilles vert/orange/gris) + bouton **VirusTotal** (recherche par hash). Pédagogique : explique que les faux positifs heuristiques sur les outils non signés sont normaux
+- 🩺 **Diagnostic mismatch enrichi** : 7 réglages `options.ini` anti-mismatch (DynamicLOD, ExtraAnimations, HeatEffects, MaxParticleCount, SendDelay, ShowSoftWaterEdge, ShowTrees), identification du `d3d8.dll` (GenTool vs wrapper d3d8to9), serial LAN `ergc` (alerte seulement si fantôme VirtualStore **divergent**)
+- 🧹 **Désinstalleur durci** : VirtualStore (clés EA fantômes + serials), GenTool complet (`d3d8.cfg`, `GenToolUpdater`, maps `[RANK]/[NMC]`), addons GenPatcher (`.big` Control Bar/hotkeys/décals), catégorie **« Restaurer les fichiers d'origine »** (`.bak`/`.GLR`), clé registre `EA Games\ZeroHour`, sous-dossiers `x64/x86\7z.dll`
+- 🔎 Référence d'intégrité **known-good** des binaires tiers (neutre, non bloquante)
 
 ### v2.1
 - 🖥️ **Multi-installations automatique** : découverte de toutes les installations (bibliothèques Steam, registre EA, ajouts manuels), tableau **groupé par installation** — suppression de la notion d'« install active »
