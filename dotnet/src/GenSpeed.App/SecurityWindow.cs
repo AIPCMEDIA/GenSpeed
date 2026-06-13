@@ -75,13 +75,21 @@ public static class SecurityWindow
             foreach (var n in present)
             {
                 string path = Path.Combine(dir, n);
-                var (status, _) = KnownBinaries.Identify(path);
-                var row = new DockPanel { Margin = new Thickness(0, 3, 0, 3) };
+                var (status, label) = KnownBinaries.Identify(path);
+                // Verdict EN CLAIR (pas la liste technique de VirusTotal).
+                string verdict = status switch
+                {
+                    KnownBinaries.Status.Known    => string.Format(Loc.T("sec.verdict.known"), label),
+                    KnownBinaries.Status.Unlisted => Loc.T("sec.verdict.unlisted"),
+                    _                             => Loc.T("sec.verdict.untracked"),
+                };
+
+                var row = new DockPanel { Margin = new Thickness(0, 4, 0, 4) };
 
                 var vt = new Button
                 {
                     Content = Loc.T("sec.vt"), Padding = new Thickness(8, 2, 8, 2),
-                    Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Top,
                 };
                 string? url = KnownBinaries.VirusTotalUrl(path);
                 vt.IsEnabled = url != null;
@@ -89,21 +97,15 @@ public static class SecurityWindow
                 DockPanel.SetDock(vt, Dock.Right);
                 row.Children.Add(vt);
 
-                // Pastille : vert = référence connue, gris = non répertorié/non suivi (neutre, jamais rouge).
-                var dot = new Border
+                // Nom du fichier (gras) + verdict en clair dessous.
+                var col = new StackPanel();
+                col.Children.Add(new TextBlock { Text = n, Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
+                col.Children.Add(new TextBlock
                 {
-                    Width = 9, Height = 9, CornerRadius = new CornerRadius(5),
-                    Background = status == KnownBinaries.Status.Known ? B("accent") : B("dim"),
-                    VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(2, 0, 8, 0),
-                };
-                DockPanel.SetDock(dot, Dock.Left);
-                row.Children.Add(dot);
-
-                row.Children.Add(new TextBlock
-                {
-                    Text = $"{n}  —  {KnownBinaries.Describe(path)}",
-                    Foreground = B("fg"), VerticalAlignment = VerticalAlignment.Center, TextWrapping = TextWrapping.Wrap,
+                    Text = verdict, Foreground = B("dim"), TextWrapping = TextWrapping.Wrap, LineHeight = 17,
+                    Margin = new Thickness(0, 1, 0, 0),
                 });
+                row.Children.Add(col);
                 panel.Children.Add(row);
             }
         }
