@@ -268,8 +268,8 @@ public static class Cleanup
             {
                 var it = FileItem(d3d8, CleanupCategory.GenTool, CleanupRisk.Danger, "clean.explain.d3d8",
                     defaultChecked: false, reversible: true,
-                    methods: new() { CleanupMethod.Desactiver, CleanupMethod.SauvegarderSupprimer, CleanupMethod.Laisser });
-                it.ChosenMethod = CleanupMethod.Desactiver;     // le plus prudent par défaut
+                    methods: new() { CleanupMethod.Desactiver, CleanupMethod.SauvegarderSupprimer, CleanupMethod.SupprimerDirect, CleanupMethod.Laisser });
+                it.ChosenMethod = CleanupMethod.Desactiver;     // le plus prudent par défaut (mais « tout supprimer » global peut le retirer)
                 it.Extra = PeVersion(d3d8);
                 items.Add(it);
             }
@@ -313,6 +313,50 @@ public static class Cleanup
         string browser = Path.Combine(gameDir, "BrowserEngine.dll");
         if (System.IO.File.Exists(browser))
             items.Add(FileItem(browser, CleanupCategory.GenPatcher, CleanupRisk.Attention, "clean.explain.browserengine", defaultChecked: false));
+
+        // ── 📦 Contenu additionnel posé par GenPatcher à la RACINE du jeu (découvert au test réel) ──
+        // Ciblé par préfixe (« 340_ », « ! ») ou nom connu → ne touche JAMAIS aux .big OFFICIELS du jeu.
+        var dlMethods = new List<CleanupMethod> { CleanupMethod.SupprimerDirect, CleanupMethod.SauvegarderSupprimer };
+        try
+        {
+            foreach (var big in Directory.EnumerateFiles(gameDir, "*.big"))
+            {
+                string bn = Path.GetFileName(big);
+                if (Regex.IsMatch(bn, @"^\d+_") || bn.StartsWith("!")
+                    || bn.Equals("CustomContentMaps.big", StringComparison.OrdinalIgnoreCase))
+                {
+                    var ai = FileItem(big, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.gpaddon", defaultChecked: false, methods: dlMethods);
+                    ai.ChosenMethod = CleanupMethod.SupprimerDirect;   // ré-installable via GenPatcher
+                    items.Add(ai);
+                }
+            }
+        }
+        catch { }
+        // EdgeScroller (posé par GenPatcher) + ses journaux game.dat-*.log.
+        string edge = Path.Combine(gameDir, "EdgeScroller.exe");
+        if (System.IO.File.Exists(edge))
+            items.Add(FileItem(edge, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.edgescroller", defaultChecked: false, methods: dlMethods));
+        try { foreach (var lg in Directory.EnumerateFiles(gameDir, "game.dat-*.log"))
+                items.Add(FileItem(lg, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.gplog", defaultChecked: false, methods: dlMethods)); }
+        catch { }
+        // .bak de DÉSACTIVATION (original absent → GenPatcher a neutralisé le fichier) : non restaurables
+        // à l'aveugle (réintroduirait le bug), mais SUPPRIMABLES en désinstallation totale.
+        try
+        {
+            foreach (var bak in Directory.EnumerateFiles(gameDir, "*.bak"))
+            {
+                if (System.IO.File.Exists(bak[..^4])) continue;   // original présent = géré par Restauration
+                items.Add(FileItem(bak, CleanupCategory.GenPatcher, CleanupRisk.Sur, "clean.explain.gpbak", defaultChecked: false, methods: dlMethods));
+            }
+        }
+        catch { }
+        // 7-Zip déposé par GenLauncher dans des sous-dossiers x64/x86.
+        foreach (var sub in new[] { "x64", "x86" })
+        {
+            string p = Path.Combine(gameDir, sub, "7z.dll");
+            if (System.IO.File.Exists(p))
+                items.Add(FileItem(p, CleanupCategory.GenLauncher, CleanupRisk.Sur, "clean.explain.gl7z", defaultChecked: false, methods: dlMethods));
+        }
 
         // ── 🚀 GenLauncher : dossiers + exe + config YAML ──────────────────
         string glFolder = Path.Combine(gameDir, ".GenLauncherFolder");
@@ -556,6 +600,7 @@ public static class Cleanup
             {
                 @"HKLM\SOFTWARE\WOW6432Node\Electronic Arts\EA Games\Command and Conquer Generals Zero Hour",
                 @"HKLM\SOFTWARE\WOW6432Node\Electronic Arts\EA Games\Generals",
+                @"HKLM\SOFTWARE\WOW6432Node\Electronic Arts\EA Games\ZeroHour",   // pointe ZH_Generals (Generals embarqué) — manquait
                 @"HKLM\SOFTWARE\Electronic Arts\EA Games\Command and Conquer Generals Zero Hour",
             })
                 if (RegKeyExists(key))
