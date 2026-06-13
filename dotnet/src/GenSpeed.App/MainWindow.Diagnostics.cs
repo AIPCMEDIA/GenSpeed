@@ -68,6 +68,9 @@ public partial class MainWindow
         Log(string.Format(Loc.T("lan.done"), r.Hash, r.FileCount, r.TotalBytes / 1048576));
     }
 
+    /// <summary>Vérification des fichiers (statut known-good neutre + lien VirusTotal) sur toutes les installs.</summary>
+    private void OnDiagVerify() => SecurityWindow.Show(this, _installs);
+
     /// <summary>L'empreinte mismatch est PAR install (c'est l'install qu'on joue qui compte) :
     /// une seule → directe ; plusieurs → on demande laquelle.</summary>
     private string? PickInstall()

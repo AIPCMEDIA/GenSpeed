@@ -428,6 +428,12 @@ public sealed class Loc : INotifyPropertyChanged
         // Diagnostic mismatch
         ["diag.export"]  = ["🩺 Exporter mon diagnostic…", "🩺 Export my diagnostic…"],
         ["diag.compare"] = ["🔍 Comparer avec un ami…", "🔍 Compare with a friend…"],
+        ["diag.verify"]  = ["🛡 Vérifier les fichiers (VirusTotal)…", "🛡 Verify files (VirusTotal)…"],
+        ["sec.title"]    = ["Vérification des fichiers", "File verification"],
+        ["sec.intro"]    = ["GenSpeed compare tes binaires tiers à une liste de référence (info neutre, jamais une alarme : une « version non répertoriée » est le plus souvent une simple mise à jour). Pour trancher si un fichier est sain, ouvre-le sur VirusTotal — 70 antivirus, base toujours à jour. Seul le hash est envoyé (aucun fichier).",
+                            "GenSpeed compares your third-party binaries to a reference list (neutral info, never an alarm: an “unlisted version” is most often just an update). To decide whether a file is clean, open it on VirusTotal — 70 antivirus engines, always up to date. Only the hash is sent (no file)."],
+        ["sec.vt"]       = ["Vérifier sur VirusTotal", "Check on VirusTotal"],
+        ["sec.none"]     = ["Aucun binaire tiers détecté dans les installations.", "No third-party binary detected in the installations."],
         ["diag.title"]   = ["🩺 Diagnostic mismatch", "🩺 Mismatch diagnostic"],
         ["diag.badfile"] = ["Ce fichier n'est pas un diagnostic de synchro GenSpeed.\nDemande à l'autre joueur de l'exporter depuis « 🩺 Diagnostic ».",
                             "This file is not a GenSpeed sync diagnostic.\nAsk the other player to export it from “🩺 Diagnostic”."],
