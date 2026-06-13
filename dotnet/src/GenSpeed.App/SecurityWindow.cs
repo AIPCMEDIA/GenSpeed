@@ -16,6 +16,11 @@ public static class SecurityWindow
 {
     private static Brush B(string key) => (Brush)Application.Current.FindResource(key);
 
+    // Couleurs des pastilles (partagées légende + lignes). Jamais de rouge : pas d'alarme locale.
+    private static readonly Color CGreen  = Color.FromRgb(0x4C, 0xAF, 0x50);   // connu, sans danger
+    private static readonly Color COrange = Color.FromRgb(0xFF, 0xB3, 0x00);   // non répertorié
+    private static readonly Color CGray   = Color.FromRgb(0x9E, 0x9E, 0x9E);   // non suivi
+
     // Binaires tiers d'intérêt sécurité (présents = affichés).
     private static readonly string[] Binaries =
         { "d3d8.dll", "GenLauncher.exe", "GenToolUpdater.exe", "modded.exe", "EdgeScroller.exe", "Game.dat" };
@@ -52,8 +57,23 @@ public static class SecurityWindow
         panel.Children.Add(new TextBlock
         {
             Text = Loc.T("sec.intro"), Foreground = B("dim"), TextWrapping = TextWrapping.Wrap,
-            LineHeight = 18, Margin = new Thickness(0, 0, 0, 10),
+            LineHeight = 18, Margin = new Thickness(0, 0, 0, 8),
         });
+
+        // Légende des pastilles.
+        var legend = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 10) };
+        void AddLegend(Color c, string key)
+        {
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 18, 0), VerticalAlignment = VerticalAlignment.Center };
+            sp.Children.Add(new Border { Width = 10, Height = 10, CornerRadius = new CornerRadius(5),
+                Background = new SolidColorBrush(c), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 5, 0) });
+            sp.Children.Add(new TextBlock { Text = Loc.T(key), Foreground = B("dim"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center });
+            legend.Children.Add(sp);
+        }
+        AddLegend(CGreen, "sec.legend.known");
+        AddLegend(COrange, "sec.legend.unlisted");
+        AddLegend(CGray, "sec.legend.untracked");
+        panel.Children.Add(legend);
 
         bool any = false;
         foreach (var dir in installs)
@@ -101,9 +121,9 @@ public static class SecurityWindow
                 // vert = connu/sans danger, orange = non répertorié, gris = non suivi. Jamais rouge (pas d'alarme).
                 var dotColor = status switch
                 {
-                    KnownBinaries.Status.Known    => Color.FromRgb(0x4C, 0xAF, 0x50),  // vert
-                    KnownBinaries.Status.Unlisted => Color.FromRgb(0xFF, 0xB3, 0x00),  // orange
-                    _                             => Color.FromRgb(0x9E, 0x9E, 0x9E),  // gris
+                    KnownBinaries.Status.Known    => CGreen,
+                    KnownBinaries.Status.Unlisted => COrange,
+                    _                             => CGray,
                 };
                 var dot = new Border
                 {
