@@ -32,7 +32,8 @@ public sealed class InstallWizardWindow : Window
 
     private readonly GenConfig _config;
     private readonly System.Action<string> _log;
-    private readonly System.Action<string> _register;   // EnsureInstallListed(dir) + LoadMods()
+    private readonly System.Action<string> _register;   // install normale → tableau (EnsureInstallListed + LoadMods)
+    private readonly System.Action<string> _onMaster;   // master M1 → variable cachée (SetMaster)
 
     private Step _step = Step.Source;
     private Goal _goal = Goal.BackupM1;
@@ -45,12 +46,14 @@ public sealed class InstallWizardWindow : Window
         { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(16, 8, 16, 12) };
     private TextBlock _stepLabel = null!;
 
-    public static void Show(Window owner, GenConfig config, System.Action<string> log, System.Action<string> register)
-        => new InstallWizardWindow(owner, config, log, register).ShowDialog();
+    public static void Show(Window owner, GenConfig config, System.Action<string> log,
+                            System.Action<string> register, System.Action<string> onMaster)
+        => new InstallWizardWindow(owner, config, log, register, onMaster).ShowDialog();
 
-    private InstallWizardWindow(Window owner, GenConfig config, System.Action<string> log, System.Action<string> register)
+    private InstallWizardWindow(Window owner, GenConfig config, System.Action<string> log,
+                               System.Action<string> register, System.Action<string> onMaster)
     {
-        _config = config; _log = log; _register = register;
+        _config = config; _log = log; _register = register; _onMaster = onMaster;
 
         Title = Loc.T("wiz.title"); Owner = owner; Width = 720; Height = 600;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -121,6 +124,9 @@ public sealed class InstallWizardWindow : Window
         _body.Children.Add(Para("wiz.s1.intro"));
 
         var installs = InstallDiscovery.DiscoverAll(_config.KnownInstalls);
+        // Le master M1 ne figure JAMAIS dans la liste de l'assistant (anti-bêtise — on ne le modifie pas).
+        if (!string.IsNullOrEmpty(_config.M1Dir))
+            installs.RemoveAll(d => string.Equals(d.TrimEnd('\\'), _config.M1Dir!.TrimEnd('\\'), System.StringComparison.OrdinalIgnoreCase));
         if (installs.Count > 0)
         {
             if (_sourceDir == null && installs.Count == 1) _sourceDir = installs[0];   // une seule : présélection
@@ -259,6 +265,9 @@ public sealed class InstallWizardWindow : Window
         var next = NavButton("wiz.next", primary: true);
         next.Click += (_, _) =>
         {
+            // Un fork part TOUJOURS du master M1 : exiger qu'il existe d'abord.
+            if (_goal == Goal.ForkM2 && string.IsNullOrEmpty(_config.M1Dir))
+            { Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.fork.nom1")); return; }
             // Sans copie : garder M0 vierge, ou préparer le jeu moddé EN PLACE sur l'install Steam (guidé).
             if (_goal == Goal.KeepVanilla || _goal == Goal.ModdedSteam) { _step = Step.Done; Render(); }
             else { _step = Step.Destination; Render(); }   // BackupM1 / ForkM2 = une copie
@@ -291,10 +300,22 @@ public sealed class InstallWizardWindow : Window
         _body.Children.Add(Title2("wiz.s3.title"));
         _body.Children.Add(Para("wiz.s3.intro"));
 
-        _body.Children.Add(MakeButton("wiz.s3.pick", () =>
+        // Pour un fork : rappeler que la base copiée est le master M1 (source fixe, cachée).
+        if (_goal == Goal.ForkM2)
+            _body.Children.Add(new TextBlock { Text = string.Format(Loc.T("wiz.s3.forksrc"), _config.M1Dir),
+                Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
+        // Pour M1 : on demande juste l'emplacement, le dossier sera nommé « Master ZH ».
+        if (_goal == Goal.BackupM1)
+            _body.Children.Add(new TextBlock { Text = Loc.T("wiz.s3.m1note"),
+                Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
+
+        _body.Children.Add(MakeButton(_goal == Goal.BackupM1 ? "wiz.s3.pick.m1" : "wiz.s3.pick", () =>
         {
             var dlg = new OpenFolderDialog { Title = Loc.T("wiz.s3.pick") };
-            if (dlg.ShowDialog() == true) { _destDir = dlg.FolderName; Render(); }
+            if (dlg.ShowDialog() != true) return;
+            // M1 : nom de dossier standardisé sous l'emplacement choisi ; sinon dossier choisi tel quel.
+            _destDir = _goal == Goal.BackupM1 ? Path.Combine(dlg.FolderName, InstallManager.MasterFolderName) : dlg.FolderName;
+            Render();
         }));
 
         _body.Children.Add(new TextBlock
@@ -314,11 +335,16 @@ public sealed class InstallWizardWindow : Window
         AddFooter(cancel, back, copy);
     }
 
+    /// <summary>Source réelle de la copie : un fork (M2) part TOUJOURS du master M1 (la sélection du
+    /// tableau est cachée pour les forks) ; sinon la source choisie à l'étape 1.</summary>
+    private string? EffectiveSource() => _goal == Goal.ForkM2 ? _config.M1Dir : _sourceDir;
+
     /// <summary>Affiche les garde-fous (source vierge pour un fork, NTFS, espace, src≠dest) et renvoie
     /// vrai si la copie peut démarrer (aucun bloqueur).</summary>
     private bool RenderGuards()
     {
-        if (_destDir == null || _sourceDir == null) return false;
+        string? src = EffectiveSource();
+        if (_destDir == null || src == null) return false;
         bool ok = true;
 
         void Line(bool good, string text)
@@ -328,11 +354,11 @@ public sealed class InstallWizardWindow : Window
         }
 
         // src == dest : bloquant.
-        if (string.Equals(Path.GetFullPath(_sourceDir).TrimEnd('\\'), Path.GetFullPath(_destDir).TrimEnd('\\'), System.StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(Path.GetFullPath(src).TrimEnd('\\'), Path.GetFullPath(_destDir).TrimEnd('\\'), System.StringComparison.OrdinalIgnoreCase))
         { Line(false, Loc.T("wiz.guard.same")); return false; }
 
         // Source vierge — exigée pour un fork (consigne des mods), exigée aussi pour M1 (c'est un master VIERGE).
-        var intrus = InstallManager.NonVanillaItems(_sourceDir);
+        var intrus = InstallManager.NonVanillaItems(src);
         if (_goal == Goal.ForkM2 || _goal == Goal.BackupM1)
         {
             if (intrus.Count == 0) Line(true, Loc.T("wiz.guard.vanilla.ok"));
@@ -348,7 +374,7 @@ public sealed class InstallWizardWindow : Window
         Line(ntfs, Loc.T(ntfs ? "wiz.guard.ntfs.ok" : "wiz.guard.ntfs.bad"));
 
         // Espace disque.
-        long need = InstallManager.DirSizeBytes(_sourceDir);
+        long need = InstallManager.DirSizeBytes(src);
         long free = InstallManager.FreeSpaceBytes(_destDir);
         bool space = free < 0 || free >= need + (200L << 20);
         Line(space, string.Format(Loc.T(space ? "wiz.guard.space.ok" : "wiz.guard.space.bad"), Mb(free), Mb(need)));
@@ -373,10 +399,11 @@ public sealed class InstallWizardWindow : Window
 
     private async System.Threading.Tasks.Task StartCopyAsync()
     {
-        if (_sourceDir == null || _destDir == null) return;
+        string? src = EffectiveSource();
+        if (src == null || _destDir == null) return;
         _step = Step.Run; Render();
         _log(string.Format(Loc.T("wiz.s4.copying"), _destDir));
-        _copyResult = await System.Threading.Tasks.Task.Run(() => InstallManager.CopyInstall(_sourceDir!, _destDir!));
+        _copyResult = await System.Threading.Tasks.Task.Run(() => InstallManager.CopyInstall(src!, _destDir!));
         _step = Step.Done; Render();
     }
 
@@ -424,9 +451,11 @@ public sealed class InstallWizardWindow : Window
 
         if (finalDir != null)
         {
-            _register(finalDir);   // enregistre + rafraîchit le tableau principal
-            _body.Children.Add(new TextBlock { Text = Loc.T("wiz.done.registered"), Foreground = B("dim"),
-                FontSize = 12, Margin = new Thickness(0, 0, 0, 8) });
+            // M1 = master caché (variable) ; tout le reste = install normale (tableau).
+            if (_goal == Goal.BackupM1) _onMaster(finalDir);
+            else _register(finalDir);
+            _body.Children.Add(new TextBlock { Text = Loc.T(_goal == Goal.BackupM1 ? "wiz.done.m1registered" : "wiz.done.registered"),
+                Foreground = B("dim"), FontSize = 12, Margin = new Thickness(0, 0, 0, 8) });
 
             _body.Children.Add(MakeButton("wiz.done.openfolder", () =>
             {

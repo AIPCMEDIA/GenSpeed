@@ -167,7 +167,7 @@ public partial class MainWindow : Window
     private void WireToolbar()
     {
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare), ("diag.verify", OnDiagVerify));
-        Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard),
+        Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard), ("cfg.master", OnCfgMaster),
                             ("cfg.addinstall", OnCfgAddInstall), ("cfg.modsdir", OnCfgModsDir),
                             ("cfg.launcher", OnCfgLauncher),
                             ("cfg.uninstall", OnCfgUninstall),
@@ -260,7 +260,11 @@ public partial class MainWindow : Window
             if (!PromptNoInstall()) { Log(Loc.T("log.nogame")); return; }
             _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
         }
+        // Le master M1 (copie de sauvegarde vierge) ne s'affiche JAMAIS dans le tableau (on n'y touche pas).
+        if (!string.IsNullOrEmpty(_config.M1Dir))
+            _installs.RemoveAll(d => string.Equals(d.TrimEnd('\\'), _config.M1Dir!.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
         Log(string.Format(Loc.T("log.installs.found"), _installs.Count));
+        if (!_m1Checked) { _m1Checked = true; CheckMasterM1(); }   // vérif master M1 une fois (au démarrage)
 
         var targets = new List<Target>();
         foreach (var dir in _installs)

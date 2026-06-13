@@ -18,6 +18,9 @@ public static class InstallManager
     public const string AppIdZeroHour = "2732960";
     public const string AppIdGenerals = "2229870";
 
+    /// <summary>Nom de dossier standard du master M1 (copie vierge de sauvegarde).</summary>
+    public const string MasterFolderName = "Master ZH";
+
     /// <summary>Déclenche une action du cycle de vie Steam via son protocole — l'utilisateur valide DANS Steam
     /// (GenSpeed ne télécharge rien lui-même). verb = "install" | "run" | "uninstall". Pendant du désinstall « juste valider ».</summary>
     public static bool SteamLifecycle(string verb, string appId)
@@ -150,6 +153,48 @@ public static class InstallManager
             using var p = Process.Start(psi)!;
             p.WaitForExit();
             // robocopy : 0–7 = succès (≥8 = erreur réelle).
+            if (p.ExitCode >= 8)
+                return new CopyResult(false, DirSizeBytes(dest), $"robocopy a échoué (code {p.ExitCode}).");
+            return new CopyResult(true, DirSizeBytes(dest), null);
+        }
+        catch (Exception ex) { return new CopyResult(false, 0, ex.Message); }
+    }
+
+    /// <summary>Déplace une install (ex. le master M1) vers un nouveau dossier. Même volume = renommage
+    /// instantané ; volume différent = robocopy /MOVE (copie puis supprime la source). La destination ne
+    /// doit pas déjà exister.</summary>
+    public static CopyResult MoveInstall(string src, string dest)
+    {
+        if (string.IsNullOrWhiteSpace(src) || !Directory.Exists(src))
+            return new CopyResult(false, 0, "Source introuvable : " + src);
+        if (string.Equals(Path.GetFullPath(src).TrimEnd('\\'), Path.GetFullPath(dest).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+            return new CopyResult(true, 0, null);   // déjà au bon endroit
+        if (Directory.Exists(dest))
+            return new CopyResult(false, 0, "La destination existe déjà : " + dest);
+
+        string? rootSrc = Path.GetPathRoot(Path.GetFullPath(src));
+        string? rootDst = Path.GetPathRoot(Path.GetFullPath(dest));
+        if (string.Equals(rootSrc, rootDst, StringComparison.OrdinalIgnoreCase))
+        {
+            // Même volume : renommage atomique, instantané, pas de besoin d'espace.
+            try { Directory.Move(src, dest); return new CopyResult(true, DirSizeBytes(dest), null); }
+            catch (Exception ex) { return new CopyResult(false, 0, ex.Message); }
+        }
+
+        // Volume différent : robocopy /MOVE (copie + supprime la source). Vérifie l'espace AVANT.
+        long need = DirSizeBytes(src);
+        long free = FreeSpaceBytes(dest);
+        if (free >= 0 && free < need + (200L << 20))
+            return new CopyResult(false, 0, $"Espace insuffisant : {free >> 20} Mo libres, ~{need >> 20} Mo requis.");
+        try { Directory.CreateDirectory(dest); }
+        catch (Exception ex) { return new CopyResult(false, 0, "Création de la destination : " + ex.Message); }
+        try
+        {
+            var psi = new ProcessStartInfo("robocopy",
+                $"\"{src.TrimEnd('\\')}\" \"{dest.TrimEnd('\\')}\" /E /MOVE /COPY:DAT /DCOPY:DAT /R:1 /W:1 /XJ /NP /NFL /NDL /MT:8")
+            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            using var p = Process.Start(psi)!;
+            p.WaitForExit();
             if (p.ExitCode >= 8)
                 return new CopyResult(false, DirSizeBytes(dest), $"robocopy a échoué (code {p.ExitCode}).");
             return new CopyResult(true, DirSizeBytes(dest), null);

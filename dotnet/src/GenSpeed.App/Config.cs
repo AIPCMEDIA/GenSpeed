@@ -34,6 +34,10 @@ public sealed class GenConfig
 {
     [JsonPropertyName("game_dir")]       public string? GameDir { get; set; }
     [JsonPropertyName("mods_dir")]       public string? ModsDir { get; set; }   // dossier GLM si GenLauncher est installé ailleurs
+    // Master M1 : copie VIERGE de sauvegarde (jamais patchée) servant de source aux forks (M2).
+    // Volontairement HORS KnownInstalls → jamais affiché dans le tableau ni l'assistant (anti-bêtise),
+    // mais GenSpeed garde son emplacement pour les copies. Re-pointable via ⚙ Config.
+    [JsonPropertyName("m1_dir")]         public string? M1Dir { get; set; }
     // Installations connues (jeu de base + mods autonomes type Reborn Omega). GameDir = active.
     [JsonPropertyName("known_installs")] public List<string> KnownInstalls { get; set; } = new();
     // Dossier d'install -> exe de lancement mémorisé (résout l'ambiguïté GenLauncher vs exe du mod).
