@@ -97,6 +97,23 @@ public static class SecurityWindow
                 DockPanel.SetDock(vt, Dock.Right);
                 row.Children.Add(vt);
 
+                // Pastille ronde colorée (rendu WPF garanti, contrairement aux emojis) :
+                // vert = connu/sans danger, orange = non répertorié, gris = non suivi. Jamais rouge (pas d'alarme).
+                var dotColor = status switch
+                {
+                    KnownBinaries.Status.Known    => Color.FromRgb(0x4C, 0xAF, 0x50),  // vert
+                    KnownBinaries.Status.Unlisted => Color.FromRgb(0xFF, 0xB3, 0x00),  // orange
+                    _                             => Color.FromRgb(0x9E, 0x9E, 0x9E),  // gris
+                };
+                var dot = new Border
+                {
+                    Width = 11, Height = 11, CornerRadius = new CornerRadius(6),
+                    Background = new SolidColorBrush(dotColor),
+                    VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(2, 3, 9, 0),
+                };
+                DockPanel.SetDock(dot, Dock.Left);
+                row.Children.Add(dot);
+
                 // Nom du fichier (gras) + verdict en clair dessous.
                 var col = new StackPanel();
                 col.Children.Add(new TextBlock { Text = n, Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
