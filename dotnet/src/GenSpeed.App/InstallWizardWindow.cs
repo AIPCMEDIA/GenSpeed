@@ -545,6 +545,11 @@ public sealed class InstallWizardWindow : Window
     {
         if (!res.Ok) { Dialogs.Info(this, Loc.T("wiz.title"), string.Format(Loc.T("gl.fail"), res.Error)); return; }
         _log(string.Format(Loc.T("gl.done"), res.ExePath));
+        // Pré-configurer GenLauncher AVANT son 1er lancement : GenTool OFF + FirstStart false → il ne s'auto-
+        // installe pas GenTool et ne propose pas son setup. (Crée le YAML baseline puisqu'il n'existe pas encore.)
+        var seed = MultiplayerTuning.SeedOrTuneYaml(destDir);
+        if (seed.Ok) _log(seed.Applied < 0 ? string.Format(Loc.T("gl.seeded"), seed.Path)
+                                           : string.Format(Loc.T("tune.yaml.ok"), Path.GetFileName(destDir.TrimEnd('\\', '/')), seed.Applied));
         // Raccourci Bureau (« GenLauncher » ; suffixe du dossier seulement si collision avec une autre install).
         CreateDesktopShortcut(res.ExePath!, destDir);
         if (Dialogs.Confirm(this, Loc.T("wiz.title"), string.Format(Loc.T("gl.launch.ask"), destDir)))

@@ -56,17 +56,22 @@ public partial class MainWindow
             log.Add(r.Ok ? string.Format(Loc.T("tune.opt.ok"), r.Applied) : "⚠ " + r.Error);
         }
 
-        // 2) GenLauncherCfg.yaml par install — seulement si GenLauncher n'est PAS en cours (sinon il l'écrase).
+        // 2) GenLauncherCfg.yaml par install — cale l'existant, ou le CRÉE (baseline) si GenLauncher.exe est là
+        //    mais pas encore lancé (pré-empte l'install auto de GenTool + le setup de 1er lancement).
+        //    Pas touché si GenLauncher est ouvert (il l'écraserait à la fermeture).
         bool glRunning = RunningGameProcs().Contains("GenLauncher");
         bool anyYaml = false;
         foreach (var dir in _installs)
         {
-            string? y = MultiplayerTuning.FindGenLauncherYaml(dir);
-            if (y == null) continue;
+            bool hasYaml = MultiplayerTuning.FindGenLauncherYaml(dir) != null;
+            bool hasExe = File.Exists(Path.Combine(dir, "GenLauncher.exe"));
+            if (!hasYaml && !hasExe) continue;   // pas une install GenLauncher
             anyYaml = true;
-            if (glRunning) { log.Add(Loc.T("tune.glrunning")); break; }
-            var r = MultiplayerTuning.ApplyYaml(y);
-            log.Add(r.Ok ? string.Format(Loc.T("tune.yaml.ok"), InstallLabel(dir), r.Applied) : "⚠ " + r.Error);
+            if (glRunning && hasYaml) { log.Add(Loc.T("tune.glrunning")); break; }
+            var r = MultiplayerTuning.SeedOrTuneYaml(dir);
+            if (!r.Ok) { log.Add("⚠ " + r.Error); continue; }
+            log.Add(r.Applied < 0 ? string.Format(Loc.T("gl.seeded"), r.Path)
+                                  : string.Format(Loc.T("tune.yaml.ok"), InstallLabel(dir), r.Applied));
         }
         if (!anyYaml) log.Add(Loc.T("tune.noyaml"));
 

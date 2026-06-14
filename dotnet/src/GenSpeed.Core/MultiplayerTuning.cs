@@ -64,6 +64,46 @@ public static class MultiplayerTuning
         return null;
     }
 
+    /// <summary>YAML baseline « sans mod » écrit par GenSpeed AVANT le 1er lancement de GenLauncher, pour
+    /// que GenLauncher démarre déjà calé : GenTool OFF (AutoUpdateGentool=false → pas d'install GenTool
+    /// automatique) et FirstStart=false (pas de setup/proposition de 1er lancement). Catalogue vide →
+    /// GenLauncher le re-remplit depuis le manifeste au 1er run. Windowed=true = défaut sûr (préférence/machine).</summary>
+    public const string BaselineYaml =
+        "FirstStart: false\r\n" +
+        "UseVulkan: false\r\n" +
+        "Modifications: []\r\n" +
+        "Addons: []\r\n" +
+        "Patches: []\r\n" +
+        "ModdedExe: true\r\n" +
+        "Windowed: true\r\n" +
+        "QuickStart: true\r\n" +
+        "CameraHeight: 0\r\n" +
+        "LaunchesCount: 0\r\n" +
+        "AutoUpdateGentool: false\r\n" +
+        "AutoDeleteOldVersions: false\r\n" +
+        "GameParams: ''\r\n" +
+        "CheckModFiles: false\r\n" +
+        "AskBeforeCheck: false\r\n" +
+        "HideLauncherAfterGameStart: false\r\n";
+
+    /// <summary>Pré-configure GenLauncher : si le YAML existe → le cale (ApplyYaml) ; s'il n'existe pas ENCORE
+    /// (GenLauncher pas lancé) mais que GenLauncher.exe est là → crée `.GenLauncherFolder\GenLauncherCfg.yaml`
+    /// avec la baseline (Applied=-1 = créé). Empêche l'install auto de GenTool + le setup de 1er lancement.</summary>
+    public static TuningResult SeedOrTuneYaml(string installDir)
+    {
+        string yamlPath = Path.Combine(installDir, ".GenLauncherFolder", "GenLauncherCfg.yaml");
+        if (File.Exists(yamlPath)) return ApplyYaml(yamlPath);
+        if (!File.Exists(Path.Combine(installDir, "GenLauncher.exe")))
+            return new(false, 0, yamlPath, "Pas d'install GenLauncher ici");
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(yamlPath)!);
+            File.WriteAllText(yamlPath, BaselineYaml, new UTF8Encoding(false));
+            return new(true, -1, yamlPath, null);   // -1 = créé (seedé)
+        }
+        catch (Exception ex) { return new(false, 0, yamlPath, ex.Message); }
+    }
+
     /// <summary>GenLauncherCfg.yaml d'une install (dans .GenLauncherFolder), ou null.</summary>
     public static string? FindGenLauncherYaml(string installDir)
     {
