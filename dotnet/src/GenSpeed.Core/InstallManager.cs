@@ -75,6 +75,82 @@ public static class InstallManager
         catch { return null; }
     }
 
+    // ===== Suivi d'installation Steam + init + auto-install des redists (assistant 100% auto) =====
+
+    /// <summary>Chemin de l'appmanifest Steam d'une appli (cherche dans toutes les bibliothèques), ou null.</summary>
+    private static string? SteamManifest(string appId)
+    {
+        foreach (var lib in GameLocator.SteamLibraries())
+        {
+            string m = Path.Combine(lib, "steamapps", $"appmanifest_{appId}.acf");
+            if (File.Exists(m)) return m;
+        }
+        return null;
+    }
+
+    /// <summary>Vrai si l'appli Steam <paramref name="appId"/> est ENTIÈREMENT installée (StateFlags == 4).
+    /// L'assistant sonde ça après <c>steam://install</c> pour enchaîner automatiquement à l'initialisation.</summary>
+    public static bool SteamAppFullyInstalled(string appId)
+    {
+        string? m = SteamManifest(appId);
+        if (m == null) return false;
+        try
+        {
+            var mt = Regex.Match(File.ReadAllText(m), "\"StateFlags\"\\s+\"(\\d+)\"");
+            return mt.Success && int.TryParse(mt.Groups[1].Value, out int f) && f == 4;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Progression d'installation Steam en % (0–100), ou -1 si le manifest est absent.</summary>
+    public static int SteamAppProgressPercent(string appId)
+    {
+        string? m = SteamManifest(appId);
+        if (m == null) return -1;
+        try
+        {
+            string txt = File.ReadAllText(m);
+            if (Regex.Match(txt, "\"StateFlags\"\\s+\"(\\d+)\"") is { Success: true } sf && sf.Groups[1].Value == "4") return 100;
+            long Val(string k) { var x = Regex.Match(txt, "\"" + k + "\"\\s+\"(\\d+)\""); return x.Success && long.TryParse(x.Groups[1].Value, out var v) ? v : 0; }
+            long dl = Val("BytesDownloaded"), tot = Val("BytesToDownload");
+            return tot > 0 ? (int)Math.Clamp(dl * 100 / tot, 0, 99) : 0;
+        }
+        catch { return -1; }
+    }
+
+    /// <summary>Vrai si un process DU JEU tourne (generals / zerohour / game / modded). L'assistant détecte
+    /// l'initialisation par « le process apparaît puis disparaît » (l'utilisateur a lancé puis quitté).</summary>
+    public static bool GameProcessRunning()
+    {
+        foreach (var n in new[] { "generals", "generalszh", "game", "modded" })
+            try { if (System.Diagnostics.Process.GetProcessesByName(n).Length > 0) return true; } catch { }
+        return false;
+    }
+
+    /// <summary>Best-effort : télécharge un installeur officiel (URL) dans le temp et l'exécute en SILENCIEUX +
+    /// ÉLEVÉ (UAC), attend la fin. (Ok, Message). Sert à poser VC++/DirectX si manquants ; l'appelant retombe
+    /// sur la page Microsoft si ça échoue (jamais de cul-de-sac).</summary>
+    public static async System.Threading.Tasks.Task<(bool Ok, string Msg)> DownloadAndRunInstallerAsync(string url, string args)
+    {
+        string name;
+        try { name = Path.GetFileName(new Uri(url).LocalPath); } catch { name = "installer.exe"; }
+        if (string.IsNullOrWhiteSpace(name)) name = "installer.exe";
+        string tmp = Path.Combine(Path.GetTempPath(), "gs_" + Guid.NewGuid().ToString("N")[..8] + "_" + name);
+        var dl = await DownloadToFileAsync(url, tmp);
+        if (!dl.Ok) return (false, dl.Error ?? "download");
+        try
+        {
+            var psi = new System.Diagnostics.ProcessStartInfo { FileName = tmp, Arguments = args, UseShellExecute = true, Verb = "runas" };
+            var p = System.Diagnostics.Process.Start(psi);
+            if (p == null) return (false, "start");
+            await p.WaitForExitAsync();
+            return p.ExitCode == 0 ? (true, "ok") : (false, "exit " + p.ExitCode);
+        }
+        catch (System.ComponentModel.Win32Exception) { return (false, "UAC refusé"); }
+        catch (Exception ex) { return (false, ex.Message); }
+        finally { try { File.Delete(tmp); } catch { } }
+    }
+
     /// <summary>Vrai dossier Téléchargements de l'utilisateur (respecte un Downloads DÉPLACÉ, via le registre).
     /// Repli sur `%USERPROFILE%\Downloads`. On ne présume donc pas l'emplacement par défaut.</summary>
     public static string DownloadsFolder()
