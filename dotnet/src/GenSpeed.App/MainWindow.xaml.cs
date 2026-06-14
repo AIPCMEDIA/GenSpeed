@@ -167,7 +167,7 @@ public partial class MainWindow : Window
     private void WireToolbar()
     {
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare), ("diag.verify", OnDiagVerify));
-        Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard), ("cfg.master", OnCfgMaster),
+        Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard), ("cfg.master", OnCfgMaster), ("cfg.gllink", OnCfgGenLauncherUrl),
                             ("cfg.addinstall", OnCfgAddInstall), ("cfg.modsdir", OnCfgModsDir),
                             ("cfg.launcher", OnCfgLauncher),
                             ("cfg.uninstall", OnCfgUninstall),

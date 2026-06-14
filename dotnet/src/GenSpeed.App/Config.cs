@@ -38,6 +38,10 @@ public sealed class GenConfig
     // Volontairement HORS KnownInstalls → jamais affiché dans le tableau ni l'assistant (anti-bêtise),
     // mais GenSpeed garde son emplacement pour les copies. Re-pointable via ⚙ Config.
     [JsonPropertyName("m1_dir")]         public string? M1Dir { get; set; }
+    // Lien de téléchargement DIRECT de GenLauncher (ModDB). Direct = facile pour un utilisateur non technique ;
+    // mais épingle une version → ÉDITABLE (⚙ Config) quand une plus récente sort. La page de listing ModDB
+    // reste le secours toujours-à-jour. (Le GitHub p0ls3r n'a pas de release binaire.)
+    [JsonPropertyName("genlauncher_url")] public string GenLauncherUrl { get; set; } = "https://www.moddb.com/downloads/start/277509";
     // Installations connues (jeu de base + mods autonomes type Reborn Omega). GameDir = active.
     [JsonPropertyName("known_installs")] public List<string> KnownInstalls { get; set; } = new();
     // Dossier d'install -> exe de lancement mémorisé (résout l'ambiguïté GenLauncher vs exe du mod).

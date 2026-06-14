@@ -21,11 +21,10 @@ namespace GenSpeed.App;
 public sealed class InstallWizardWindow : Window
 {
     private enum Step { Source, Goal, Destination, Run, Done }
-    // Modèle 3 tiers (validé) : M0 = install Steam (vierge OU patchée+GenLauncher en place) ;
-    // M1 = copie vierge de sauvegarde (master, AVANT tout patch) ; M2 = copie de M1 + fork autonome.
-    // KeepVanilla = garder M0 vierge ; BackupM1 = créer M1 ; ModdedSteam = GenPatcher+GenLauncher sur M0
-    // (guidé, pas de copie — Phase C l'automatisera) ; ForkM2 = copie de M1 + fork.
-    private enum Goal { KeepVanilla, BackupM1, ModdedSteam, ForkM2 }
+    // Modèle GenPatcher-free, M0 reste VIERGE : M0 = install Steam vierge (source).
+    // KeepVanilla = garder M0 vierge ; BackupM1 = copie vierge de sauvegarde (master M1) ;
+    // Modded = COPIE de M0 + GenLauncher + redists (M0 jamais touché) ; ForkM2 = copie de M1 + fork.
+    private enum Goal { KeepVanilla, BackupM1, Modded, ForkM2 }
 
     private static Brush B(string key) => (Brush)Application.Current.FindResource(key);
     private static Style? St(string key) => Application.Current.TryFindResource(key) as Style;
@@ -257,7 +256,7 @@ public sealed class InstallWizardWindow : Window
 
         _body.Children.Add(GoalRow(Goal.KeepVanilla, "wiz.goal.keep", "wiz.goal.keep.desc"));
         _body.Children.Add(GoalRow(Goal.BackupM1, "wiz.goal.m1", "wiz.goal.m1.desc"));
-        _body.Children.Add(GoalRow(Goal.ModdedSteam, "wiz.goal.modded", "wiz.goal.modded.desc"));
+        _body.Children.Add(GoalRow(Goal.Modded, "wiz.goal.modded", "wiz.goal.modded.desc"));
         _body.Children.Add(GoalRow(Goal.ForkM2, "wiz.goal.fork", "wiz.goal.fork.desc"));
 
         var back = NavButton("wiz.back"); back.Click += (_, _) => { _step = Step.Source; Render(); };
@@ -268,9 +267,9 @@ public sealed class InstallWizardWindow : Window
             // Un fork part TOUJOURS du master M1 : exiger qu'il existe d'abord.
             if (_goal == Goal.ForkM2 && string.IsNullOrEmpty(_config.M1Dir))
             { Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.fork.nom1")); return; }
-            // Sans copie : garder M0 vierge, ou préparer le jeu moddé EN PLACE sur l'install Steam (guidé).
-            if (_goal == Goal.KeepVanilla || _goal == Goal.ModdedSteam) { _step = Step.Done; Render(); }
-            else { _step = Step.Destination; Render(); }   // BackupM1 / ForkM2 = une copie
+            // Seul « garder M0 vierge » ne copie rien ; M1, Modded et Fork sont des copies.
+            if (_goal == Goal.KeepVanilla) { _step = Step.Done; Render(); }
+            else { _step = Step.Destination; Render(); }
         };
         AddFooter(cancel, back, next);
     }
@@ -357,9 +356,10 @@ public sealed class InstallWizardWindow : Window
         if (string.Equals(Path.GetFullPath(src).TrimEnd('\\'), Path.GetFullPath(_destDir).TrimEnd('\\'), System.StringComparison.OrdinalIgnoreCase))
         { Line(false, Loc.T("wiz.guard.same")); return false; }
 
-        // Source vierge — exigée pour un fork (consigne des mods), exigée aussi pour M1 (c'est un master VIERGE).
+        // Source vierge — exigée pour un fork (consigne des mods) ; conseillée pour M1 (master vierge)
+        // et pour une install moddée (on copie vierge puis on pose GenLauncher).
         var intrus = InstallManager.NonVanillaItems(src);
-        if (_goal == Goal.ForkM2 || _goal == Goal.BackupM1)
+        if (_goal == Goal.ForkM2 || _goal == Goal.BackupM1 || _goal == Goal.Modded)
         {
             if (intrus.Count == 0) Line(true, Loc.T("wiz.guard.vanilla.ok"));
             else
@@ -417,13 +417,11 @@ public sealed class InstallWizardWindow : Window
         });
 
         string? finalDir;
-        if (_goal == Goal.KeepVanilla || _goal == Goal.ModdedSteam)
+        if (_goal == Goal.KeepVanilla)
         {
             // Sans copie : on enregistre l'install Steam (M0) telle quelle.
             finalDir = _sourceDir;
-            bool modded = _goal == Goal.ModdedSteam;
-            _body.Children.Add(new TextBlock { Text = Loc.T(modded ? "wiz.done.modded" : "wiz.done.keep"),
-                Foreground = modded ? B("orange") : B("fg"),
+            _body.Children.Add(new TextBlock { Text = Loc.T("wiz.done.keep"), Foreground = B("fg"),
                 TextWrapping = TextWrapping.Wrap, LineHeight = 18, Margin = new Thickness(0, 0, 0, 8) });
         }
         else if (_copyResult is { Ok: true })
@@ -435,9 +433,13 @@ public sealed class InstallWizardWindow : Window
                 Foreground = B("fg"), TextWrapping = TextWrapping.Wrap, LineHeight = 18, Margin = new Thickness(0, 0, 0, 6),
             });
             // Prochaine étape selon l'objectif.
-            string nextKey = _goal == Goal.ForkM2 ? "wiz.done.next.fork" : "wiz.done.next.m1";
+            string nextKey = _goal == Goal.ForkM2 ? "wiz.done.next.fork"
+                           : _goal == Goal.Modded ? "wiz.done.modded"
+                           : "wiz.done.next.m1";
             _body.Children.Add(new TextBlock { Text = Loc.T(nextKey), Foreground = B("orange"),
                 TextWrapping = TextWrapping.Wrap, LineHeight = 18, Margin = new Thickness(0, 0, 0, 8) });
+            // Install moddée : statut des prérequis système + guidage GenLauncher (M0 reste vierge).
+            if (_goal == Goal.Modded) RenderModdedSteps(_destDir!);
         }
         else
         {
@@ -465,6 +467,146 @@ public sealed class InstallWizardWindow : Window
 
         var finish = NavButton("wiz.finish", primary: true); finish.Click += (_, _) => Close();
         AddFooter(finish);
+    }
+
+    /// <summary>Étapes post-copie d'une install moddée : prérequis système (redists/DirectX — guider si
+    /// absents, ça ne touche pas M0) + GenLauncher (télécharger via navigateur, puis GenSpeed dézippe et
+    /// pose l'exe dans <paramref name="destDir"/> — la copie).</summary>
+    private void RenderModdedSteps(string destDir)
+    {
+        var pr = InstallManager.CheckPrereqs();
+        if (pr.AllOk)
+            _body.Children.Add(new TextBlock { Text = Loc.T("wiz.prereq.ok"), Foreground = B("fg"),
+                TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 6) });
+        else
+        {
+            var missing = new List<string>();
+            if (!pr.VcRedist) missing.Add(Loc.T("wiz.prereq.vc"));
+            if (!pr.DirectX9) missing.Add(Loc.T("wiz.prereq.dx"));
+            _body.Children.Add(new TextBlock { Text = string.Format(Loc.T("wiz.prereq.missing"), string.Join(", ", missing)),
+                Foreground = B("orange"), TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 4) });
+            _body.Children.Add(MakeButton("wiz.btn.directx", () => OpenUrl("https://www.microsoft.com/en-us/download/details.aspx?id=35")));
+        }
+        // Voie AUTO (recommandée) : GenSpeed télécharge le zip DIRECT (lien manifeste gen.insave.ovh),
+        // dézippe, pose l'exe dans la copie et propose de lancer. Zéro navigateur, zéro manip.
+        _body.Children.Add(MakeButton("wiz.btn.gl.auto", () => AutoInstallGenLauncher(destDir), primary: true));
+        // Repli manuel : télécharger via le navigateur (manifeste→config→ModDB), puis installer le zip téléchargé.
+        _body.Children.Add(MakeButton("wiz.btn.genlauncher", OpenGenLauncherDownload));
+        _body.Children.Add(MakeButton("wiz.btn.gl.install", () => InstallGenLauncher(destDir)));
+    }
+
+    /// <summary>Pose GenLauncher.exe dans la copie depuis le zip téléchargé : auto-détecté dans Téléchargements
+    /// (sinon sélection manuelle), dézippé localement. Aucun téléchargement web par GenSpeed.</summary>
+    private void InstallGenLauncher(string destDir)
+    {
+        string? zip = InstallManager.FindDownloadedGenLauncherZip();
+        // Trouvé dans Téléchargements : confirmer ; sinon (ou si refus) sélection manuelle.
+        if (zip != null && !Dialogs.Confirm(this, Loc.T("wiz.title"), string.Format(Loc.T("gl.confirm"), zip)))
+            zip = null;
+        if (zip == null)
+        {
+            // Repli universel : peu importe où le navigateur a enregistré le zip. On ouvre dans le vrai
+            // dossier Téléchargements (le plus probable), l'utilisateur navigue ailleurs si besoin.
+            var dlg = new OpenFileDialog
+            {
+                Title = Loc.T("gl.pickzip"), Filter = "GenLauncher (*.zip)|*.zip",
+                InitialDirectory = InstallManager.DownloadsFolder(),
+            };
+            if (dlg.ShowDialog() != true) return;
+            zip = dlg.FileName;
+        }
+        Placed(destDir, InstallManager.InstallGenLauncherFromZip(zip, destDir));
+    }
+
+    /// <summary>Voie automatique : télécharge le zip GenLauncher (lien direct du manifeste), le dézippe et pose
+    /// l'exe dans la copie, puis propose de lancer. Repli sur le navigateur si pas de lien direct exploitable.</summary>
+    private async void AutoInstallGenLauncher(string destDir)
+    {
+        _log(Loc.T("gl.link.resolving"));
+        string? url = await InstallManager.FetchGenLauncherDownloadLinkAsync();
+        if (string.IsNullOrWhiteSpace(url)) url = _config.GenLauncherUrl;
+        if (string.IsNullOrWhiteSpace(url) || !url!.StartsWith("http", System.StringComparison.OrdinalIgnoreCase))
+        { Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("gl.auto.nourl")); return; }
+        // ModDB = Cloudflare → pas téléchargeable en direct : on bascule sur le navigateur.
+        if (url.Contains("moddb.com", System.StringComparison.OrdinalIgnoreCase))
+        { Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("gl.auto.moddb")); OpenGenLauncherDownload(); return; }
+
+        _log(Loc.T("gl.auto.downloading"));
+        string tmp = Path.Combine(Path.GetTempPath(), "GenLauncher_dl.zip");
+        var dl = await InstallManager.DownloadToFileAsync(url, tmp);
+        if (!dl.Ok) { Dialogs.Info(this, Loc.T("wiz.title"), string.Format(Loc.T("gl.auto.fail"), dl.Error)); return; }
+        var res = InstallManager.InstallGenLauncherFromZip(tmp, destDir);
+        try { File.Delete(tmp); } catch { }
+        Placed(destDir, res);
+    }
+
+    /// <summary>GenLauncher posé (ou échec) → message + raccourci Bureau, puis proposition de le lancer.</summary>
+    private void Placed(string destDir, GenLauncherResult res)
+    {
+        if (!res.Ok) { Dialogs.Info(this, Loc.T("wiz.title"), string.Format(Loc.T("gl.fail"), res.Error)); return; }
+        _log(string.Format(Loc.T("gl.done"), res.ExePath));
+        // Raccourci Bureau (« GenLauncher » ; suffixe du dossier seulement si collision avec une autre install).
+        CreateDesktopShortcut(res.ExePath!, destDir);
+        if (Dialogs.Confirm(this, Loc.T("wiz.title"), string.Format(Loc.T("gl.launch.ask"), destDir)))
+            try
+            {
+                Process.Start(new ProcessStartInfo { FileName = res.ExePath!, WorkingDirectory = destDir, UseShellExecute = true, Verb = "runas" });
+                _log(string.Format(Loc.T("launch.started"), "GenLauncher.exe"));
+            }
+            catch (System.ComponentModel.Win32Exception) { _log(Loc.T("genl.cancel")); }
+    }
+
+    /// <summary>Ouvre le téléchargement GenLauncher dans le navigateur : lien à jour lu dans le manifeste
+    /// p0ls3r ; à défaut le lien éditable de la config ; à défaut la page ModDB.</summary>
+    private async void OpenGenLauncherDownload()
+    {
+        _log(Loc.T("gl.link.resolving"));
+        string? url = await InstallManager.FetchGenLauncherDownloadLinkAsync();
+        if (string.IsNullOrWhiteSpace(url)) url = _config.GenLauncherUrl;
+        if (string.IsNullOrWhiteSpace(url)) url = "https://www.moddb.com/mods/genlauncher/downloads";
+        _log(string.Format(Loc.T("gl.link.using"), url));
+        OpenUrl(url!);
+    }
+
+    /// <summary>Crée un raccourci « GenLauncher » sur le Bureau vers <paramref name="exePath"/>, marqué
+    /// « Exécuter en tant qu'administrateur » (symlinks). Si un « GenLauncher.lnk » existe déjà et vise une
+    /// AUTRE install, désambiguïse avec le nom du dossier (cas rare). Best-effort (try/catch).</summary>
+    private void CreateDesktopShortcut(string exePath, string workingDir)
+    {
+        try
+        {
+            string desktop = System.Environment.GetFolderPath(System.Environment.SpecialFolder.DesktopDirectory);
+            System.Type? t = System.Type.GetTypeFromProgID("WScript.Shell");
+            if (t == null) return;
+            dynamic shell = System.Activator.CreateInstance(t)!;
+
+            string lnkPath = Path.Combine(desktop, "GenLauncher.lnk");
+            if (File.Exists(lnkPath))
+                try
+                {
+                    dynamic existing = shell.CreateShortcut(lnkPath);
+                    string existingTarget = (string)existing.TargetPath;
+                    if (!string.Equals(existingTarget, exePath, System.StringComparison.OrdinalIgnoreCase))
+                        lnkPath = Path.Combine(desktop, "GenLauncher - " + Path.GetFileName(workingDir.TrimEnd('\\', '/')) + ".lnk");
+                }
+                catch { }
+
+            var lnk = shell.CreateShortcut(lnkPath);
+            lnk.TargetPath = exePath;
+            lnk.WorkingDirectory = workingDir;
+            lnk.IconLocation = exePath + ",0";
+            lnk.Description = "GenLauncher";
+            lnk.Save();
+            // Marquer « Exécuter en tant qu'administrateur » : bit 0x20 de l'octet 0x15 du .lnk.
+            try { var b = File.ReadAllBytes(lnkPath); if (b.Length > 0x15) { b[0x15] = (byte)(b[0x15] | 0x20); File.WriteAllBytes(lnkPath, b); } } catch { }
+            _log(string.Format(Loc.T("gl.shortcut"), lnkPath));
+        }
+        catch { }
+    }
+
+    private static void OpenUrl(string url)
+    {
+        try { Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }); } catch { }
     }
 
     // ----- Bouton « action » pleine largeur, aligné à gauche -----

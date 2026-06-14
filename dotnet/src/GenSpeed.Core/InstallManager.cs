@@ -1,7 +1,20 @@
 using System.Diagnostics;
+using System.IO.Compression;
+using System.Net.Http;
 using System.Text.RegularExpressions;
+using Microsoft.Win32;
 
 namespace GenSpeed.Core;
+
+/// <summary>Résultat de la pose de GenLauncher (extraction de l'exe depuis le zip ModDB téléchargé).</summary>
+public sealed record GenLauncherResult(bool Ok, string? ExePath, string? Error);
+
+/// <summary>État des prérequis système du jeu (indépendants du dossier — GenPatcher les installerait,
+/// mais ils sont SYSTÈME et ne touchent pas M0). Le jeu a besoin de VC++ 2005 + DirectX 9 (d3dx9).</summary>
+public sealed record PrereqStatus(bool VcRedist, bool DirectX9)
+{
+    public bool AllOk => VcRedist && DirectX9;
+}
 
 /// <summary>Résultat d'une copie d'install (assistant d'installation propre).</summary>
 public sealed record CopyResult(bool Ok, long Bytes, string? Error);
@@ -20,6 +33,95 @@ public static class InstallManager
 
     /// <summary>Nom de dossier standard du master M1 (copie vierge de sauvegarde).</summary>
     public const string MasterFolderName = "Master ZH";
+
+    /// <summary>URL du manifeste public de GenLauncher (catalogue + lien d'installeur, tenu à jour par p0ls3r).</summary>
+    public const string GenLauncherManifestUrl =
+        "https://raw.githubusercontent.com/p0ls3r/GenLauncherModsData/master/ReposModificationDataZH4.yaml";
+
+    /// <summary>Lit le `DownloadLink` (zip installeur GenLauncher, TOUJOURS à jour) dans le manifeste public
+    /// de p0ls3r. Lecture seule d'un petit yaml (pas de téléchargement de binaire). Null si échec/réseau →
+    /// l'appelant retombe sur le lien éditable de la config, puis sur la page ModDB.</summary>
+    public static async System.Threading.Tasks.Task<string?> FetchGenLauncherDownloadLinkAsync()
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("GenSpeed");
+            string yaml = await http.GetStringAsync(GenLauncherManifestUrl);
+            var m = Regex.Match(yaml, "DownloadLink:\\s*\"?(https?://\\S+?)\"?\\s*(?:\\r|\\n|$)");
+            string? url = m.Success ? m.Groups[1].Value.Trim() : null;
+            return url is { Length: > 0 } && url.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? url : null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Vrai dossier Téléchargements de l'utilisateur (respecte un Downloads DÉPLACÉ, via le registre).
+    /// Repli sur `%USERPROFILE%\Downloads`. On ne présume donc pas l'emplacement par défaut.</summary>
+    public static string DownloadsFolder()
+    {
+        if (OperatingSystem.IsWindows())
+            try
+            {
+                using var k = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders");
+                if (k?.GetValue("{374DE290-123F-4565-9164-39C4925E467B}") is string s && s.Length > 0)
+                {
+                    string p = Environment.ExpandEnvironmentVariables(s);
+                    if (Directory.Exists(p)) return p;
+                }
+            }
+            catch { }
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+    }
+
+    /// <summary>Télécharge un fichier (le zip GenLauncher direct gen.insave.ovh) vers <paramref name="destPath"/>.
+    /// Réservé aux liens DIRECTS (pas ModDB/Cloudflare). Timeout 120 s.</summary>
+    public static async System.Threading.Tasks.Task<CopyResult> DownloadToFileAsync(string url, string destPath)
+    {
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("GenSpeed");
+            using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            resp.EnsureSuccessStatusCode();
+            await using (var fs = File.Create(destPath))
+                await resp.Content.CopyToAsync(fs);
+            return new CopyResult(true, new FileInfo(destPath).Length, null);
+        }
+        catch (Exception ex) { return new CopyResult(false, 0, ex.Message); }
+    }
+
+    /// <summary>Cherche le zip GenLauncher le plus récent dans Téléchargements (vrai dossier) + le Bureau.
+    /// Retourne null si rien trouvé → l'appelant propose alors un sélecteur de fichier (repli universel).</summary>
+    public static string? FindDownloadedGenLauncherZip()
+    {
+        try
+        {
+            var roots = new[] { DownloadsFolder(), Environment.GetFolderPath(Environment.SpecialFolder.Desktop) };
+            return roots.Where(Directory.Exists)
+                .SelectMany(d => Directory.EnumerateFiles(d, "GenLauncher*.zip"))
+                .OrderByDescending(f => { try { return new FileInfo(f).LastWriteTimeUtc; } catch { return DateTime.MinValue; } })
+                .FirstOrDefault();
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Extrait `GenLauncher.exe` d'un zip téléchargé et le pose dans le dossier de l'install (la copie).
+    /// 100% local (pas de téléchargement web → pas de comportement « downloader » suspect pour l'antivirus).</summary>
+    public static GenLauncherResult InstallGenLauncherFromZip(string zipPath, string destDir)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath)) return new(false, null, "Zip introuvable : " + zipPath);
+            if (string.IsNullOrWhiteSpace(destDir) || !Directory.Exists(destDir)) return new(false, null, "Dossier cible introuvable : " + destDir);
+            using var zip = ZipFile.OpenRead(zipPath);
+            var entry = zip.Entries.FirstOrDefault(e => e.Name.Equals("GenLauncher.exe", StringComparison.OrdinalIgnoreCase));
+            if (entry == null) return new(false, null, "GenLauncher.exe introuvable dans le zip.");
+            string exePath = Path.Combine(destDir, "GenLauncher.exe");
+            entry.ExtractToFile(exePath, overwrite: true);
+            return new(true, exePath, null);
+        }
+        catch (Exception ex) { return new(false, null, ex.Message); }
+    }
 
     /// <summary>Déclenche une action du cycle de vie Steam via son protocole — l'utilisateur valide DANS Steam
     /// (GenSpeed ne télécharge rien lui-même). verb = "install" | "run" | "uninstall". Pendant du désinstall « juste valider ».</summary>
@@ -76,6 +178,39 @@ public static class InstallManager
         => Directory.Exists(Path.Combine(dir, "GLM"))
         || File.Exists(Path.Combine(dir, "modded.exe"))
         || NonVanillaItems(dir).Any(s => s.Contains("fork", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Vérifie les prérequis SYSTÈME du jeu (n'altèrent pas M0) : VC++ 2005 (clé de uninstall)
+    /// et DirectX 9 hérité (`d3dx9_*.dll` dans SysWOW64). Si absents (Windows neuf), GenSpeed guide leur
+    /// installation depuis Microsoft — légal, système, ne touche pas le dossier du jeu.</summary>
+    public static PrereqStatus CheckPrereqs()
+    {
+        bool dx = false, vc = false;
+        try
+        {
+            string sysWow = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "SysWOW64");
+            dx = Directory.Exists(sysWow) && Directory.EnumerateFiles(sysWow, "d3dx9_*.dll").Any();
+        }
+        catch { }
+        if (OperatingSystem.IsWindows())
+            try
+            {
+                foreach (var view in new[] { RegistryView.Registry32, RegistryView.Registry64 })
+                {
+                    using var baseKey = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
+                    using var unins = baseKey.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
+                    if (unins == null) continue;
+                    foreach (var sub in unins.GetSubKeyNames())
+                    {
+                        using var k = unins.OpenSubKey(sub);
+                        if (k?.GetValue("DisplayName") is string dn && dn.Contains("Visual C++ 2005", StringComparison.OrdinalIgnoreCase))
+                        { vc = true; break; }
+                    }
+                    if (vc) break;
+                }
+            }
+            catch { }
+        return new PrereqStatus(vc, dx);
+    }
 
     /// <summary>Le jeu n'a pas encore été initialisé (jamais lancé) : `Data\INI\INIZH.big` encore présent.
     /// Le 1er lancement (ou GenPatcher) le supprime → présent = fraîchement installé, pas encore lancé.

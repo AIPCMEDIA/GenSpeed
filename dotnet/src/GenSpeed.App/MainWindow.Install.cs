@@ -39,6 +39,17 @@ public partial class MainWindow
         return false;   // annulé
     }
 
+    /// <summary>⚙ Config → modifier le lien de téléchargement direct de GenLauncher (utile quand une version
+    /// plus récente sort : on remplace l'id du fichier ModDB). La page de listing reste le secours.</summary>
+    private void OnCfgGenLauncherUrl()
+    {
+        string? url = Dialogs.Prompt(this, Loc.T("gllink.title"), Loc.T("gllink.msg"), _config.GenLauncherUrl);
+        if (string.IsNullOrWhiteSpace(url)) return;
+        _config.GenLauncherUrl = url.Trim();
+        ConfigStore.Save(_config);
+        Log(string.Format(Loc.T("gllink.set"), _config.GenLauncherUrl));
+    }
+
     /// <summary>Définit le master M1 (copie vierge de sauvegarde) : mémorisé dans la config, RETIRÉ des
     /// installs connues → jamais affiché dans le tableau ni l'assistant, mais GenSpeed garde son chemin.</summary>
     private void SetMaster(string dir)
