@@ -173,4 +173,57 @@ public partial class MainWindow
         ConfigStore.Save(_config);
         Log(string.Format(Loc.T("gllink.set"), _config.GenLauncherUrl));
     }
+
+    /// <summary>⚙ Config → Déplacer M1 (l'install GenLauncher) vers un autre emplacement. Le dossier garde le nom
+    /// « GenLauncher ». Déplace physiquement (même volume = instantané), met à jour les installs connues, le
+    /// raccourci Bureau (fil d'Ariane de la découverte) et l'emplacement mémorisé. Bloqué si GenLauncher/jeu tourne.</summary>
+    private async void OnCfgMoveM1()
+    {
+        string? m1 = _installs.FirstOrDefault(d => File.Exists(Path.Combine(d, "GenLauncher.exe")));
+        if (m1 == null) { Dialogs.Info(this, "GenSpeed", Loc.T("m1move.none")); return; }
+        if (RunningGameProcs().Any(p => p is "GenLauncher" or "modded" or "generals" or "GeneralsZH"))
+        { Dialogs.Info(this, "GenSpeed", Loc.T("m1move.running")); return; }
+
+        var dlg = new OpenFolderDialog { Title = Loc.T("m1move.pick") };
+        try { dlg.InitialDirectory = Path.GetDirectoryName(m1); } catch { }
+        if (dlg.ShowDialog() != true) return;
+        string dest = Path.Combine(dlg.FolderName, GenSpeed.Core.InstallManager.GenLauncherFolderName);
+        if (string.Equals(Path.GetFullPath(dest).TrimEnd('\\', '/'), Path.GetFullPath(m1).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) return;
+        if (Directory.Exists(dest)) { Dialogs.Info(this, "GenSpeed", string.Format(Loc.T("m1move.exists"), dest)); return; }
+
+        Log(string.Format(Loc.T("m1move.moving"), m1, dest));
+        var res = await Task.Run(() => GenSpeed.Core.InstallManager.MoveInstall(m1, dest));
+        if (!res.Ok) { Dialogs.Info(this, "GenSpeed", string.Format(Loc.T("m1move.fail"), res.Error)); Log("⚠ " + res.Error); return; }
+
+        _config.KnownInstalls.RemoveAll(p => string.Equals(p.TrimEnd('\\', '/'), m1.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase));
+        if (!_config.KnownInstalls.Any(p => string.Equals(p.TrimEnd('\\', '/'), dest.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)))
+            _config.KnownInstalls.Add(dest);
+        _config.InstallParent = dlg.FolderName;
+        ConfigStore.Save(_config);
+        UpdateGenLauncherShortcut(Path.Combine(dest, "GenLauncher.exe"), dest);
+        Log(string.Format(Loc.T("m1move.done"), dest));
+        LoadMods();
+    }
+
+    /// <summary>Met à jour (ou crée) le raccourci Bureau « GenLauncher.lnk » vers un nouvel exe/dossier, marqué
+    /// « Exécuter en tant qu'administrateur ». Best-effort (WScript.Shell COM).</summary>
+    private void UpdateGenLauncherShortcut(string exePath, string workingDir)
+    {
+        try
+        {
+            string desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            var t = Type.GetTypeFromProgID("WScript.Shell");
+            if (t == null) return;
+            dynamic shell = Activator.CreateInstance(t)!;
+            string lnkPath = Path.Combine(desktop, "GenLauncher.lnk");
+            dynamic lnk = shell.CreateShortcut(lnkPath);
+            lnk.TargetPath = exePath;
+            lnk.WorkingDirectory = workingDir;
+            lnk.IconLocation = exePath + ",0";
+            lnk.Description = "GenLauncher";
+            lnk.Save();
+            try { var b = File.ReadAllBytes(lnkPath); if (b.Length > 0x15) { b[0x15] = (byte)(b[0x15] | 0x20); File.WriteAllBytes(lnkPath, b); } } catch { }
+        }
+        catch { }
+    }
 }

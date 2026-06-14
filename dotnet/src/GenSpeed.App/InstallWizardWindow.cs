@@ -308,7 +308,7 @@ public sealed class InstallWizardWindow : Window
             Margin = new Thickness(0, 3, 0, 3), Cursor = System.Windows.Input.Cursors.Hand,
             Child = col,
         };
-        border.MouseLeftButtonUp += (_, _) => { _goal = g; Render(); };
+        border.MouseLeftButtonUp += (_, _) => { _goal = g; _destDir = null; Render(); };   // change d'objectif → re-proposer la destination
         return border;
     }
 
@@ -322,13 +322,37 @@ public sealed class InstallWizardWindow : Window
         _body.Children.Add(new TextBlock { Text = string.Format(Loc.T("wiz.s3.forksrc"), _sourceDir),
             Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 8) });
 
-        _body.Children.Add(MakeButton("wiz.s3.pick", () =>
+        if (_goal == Goal.GenLauncher)
         {
-            var dlg = new OpenFolderDialog { Title = Loc.T("wiz.s3.pick") };
-            if (dlg.ShowDialog() != true) return;
-            _destDir = dlg.FolderName;
-            Render();
-        }));
+            // M1 : le dossier s'appelle TOUJOURS « GenLauncher » ; on ne choisit que l'EMPLACEMENT (défaut proposé,
+            // mémorisé). _destDir = <emplacement>\GenLauncher.
+            if (_destDir == null)
+            {
+                string parent = _config.InstallParent ?? InstallManager.SuggestInstallParent();
+                _destDir = Path.Combine(parent, InstallManager.GenLauncherFolderName);
+            }
+            _body.Children.Add(new TextBlock { Text = Loc.T("wiz.s3.m1note"), Foreground = B("dim"),
+                FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 16, Margin = new Thickness(0, 0, 0, 6) });
+            _body.Children.Add(MakeButton("wiz.s3.pick.loc", () =>
+            {
+                var dlg = new OpenFolderDialog { Title = Loc.T("wiz.s3.pick.loc") };
+                try { dlg.InitialDirectory = Path.GetDirectoryName(_destDir); } catch { }
+                if (dlg.ShowDialog() != true) return;
+                _destDir = Path.Combine(dlg.FolderName, InstallManager.GenLauncherFolderName);
+                _config.InstallParent = dlg.FolderName; ConfigStore.Save(_config);   // emplacement mémorisé
+                Render();
+            }));
+        }
+        else
+        {
+            _body.Children.Add(MakeButton("wiz.s3.pick", () =>
+            {
+                var dlg = new OpenFolderDialog { Title = Loc.T("wiz.s3.pick") };
+                if (dlg.ShowDialog() != true) return;
+                _destDir = dlg.FolderName;
+                Render();
+            }));
+        }
 
         _body.Children.Add(new TextBlock
         {

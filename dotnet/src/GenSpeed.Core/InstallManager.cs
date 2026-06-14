@@ -34,6 +34,26 @@ public static class InstallManager
     /// <summary>Nom de dossier standard du master M1 (copie vierge de sauvegarde).</summary>
     public const string MasterFolderName = "Master ZH";
 
+    /// <summary>Nom de dossier standard de l'install M1 (copie de M0 + GenLauncher). Constant → cohérent avec
+    /// le raccourci Bureau « GenLauncher » que GenSpeed utilise pour re-découvrir M1.</summary>
+    public const string GenLauncherFolderName = "GenLauncher";
+
+    /// <summary>Emplacement PARENT suggéré par défaut pour une nouvelle install : le disque fixe avec le plus
+    /// d'espace libre, sous-dossier « Jeux » (ex. « G:\Jeux »). Éditable par l'utilisateur.</summary>
+    public static string SuggestInstallParent()
+    {
+        try
+        {
+            var best = DriveInfo.GetDrives()
+                .Where(d => d.DriveType == DriveType.Fixed && d.IsReady)
+                .OrderByDescending(d => d.AvailableFreeSpace)
+                .FirstOrDefault();
+            string root = best?.RootDirectory.FullName ?? @"C:\";
+            return Path.Combine(root, "Jeux");
+        }
+        catch { return @"C:\Jeux"; }
+    }
+
     /// <summary>URL du manifeste public de GenLauncher (catalogue + lien d'installeur, tenu à jour par p0ls3r).</summary>
     public const string GenLauncherManifestUrl =
         "https://raw.githubusercontent.com/p0ls3r/GenLauncherModsData/master/ReposModificationDataZH4.yaml";
