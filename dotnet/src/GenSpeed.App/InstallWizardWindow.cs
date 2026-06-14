@@ -264,9 +264,22 @@ public sealed class InstallWizardWindow : Window
         _body.Children.Add(Title2("wiz.s2.title"));
         _body.Children.Add(Para("wiz.s2.intro"));
 
-        _body.Children.Add(GoalRow(Goal.KeepVanilla, "wiz.goal.keep", "wiz.goal.keep.desc"));
-        _body.Children.Add(GoalRow(Goal.GenLauncher, "wiz.goal.modded", "wiz.goal.modded.desc"));
-        _body.Children.Add(GoalRow(Goal.Fork, "wiz.goal.fork", "wiz.goal.fork.desc"));
+        // Contexte : M1 (GenLauncher) est UNIQUE → proposé seulement s'il n'existe pas encore.
+        // Les forks sont MULTIPLES → toujours proposés, numérotés selon l'existant (M2, M3…).
+        var installs = InstallDiscovery.DiscoverAll(_config.KnownInstalls);
+        bool HasGl(string d) { try { return File.Exists(Path.Combine(d, "GenLauncher.exe")); } catch { return false; } }
+        bool hasM1 = installs.Any(HasGl);
+        int forkCount = installs.Count(d => !InstallManager.IsVanilla(d) && !HasGl(d));   // installs ni vierges ni GenLauncher = forks
+        int nextFork = 2 + forkCount;   // M2, M3, …
+        if (hasM1 && _goal == Goal.GenLauncher) _goal = Goal.Fork;   // M1 indisponible → bascule sur Fork
+
+        _body.Children.Add(GoalRow(Goal.KeepVanilla, Loc.T("wiz.goal.keep"), Loc.T("wiz.goal.keep.desc")));
+        if (!hasM1)
+            _body.Children.Add(GoalRow(Goal.GenLauncher, Loc.T("wiz.goal.modded"), Loc.T("wiz.goal.modded.desc")));
+        else
+            _body.Children.Add(new TextBlock { Text = Loc.T("wiz.goal.m1exists"), Foreground = B("dim"),
+                FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 16, Margin = new Thickness(2, 2, 0, 6) });
+        _body.Children.Add(GoalRow(Goal.Fork, string.Format(Loc.T("wiz.goal.fork"), nextFork), Loc.T("wiz.goal.fork.desc")));
 
         var back = NavButton("wiz.back"); back.Click += (_, _) => { _step = Step.Source; Render(); };
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
@@ -280,12 +293,12 @@ public sealed class InstallWizardWindow : Window
         AddFooter(cancel, back, next);
     }
 
-    private Border GoalRow(Goal g, string titleKey, string descKey)
+    private Border GoalRow(Goal g, string title, string desc)
     {
         bool selected = _goal == g;
         var col = new StackPanel();
-        col.Children.Add(new TextBlock { Text = Loc.T(titleKey), Foreground = selected ? B("accent") : B("fg"), FontWeight = FontWeights.SemiBold });
-        col.Children.Add(new TextBlock { Text = Loc.T(descKey), Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 16, Margin = new Thickness(0, 1, 0, 0) });
+        col.Children.Add(new TextBlock { Text = title, Foreground = selected ? B("accent") : B("fg"), FontWeight = FontWeights.SemiBold });
+        col.Children.Add(new TextBlock { Text = desc, Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 16, Margin = new Thickness(0, 1, 0, 0) });
         var border = new Border
         {
             BorderBrush = selected ? B("accent") : B("border"),
