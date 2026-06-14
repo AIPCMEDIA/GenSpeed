@@ -52,7 +52,7 @@ public partial class MainWindow
         if (opt == null) log.Add(Loc.T("tune.noopt"));
         else
         {
-            var r = MultiplayerTuning.ApplyOptions(opt);
+            var r = MultiplayerTuning.ApplyOptions(opt, ScreenInfo.NativeResolution());
             log.Add(r.Ok ? string.Format(Loc.T("tune.opt.ok"), r.Applied) : "⚠ " + r.Error);
         }
 
@@ -93,7 +93,7 @@ public partial class MainWindow
         string? opt = MultiplayerTuning.FindOptionsIni();
         if (opt != null)
         {
-            var r = MultiplayerTuning.ApplyOptions(opt);
+            var r = MultiplayerTuning.ApplyOptions(opt, ScreenInfo.NativeResolution());
             if (r.Ok && r.Applied != 0) Log(string.Format(Loc.T("tune.auto.opt"), r.Applied));
             else if (!r.Ok) Log("⚠ " + r.Error);
         }

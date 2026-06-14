@@ -12,7 +12,8 @@ public sealed record TuningResult(bool Ok, int Applied, string? Path, string? Er
 public static class MultiplayerTuning
 {
     /// <summary>Options.ini : anti-mismatch (🔴, doivent être identiques entre joueurs) + perf (libre).
-    /// Resolution et UseAlternateMouse VOLONTAIREMENT exclus (native par machine / préférence).</summary>
+    /// Resolution gérée à part (posée native si absente, via le param d'ApplyOptions) ; UseAlternateMouse
+    /// VOLONTAIREMENT exclu (préférence).</summary>
     public static readonly (string Key, string Value)[] OptionsBaseline =
     {
         ("IdealStaticGameLOD", "High"),
@@ -123,16 +124,21 @@ public static class MultiplayerTuning
 
     /// <summary>Applique la base Options.ini : CRÉE le fichier (baseline) s'il manque, sinon édite en place
     /// (remplace les lignes existantes, ajoute les manquantes ; le reste — audio, luminosité, calibrage —
-    /// préservé). N'écrit QUE si quelque chose change (idempotent → sûr à relancer). Sauvegarde .gsbak avant écriture.</summary>
-    public static TuningResult ApplyOptions(string optionsIniPath)
+    /// préservé). N'écrit QUE si quelque chose change (idempotent → sûr à relancer). Sauvegarde .gsbak avant écriture.
+    /// <paramref name="resolution"/> ("L H", ex. "1920 1080") : posée UNIQUEMENT si la clé Resolution est ABSENTE
+    /// (on respecte un choix existant fait en jeu) → évite le défaut basse résolution au 1er lancement.</summary>
+    public static TuningResult ApplyOptions(string optionsIniPath, string? resolution = null)
     {
         try
         {
+            bool hasRes(IEnumerable<string> ls) => ls.Any(l => Regex.IsMatch(l, @"^\s*Resolution\s*=", RegexOptions.IgnoreCase));
             if (!File.Exists(optionsIniPath))
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(optionsIniPath)!);
-                File.WriteAllLines(optionsIniPath, OptionsBaseline.Select(kv => $"{kv.Key} = {kv.Value}"), new UTF8Encoding(false));
-                return new(true, OptionsBaseline.Length, optionsIniPath, null);
+                var seed = OptionsBaseline.Select(kv => $"{kv.Key} = {kv.Value}").ToList();
+                if (!string.IsNullOrWhiteSpace(resolution)) seed.Add($"Resolution = {resolution}");
+                File.WriteAllLines(optionsIniPath, seed, new UTF8Encoding(false));
+                return new(true, seed.Count, optionsIniPath, null);
             }
             var lines = File.ReadAllLines(optionsIniPath).ToList();
             int applied = 0;
@@ -144,6 +150,8 @@ public static class MultiplayerTuning
                 if (idx >= 0) { if (lines[idx] != line) { lines[idx] = line; applied++; } }
                 else { lines.Add(line); applied++; }
             }
+            // Résolution native : posée seulement si absente (ne jamais écraser une résolution déjà choisie).
+            if (!string.IsNullOrWhiteSpace(resolution) && !hasRes(lines)) { lines.Add($"Resolution = {resolution}"); applied++; }
             if (applied == 0) return new(true, 0, optionsIniPath, null);   // déjà calé → pas de réécriture
             try { File.Copy(optionsIniPath, optionsIniPath + ".gsbak", overwrite: true); } catch { }
             File.WriteAllLines(optionsIniPath, lines, new UTF8Encoding(false));
