@@ -51,6 +51,7 @@ public sealed class InstallWizardWindow : Window
     private ProgressBar? _waitBar;
     private bool _glTriggered;       // auto-install GenLauncher déclenchée une seule fois
     private bool _prereqMode;        // écran d'attente = installation des prérequis VC++/DirectX
+    private List<string> _installQueue = new();   // jeux Steam restant à installer (ex. ZH après Generals)
 
     private readonly StackPanel _body = new() { Margin = new Thickness(20, 16, 20, 16) };
     private readonly StackPanel _footer = new()
@@ -136,12 +137,12 @@ public sealed class InstallWizardWindow : Window
 
     private void AddFooter(params Button[] buttons) { foreach (var b in buttons) _footer.Children.Add(b); }
 
-    /// <summary>M0 = source unique : la 1re install VIERGE découverte (Steam en priorité). null si aucune.</summary>
+    /// <summary>M0 = source unique : la 1re install VIERGE découverte, en PRÉFÉRANT Zero Hour (son dossier
+    /// contient « Zero Hour ») — pour ne pas confondre avec un Generals installé à côté. null si aucune.</summary>
     private string? AutoDetectM0()
     {
-        foreach (var d in InstallDiscovery.DiscoverAll(_config.KnownInstalls))
-            if (InstallManager.IsVanilla(d)) return d;
-        return null;
+        var vanilla = InstallDiscovery.DiscoverAll(_config.KnownInstalls).Where(InstallManager.IsVanilla).ToList();
+        return vanilla.FirstOrDefault(d => d.Contains("Zero Hour", StringComparison.OrdinalIgnoreCase)) ?? vanilla.FirstOrDefault();
     }
 
     // ----- Étape 1 : M0 (source vierge, normalement auto-détectée) -----
@@ -177,15 +178,17 @@ public sealed class InstallWizardWindow : Window
             _body.Children.Add(new TextBlock { Text = Loc.T("wiz.s1.none"), Foreground = B("orange"),
                 FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 10) });
 
-            // Zero Hour = choix principal : il embarque les fichiers de Generals (cf. ZH_Generals), donc il suffit.
+            // Zero Hour SEUL = choix principal : il embarque les fichiers de Generals (ZH_Generals), donc il suffit.
             _body.Children.Add(MakeButton("wiz.s1.install.zh", () => SteamInstall(InstallManager.AppIdZeroHour), primary: true));
             _body.Children.Add(new TextBlock
             {
                 Text = Loc.T("wiz.s1.install.note"), Foreground = B("dim"), FontSize = 11,
                 TextWrapping = TextWrapping.Wrap, LineHeight = 16, Margin = new Thickness(2, 2, 0, 8),
             });
-            // Generals = facultatif (campagne d'origine uniquement).
-            _body.Children.Add(MakeButton("wiz.s1.install.gen", () => SteamInstall(InstallManager.AppIdGenerals)));
+            // ZH + Generals : si l'utilisateur veut AUSSI la campagne Generals d'origine. On installe Generals
+            // d'abord, puis ZH (file _installQueue), chacun initialisé automatiquement.
+            _body.Children.Add(MakeButton("wiz.s1.install.both",
+                () => { _installQueue = new List<string> { InstallManager.AppIdZeroHour }; SteamInstall(InstallManager.AppIdGenerals); }));
             _body.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 8, 0, 8) });
             _body.Children.Add(MakeButton("wiz.s1.refresh", Render));
         }
@@ -315,6 +318,8 @@ public sealed class InstallWizardWindow : Window
     {
         StopPoll();
         _watchAppId = null; _initPhase = false;
+        // File d'install (ex. « ZH + Generals » : Generals d'abord, puis ZH) → enchaîner le suivant.
+        if (_installQueue.Count > 0) { var next = _installQueue[0]; _installQueue.RemoveAt(0); SteamInstall(next); return; }
         _sourceDir = AutoDetectM0() ?? _sourceDir;
         await EnsurePrereqsAsync();
         _step = Step.Goal; Render();
