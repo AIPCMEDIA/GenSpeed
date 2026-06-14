@@ -79,6 +79,37 @@ public partial class MainWindow
         Dialogs.Info(this, Loc.T("tune.title"), string.Join("\n", log));
     }
 
+    /// <summary>CALAGE AUTOMATIQUE (sans clic) : appelé à chaque chargement du tableau. Cale silencieusement
+    /// l'Options.ini existant (anti-mismatch + perf) et le GenLauncherCfg.yaml de chaque install GenLauncher
+    /// (ou le crée si GenLauncher.exe est là mais pas encore lancé). Idempotent : ne réécrit que si une valeur
+    /// change → sûr à relancer en boucle, auto-réparateur. Sauté pendant un wipe ou si GenLauncher est ouvert
+    /// (il réécrirait son YAML). Le pré-seed à l'install couvre la 1re session ; ceci garde tout calé ensuite.</summary>
+    private void AutoTune()
+    {
+        if (ConfigStore.Suppressed || _installs.Count == 0) return;
+
+        // 1) Options.ini (unique, Documents) — uniquement s'il existe déjà (créé par le jeu/wizard ; on n'invente
+        //    pas un fichier de zéro ici, le wizard s'en charge à l'install).
+        string? opt = MultiplayerTuning.FindOptionsIni();
+        if (opt != null)
+        {
+            var r = MultiplayerTuning.ApplyOptions(opt);
+            if (r.Ok && r.Applied != 0) Log(string.Format(Loc.T("tune.auto.opt"), r.Applied));
+            else if (!r.Ok) Log("⚠ " + r.Error);
+        }
+
+        // 2) GenLauncherCfg.yaml par install — pas touché si GenLauncher est ouvert (il l'écraserait).
+        if (RunningGameProcs().Contains("GenLauncher")) return;
+        foreach (var dir in _installs)
+        {
+            bool hasYaml = MultiplayerTuning.FindGenLauncherYaml(dir) != null;
+            bool hasExe = File.Exists(Path.Combine(dir, "GenLauncher.exe"));
+            if (!hasYaml && !hasExe) continue;
+            var yr = MultiplayerTuning.SeedOrTuneYaml(dir);
+            if (yr.Ok && yr.Applied != 0) Log(string.Format(Loc.T("tune.auto.yaml"), InstallLabel(dir)));
+        }
+    }
+
     /// <summary>⚙ Config → modifier le lien de téléchargement direct de GenLauncher (utile quand une version
     /// plus récente sort : on remplace l'id du fichier ModDB). La page de listing reste le secours.</summary>
     private void OnCfgGenLauncherUrl()

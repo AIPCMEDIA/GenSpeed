@@ -115,15 +115,25 @@ public static class MultiplayerTuning
         catch { return null; }
     }
 
-    /// <summary>Applique la base Options.ini en place (remplace les lignes existantes, ajoute les manquantes ;
-    /// le reste — audio, luminosité, calibrage — est préservé). Sauvegarde .gsbak avant.</summary>
+    /// <summary>Chemin Options.ini canonique : l'existant si trouvé, sinon le défaut (Documents data).</summary>
+    public static string DefaultOptionsIniPath()
+        => FindOptionsIni() ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Documents", "Command and Conquer Generals Zero Hour Data", "Options.ini");
+
+    /// <summary>Applique la base Options.ini : CRÉE le fichier (baseline) s'il manque, sinon édite en place
+    /// (remplace les lignes existantes, ajoute les manquantes ; le reste — audio, luminosité, calibrage —
+    /// préservé). N'écrit QUE si quelque chose change (idempotent → sûr à relancer). Sauvegarde .gsbak avant écriture.</summary>
     public static TuningResult ApplyOptions(string optionsIniPath)
     {
         try
         {
-            if (!File.Exists(optionsIniPath)) return new(false, 0, optionsIniPath, "Options.ini introuvable");
-            try { File.Copy(optionsIniPath, optionsIniPath + ".gsbak", overwrite: true); } catch { }
-
+            if (!File.Exists(optionsIniPath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(optionsIniPath)!);
+                File.WriteAllLines(optionsIniPath, OptionsBaseline.Select(kv => $"{kv.Key} = {kv.Value}"), new UTF8Encoding(false));
+                return new(true, OptionsBaseline.Length, optionsIniPath, null);
+            }
             var lines = File.ReadAllLines(optionsIniPath).ToList();
             int applied = 0;
             foreach (var (key, val) in OptionsBaseline)
@@ -134,6 +144,8 @@ public static class MultiplayerTuning
                 if (idx >= 0) { if (lines[idx] != line) { lines[idx] = line; applied++; } }
                 else { lines.Add(line); applied++; }
             }
+            if (applied == 0) return new(true, 0, optionsIniPath, null);   // déjà calé → pas de réécriture
+            try { File.Copy(optionsIniPath, optionsIniPath + ".gsbak", overwrite: true); } catch { }
             File.WriteAllLines(optionsIniPath, lines, new UTF8Encoding(false));
             return new(true, applied, optionsIniPath, null);
         }
@@ -148,7 +160,6 @@ public static class MultiplayerTuning
         try
         {
             if (!File.Exists(yamlPath)) return new(false, 0, yamlPath, "GenLauncherCfg.yaml introuvable");
-            try { File.Copy(yamlPath, yamlPath + ".gsbak", overwrite: true); } catch { }
 
             string text = File.ReadAllText(yamlPath);
             int applied = 0;
@@ -160,6 +171,8 @@ public static class MultiplayerTuning
                 string updated = rx.Replace(text, $"{key}: {val}", 1);
                 if (updated != text) { text = updated; applied++; }
             }
+            if (applied == 0) return new(true, 0, yamlPath, null);   // déjà calé → pas de réécriture
+            try { File.Copy(yamlPath, yamlPath + ".gsbak", overwrite: true); } catch { }
             File.WriteAllText(yamlPath, text, new UTF8Encoding(false));
             return new(true, applied, yamlPath, null);
         }

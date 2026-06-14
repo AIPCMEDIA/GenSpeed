@@ -550,6 +550,10 @@ public sealed class InstallWizardWindow : Window
         var seed = MultiplayerTuning.SeedOrTuneYaml(destDir);
         if (seed.Ok) _log(seed.Applied < 0 ? string.Format(Loc.T("gl.seeded"), seed.Path)
                                            : string.Format(Loc.T("tune.yaml.ok"), Path.GetFileName(destDir.TrimEnd('\\', '/')), seed.Applied));
+        // Pré-créer l'Options.ini baseline (anti-mismatch + perf) AVANT le 1er lancement du jeu → calé dès la
+        // 1re partie (le jeu lit l'existant et complète le reste). Ensuite AutoTune le maintient à chaque run.
+        var optSeed = MultiplayerTuning.ApplyOptions(MultiplayerTuning.DefaultOptionsIniPath());
+        if (optSeed.Ok && optSeed.Applied != 0) _log(string.Format(Loc.T("tune.opt.ok"), optSeed.Applied));
         // Raccourci Bureau (« GenLauncher » ; suffixe du dossier seulement si collision avec une autre install).
         CreateDesktopShortcut(res.ExePath!, destDir);
         if (Dialogs.Confirm(this, Loc.T("wiz.title"), string.Format(Loc.T("gl.launch.ask"), destDir)))

@@ -270,6 +270,7 @@ public partial class MainWindow : Window
             _installs.RemoveAll(d => string.Equals(d.TrimEnd('\\'), _config.M1Dir!.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
         Log(string.Format(Loc.T("log.installs.found"), _installs.Count));
         if (!_m1Checked) { _m1Checked = true; CheckMasterM1(); }   // vérif master M1 une fois (au démarrage)
+        AutoTune();   // calage auto (Options.ini + YAML GenLauncher), silencieux et idempotent
 
         var targets = new List<Target>();
         foreach (var dir in _installs)

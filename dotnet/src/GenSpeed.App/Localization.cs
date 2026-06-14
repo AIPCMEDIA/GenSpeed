@@ -55,6 +55,8 @@ public sealed class Loc : INotifyPropertyChanged
         ["tune.yaml.ok"]  = ["✅ GenLauncher calé ({0}) : {1} clés.", "✅ GenLauncher tuned ({0}): {1} keys."],
         ["tune.noyaml"]   = ["ℹ Aucun GenLauncherCfg.yaml trouvé (GenLauncher pas encore lancé sur une install).", "ℹ No GenLauncherCfg.yaml found (GenLauncher not yet run on an install)."],
         ["tune.glrunning"]= ["⚠ GenLauncher est ouvert → YAML non modifié (il l'écraserait). Ferme GenLauncher et relance le calage.", "⚠ GenLauncher is open → YAML not modified (it would overwrite it). Close GenLauncher and re-run the tuning."],
+        ["tune.auto.opt"] = ["🎚 Calage auto : Options.ini mis à jour ({0} clés).", "🎚 Auto-tune: Options.ini updated ({0} keys)."],
+        ["tune.auto.yaml"]= ["🎚 Calage auto : GenLauncher ({0}) calé.", "🎚 Auto-tune: GenLauncher ({0}) tuned."],
         ["gl.seeded"]     = ["✅ GenLauncher pré-configuré (GenTool off + pas de setup 1er lancement) : {0}", "✅ GenLauncher pre-configured (GenTool off + no first-run setup): {0}"],
 
         // ===== Master M1 (copie de sauvegarde vierge, cachée du tableau) =====
