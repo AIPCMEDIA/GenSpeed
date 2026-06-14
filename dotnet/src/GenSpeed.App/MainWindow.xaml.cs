@@ -258,8 +258,12 @@ public partial class MainWindow : Window
         {
             // Rien trouvé : proposer 2 choix clairs (Installer via Steam → assistant / Indiquer un dossier),
             // plutôt qu'un sélecteur de dossier Windows brut.
+            // Plus aucune install (ex. après un wipe) : VIDER le tableau pour refléter la réalité,
+            // que l'utilisateur valide le dialogue ou l'annule (sinon il garderait les lignes supprimées).
+            _rows.Clear(); _targets = new();
             if (!PromptNoInstall()) { Log(Loc.T("log.nogame")); return; }
             _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
+            if (_installs.Count == 0) { Log(Loc.T("log.nogame")); return; }   // toujours rien après le dialogue
         }
         // Le master M1 (copie de sauvegarde vierge) ne s'affiche JAMAIS dans le tableau (on n'y touche pas).
         if (!string.IsNullOrEmpty(_config.M1Dir))

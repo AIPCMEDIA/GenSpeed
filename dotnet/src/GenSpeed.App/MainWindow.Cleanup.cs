@@ -267,6 +267,10 @@ public partial class MainWindow
             Dialogs.Info(this, Loc.T("clean.title"),
                 string.Format(Loc.T("clean.report"), res.Done.Count, res.Errors.Count, FmtBytes(res.FreedBytes), res.BackupDir));
 
+            // Rafraîchir le tableau dès la fin de la passe 1 (avant la longue attente Steam) → mise à jour
+            // visible en cours d'opération (les installs non-Steam supprimées disparaissent tout de suite).
+            if (IsLoaded) { _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p)); LoadMods(); }
+
             // Jeux Steam COCHÉS : lancer la désinstallation officielle via Steam (jamais de suppression manuelle).
             LaunchSteamUninstalls(steamChosen);
             // En « tout supprimer » : attendre la fin de Steam puis nettoyer ses résidus automatiquement.
