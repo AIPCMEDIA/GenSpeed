@@ -45,6 +45,17 @@ public sealed class Loc : INotifyPropertyChanged
         ["noinst.steam"]  = ["⬇ Installer le jeu via Steam (assistant)", "⬇ Install the game via Steam (assistant)"],
         ["noinst.folder"] = ["📁 Indiquer un autre dossier (j'ai déjà le jeu)…", "📁 Point to another folder (I already have it)…"],
 
+        // ===== Calage multi / GenSpeed (Options.ini + GenLauncher YAML) =====
+        ["cfg.tune"]      = ["🎚 Caler pour le multi (Options.ini + GenLauncher)…", "🎚 Tune for multiplayer (Options.ini + GenLauncher)…"],
+        ["tune.title"]    = ["Calage multi / GenSpeed", "Multiplayer / GenSpeed tuning"],
+        ["tune.confirm"]  = ["Appliquer la base anti-mismatch + perf dans Options.ini (mêmes 7 clés des deux côtés) et les réglages GenSpeed-safe dans GenLauncherCfg.yaml (CheckModFiles off, etc.) ?\n\nÉdition en place, une sauvegarde .gsbak est créée. À faire GenLauncher FERMÉ.",
+                             "Apply the anti-mismatch + perf baseline to Options.ini (same 7 keys on both PCs) and the GenSpeed-safe settings to GenLauncherCfg.yaml (CheckModFiles off, etc.)?\n\nIn-place edit, a .gsbak backup is made. Do this with GenLauncher CLOSED."],
+        ["tune.opt.ok"]   = ["✅ Options.ini calé ({0} clés). Mets les MÊMES valeurs sur l'autre PC.", "✅ Options.ini tuned ({0} keys). Set the SAME values on the other PC."],
+        ["tune.noopt"]    = ["⚠ Options.ini introuvable (lance le jeu une fois pour le générer).", "⚠ Options.ini not found (launch the game once to generate it)."],
+        ["tune.yaml.ok"]  = ["✅ GenLauncher calé ({0}) : {1} clés.", "✅ GenLauncher tuned ({0}): {1} keys."],
+        ["tune.noyaml"]   = ["ℹ Aucun GenLauncherCfg.yaml trouvé (GenLauncher pas encore lancé sur une install).", "ℹ No GenLauncherCfg.yaml found (GenLauncher not yet run on an install)."],
+        ["tune.glrunning"]= ["⚠ GenLauncher est ouvert → YAML non modifié (il l'écraserait). Ferme GenLauncher et relance le calage.", "⚠ GenLauncher is open → YAML not modified (it would overwrite it). Close GenLauncher and re-run the tuning."],
+
         // ===== Master M1 (copie de sauvegarde vierge, cachée du tableau) =====
         ["cfg.master"]    = ["📦 Master M1 (copie de sauvegarde)…", "📦 M1 master (backup copy)…"],
         ["m1.title"]      = ["Master M1 (copie de sauvegarde)", "M1 master (backup copy)"],

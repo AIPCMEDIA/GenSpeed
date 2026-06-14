@@ -39,6 +39,41 @@ public partial class MainWindow
         return false;   // annulé
     }
 
+    /// <summary>⚙ Config → caler Options.ini (anti-mismatch + perf 7290) + GenLauncherCfg.yaml (GenSpeed-safe).
+    /// Édition en place, sauvegardes .gsbak. À lancer GenLauncher fermé (il réécrit son YAML à la fermeture).</summary>
+    private void OnCfgTuneMultiplayer()
+    {
+        if (!Dialogs.Confirm(this, Loc.T("tune.title"), Loc.T("tune.confirm"))) return;
+
+        var log = new List<string>();
+
+        // 1) Options.ini (un seul — dossier Documents partagé).
+        string? opt = MultiplayerTuning.FindOptionsIni();
+        if (opt == null) log.Add(Loc.T("tune.noopt"));
+        else
+        {
+            var r = MultiplayerTuning.ApplyOptions(opt);
+            log.Add(r.Ok ? string.Format(Loc.T("tune.opt.ok"), r.Applied) : "⚠ " + r.Error);
+        }
+
+        // 2) GenLauncherCfg.yaml par install — seulement si GenLauncher n'est PAS en cours (sinon il l'écrase).
+        bool glRunning = RunningGameProcs().Contains("GenLauncher");
+        bool anyYaml = false;
+        foreach (var dir in _installs)
+        {
+            string? y = MultiplayerTuning.FindGenLauncherYaml(dir);
+            if (y == null) continue;
+            anyYaml = true;
+            if (glRunning) { log.Add(Loc.T("tune.glrunning")); break; }
+            var r = MultiplayerTuning.ApplyYaml(y);
+            log.Add(r.Ok ? string.Format(Loc.T("tune.yaml.ok"), InstallLabel(dir), r.Applied) : "⚠ " + r.Error);
+        }
+        if (!anyYaml) log.Add(Loc.T("tune.noyaml"));
+
+        foreach (var l in log) Log(l);
+        Dialogs.Info(this, Loc.T("tune.title"), string.Join("\n", log));
+    }
+
     /// <summary>⚙ Config → modifier le lien de téléchargement direct de GenLauncher (utile quand une version
     /// plus récente sort : on remplace l'id du fichier ModDB). La page de listing reste le secours.</summary>
     private void OnCfgGenLauncherUrl()
