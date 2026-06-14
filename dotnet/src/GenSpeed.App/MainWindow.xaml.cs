@@ -206,7 +206,7 @@ public partial class MainWindow : Window
     private void WireToolbar()
     {
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare), ("diag.verify", OnDiagVerify));
-        Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard), ("cfg.movem1", OnCfgMoveM1),
+        Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard), ("cfg.installs", OnCfgInstalls), ("cfg.movem1", OnCfgMoveM1),
                             ("cfg.tune", OnCfgTuneMultiplayer), ("cfg.gllink", OnCfgGenLauncherUrl),
                             ("cfg.addinstall", OnCfgAddInstall), ("cfg.modsdir", OnCfgModsDir),
                             ("cfg.launcher", OnCfgLauncher),
@@ -309,6 +309,15 @@ public partial class MainWindow : Window
             _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
             if (_installs.Count == 0) { Log(Loc.T("log.nogame")); return; }   // toujours rien après le dialogue
         }
+        // JSON = SOURCE DE VÉRITÉ : persister TOUTES les installs découvertes (M0 Steam inclus) dans la config,
+        // pour qu'elles y figurent toujours et soient éditables. L'auto-découverte ne fait que COMPLÉTER (jamais
+        // écraser les éditions de l'utilisateur) ; les chemins morts ont déjà été purgés plus haut.
+        bool addedKnown = false;
+        foreach (var d in _installs)
+            if (!_config.KnownInstalls.Any(p => string.Equals(p.TrimEnd('\\', '/'), d.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)))
+            { _config.KnownInstalls.Add(d); addedKnown = true; }
+        if (addedKnown) ConfigStore.Save(_config);
+
         Log(string.Format(Loc.T("log.installs.found"), _installs.Count));
         AutoTune();   // calage auto (Options.ini + YAML GenLauncher), silencieux et idempotent
 

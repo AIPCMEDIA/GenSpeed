@@ -122,4 +122,22 @@ public partial class MainWindow
         { _config.KnownInstalls.Add(dir); ConfigStore.Save(_config); }
     }
 
+    /// <summary>Étiquette M0/M1/Mx par chemin d'install : M0 = vierge (sans GenLauncher), M1 = GenLauncher,
+    /// M2, M3… = forks (le reste), dans l'ordre. Sert au panneau « Mes installs ».</summary>
+    private Dictionary<string, string> MLabels(List<string> installs)
+    {
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        bool HasGl(string d) { try { return File.Exists(Path.Combine(d, "GenLauncher.exe")); } catch { return false; } }
+        foreach (var d in installs) if (InstallManager.IsVanilla(d) && !HasGl(d)) dict[d] = "M0";
+        foreach (var d in installs) if (HasGl(d)) dict[d] = "M1";
+        int n = 2;
+        foreach (var d in installs) if (!dict.ContainsKey(d)) dict[d] = "M" + n++;
+        return dict;
+    }
+
+    /// <summary>⚙ Config → « Mes installs » : panneau listant M0/M1/Mx + leurs emplacements (le JSON éditable),
+    /// avec corriger / retirer / ajouter. Rafraîchit le tableau à chaque changement.</summary>
+    private void OnCfgInstalls()
+        => InstallsWindow.Show(this, _config, MLabels, LoadMods);
+
 }
