@@ -188,7 +188,7 @@ public partial class MainWindow
         bool isGl = File.Exists(Path.Combine(dir, "GenLauncher.exe"));
         string folderName = isGl ? GenSpeed.Core.InstallManager.GenLauncherFolderName : Path.GetFileName(dir.TrimEnd('\\', '/'));
 
-        var dlg = new OpenFolderDialog { Title = Loc.T("m1move.pick") };
+        var dlg = new OpenFolderDialog { Title = string.Format(Loc.T("m1move.pick"), folderName) };
         try { dlg.InitialDirectory = Path.GetDirectoryName(dir); } catch { }
         if (dlg.ShowDialog() != true) return;
         string dest = Path.Combine(dlg.FolderName, folderName);
