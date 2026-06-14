@@ -7,11 +7,15 @@
 **Accélère le gameplay de *Command & Conquer™ Generals – Zero Hour* (et de ses mods), même en LAN.**
 *Speed up the gameplay of C&C Generals: Zero Hour (and its mods), even in LAN.*
 
+[![Version](https://img.shields.io/badge/v2.3-BETA-orange?style=flat)](#-v23-beta--assistant-dinstallation-propre--clean-install-assistant)
 [![Platform](https://img.shields.io/badge/Windows-10_/_11-blue?style=flat)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-8_/_WPF-512BD4?style=flat)](#)
 
 </div>
+
+> 🧪 **v2.3 est une BETA.** Elle introduit l'**assistant d'installation propre** et le **calage multijoueur automatique** (voir ci-dessous). Ces fonctions sont nouvelles : **sauvegarde tes données avant**, et remonte tout souci via une **issue**. La v2.2 stable reste disponible dans les [Releases](../../releases).
+> *🧪 **v2.3 is a BETA.** It adds the clean-install assistant and automatic multiplayer tuning. These are new — **back up your data first** and report issues. The stable v2.2 stays available in [Releases](../../releases).*
 
 > 🇫🇷 GenSpeed modifie les fichiers de données (`.ini`) du jeu/mod pour rendre les parties plus rapides : unités plus véloces, constructions/recharges plus courtes, presets de caméra. Plus un **outil de diagnostic de désync (mismatch) LAN** qui compare ton install à celle d'un ami et nomme exactement ce qui diffère.
 >
@@ -19,17 +23,30 @@
 
 ---
 
-## ✨ Nouveau dans la v2.2 / New in v2.2
+## 🧪 v2.3 (BETA) — Assistant d'installation propre / Clean-install assistant
 
 🇫🇷
-- 🛡️ **Vérifier les fichiers** (menu 🩺 Diagnostic) : pour chaque outil (GenTool, GenLauncher, GenPatcher…), un **verdict en clair** — connu et sans danger, avec les faux positifs antivirus expliqués — et un bouton **VirusTotal**. Fini le jargon technique anxiogène.
-- 🩺 **Diagnostic mismatch enrichi** : compare les **7 réglages anti-mismatch** d'`options.ini`, **distingue GenTool du wrapper d3d8to9** (qui augmente les désyncs en ligne), et vérifie le **serial LAN** (n'alerte que si un fantôme VirtualStore masque vraiment le bon → cause cachée de « serial in use »).
-- 🧹 **Désinstalleur durci** : couvre désormais le **VirtualStore** (vieux serials fantômes), **GenTool au complet** (config, updater, maps de ladder), les **addons GenPatcher** (Control Bar, hotkeys, décals), et une nouvelle catégorie **« Restaurer les fichiers d'origine »** — le « dé-patch » que les outils n'offrent pas.
+- 🧙 **Assistant d'installation (sans GenPatcher)** : détecte ton jeu Steam — le **M0**, gardé **vierge** — et crée en quelques clics un **hub GenLauncher (M1)** ou un **fork autonome (M2, M3…)**. Copie propre depuis M0, **GenLauncher pré-configuré** (pas d'installation auto de GenTool, pas de setup au 1er lancement), raccourci Bureau. La source n'est jamais demandée (c'est toujours M0) ; le nom de dossier de M1 est toujours « GenLauncher », à l'emplacement de ton choix.
+- 🎚️ **Calage multijoueur AUTOMATIQUE** : à chaque démarrage, GenSpeed aligne **tout seul** les **réglages anti-mismatch** d'`Options.ini`, la **résolution native** de ton écran, et la config GenLauncher (GenSpeed-safe) — sans rien écraser de tes choix. Plus rien à régler à la main pour le LAN.
+- 📍 **Panneau « Mes installs »** : la liste éditable de tes emplacements **M0 / M1 / Mx** (le JSON de config = source de vérité). **📦 Déplacer** une install (le dossier bouge **et tout suit** : raccourci, config) ou **✏ Re-pointer** si tu l'as déplacée à la main hors GenSpeed.
+- 🔄 **Tableau auto-rafraîchi** : installe ou retire un mod dans GenLauncher → il apparaît/disparaît dans GenSpeed **sans le redémarrer**.
+- 🧹 **Désinstalleur renforcé** : nettoyage **en un seul passage** (gère le délai de désinstallation de Steam) avec **vérification finale « 0 résidu »**.
 
 🇬🇧
-- 🛡️ **Verify files** (🩺 Diagnostic menu): for each tool (GenTool, GenLauncher, GenPatcher…), a **plain-language verdict** — known and safe, with antivirus false positives explained — plus a **VirusTotal** button. No more scary jargon.
-- 🩺 **Enriched mismatch diagnostic**: compares the **7 anti-mismatch** `options.ini` settings, **tells GenTool apart from the d3d8to9 wrapper** (which increases online desyncs), and checks the **LAN serial** (only warns if a VirtualStore phantom truly masks the real one → a hidden "serial in use" cause).
-- 🧹 **Hardened uninstaller**: now covers the **VirtualStore** (old phantom serials), **full GenTool** (config, updater, ladder maps), **GenPatcher add-ons** (Control Bar, hotkeys, decals), and a new **"Restore original files"** category — the "un-patch" the tools don't offer.
+- 🧙 **Install assistant (GenPatcher-free)**: detects your Steam game — **M0**, kept **pristine** — and in a few clicks creates a **GenLauncher hub (M1)** or a **standalone fork (M2, M3…)**. Clean copy from M0, **GenLauncher pre-configured** (no auto GenTool, no first-run setup), desktop shortcut. The source is never asked (it's always M0); M1's folder is always named "GenLauncher", at the location you choose.
+- 🎚️ **AUTOMATIC multiplayer tuning**: on every launch GenSpeed aligns the **anti-mismatch** `Options.ini` settings, your screen's **native resolution**, and the GenLauncher config **by itself** — without overwriting your choices. Nothing to set by hand for LAN.
+- 📍 **"My installs" panel**: the editable list of your **M0 / M1 / Mx** locations (the config JSON = source of truth). **📦 Move** an install (the folder moves **and everything follows**: shortcut, config) or **✏ Re-point** it if you moved it manually outside GenSpeed.
+- 🔄 **Auto-refreshing table**: add or remove a mod in GenLauncher → it appears/disappears in GenSpeed **without restarting it**.
+- 🧹 **Hardened uninstaller**: **single-pass** cleanup (handles Steam's uninstall delay) with a final **"0 leftover"** verification.
+
+<details>
+<summary>✨ v2.2 — vérifier les fichiers + diagnostic enrichi + désinstalleur durci</summary>
+
+- 🛡️ **Vérifier les fichiers** (menu 🩺 Diagnostic) : verdict en clair par outil (connu/sans danger, faux positifs antivirus expliqués) + bouton **VirusTotal**.
+- 🩺 **Diagnostic mismatch enrichi** : compare les **7 réglages anti-mismatch** d'`options.ini`, **distingue GenTool du wrapper d3d8to9**, vérifie le **serial LAN** (fantôme VirtualStore).
+- 🧹 **Désinstalleur durci** : **VirtualStore**, **GenTool complet**, **addons GenPatcher**, et catégorie **« Restaurer les fichiers d'origine »**.
+
+</details>
 
 <details>
 <summary>✨ v2.1 — multi-installations + désinstalleur propre</summary>
@@ -235,6 +252,14 @@ MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage,
 ---
 
 ## 📝 Changelog
+
+### v2.3 (beta)
+- 🧙 **Assistant d'installation propre (GenPatcher-free)** : modèle **M0 / M1 / Mx** — M0 = jeu Steam d'origine **vierge** (source unique, auto-détectée, jamais touchée) ; **M1** = copie de M0 + GenLauncher (hub, dossier toujours « GenLauncher », emplacement par défaut proposé/éditable) ; **M2, M3…** = copies de M0 + fork autonome. Objectif contextuel (M1 unique → proposé une seule fois ; forks multiples → numérotés)
+- 🎚️ **Calage multijoueur automatique** : `Options.ini` (15 clés anti-mismatch + perf) + **résolution native** (détectée, posée si absente) + `GenLauncherCfg.yaml` (GenSpeed-safe : GenTool off, CheckModFiles off…) calés **à chaque démarrage**, idempotent (n'écrit que si une valeur change). Pré-seed du YAML/Options.ini dès l'install (validé : GenTool n'est jamais installé)
+- 📍 **Panneau « Mes installs »** : config JSON = source de vérité éditable (M0 inclus) ; **Déplacer** (physique, tout suit : `MoveInstall` + maj raccourci Bureau + known_installs), **Re-pointer**, **Retirer**, **Ajouter**. GenSpeed retrouve l'install GenLauncher via son raccourci Bureau (filet de secours)
+- 🔄 **Tableau auto-rafraîchi** au retour sur la fenêtre (signature disque légère, pas de rescan inutile) + vidage si plus aucune install
+- 🧹 **Désinstalleur** : 2ᵉ passage automatique, balayage des dossiers vides, **nettoyage post-Steam** (attente de la fin de Steam), **vérification finale « 0 résidu »** dans le journal
+- 🚀 Raccourci Bureau GenLauncher (admin) · pré-création de l'`Options.ini` calé à l'install
 
 ### v2.2
 - 🛡️ **Volet « Vérifier les fichiers »** (menu Diagnostic) : verdict en clair par binaire tiers (référence connue / non répertorié / non suivi, pastilles vert/orange/gris) + bouton **VirusTotal** (recherche par hash). Pédagogique : explique que les faux positifs heuristiques sur les outils non signés sont normaux
