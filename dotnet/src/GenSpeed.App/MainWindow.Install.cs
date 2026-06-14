@@ -79,6 +79,63 @@ public partial class MainWindow
         Dialogs.Info(this, Loc.T("tune.title"), string.Join("\n", log));
     }
 
+    /// <summary>« GenSpeed sait TOUJOURS où est M2 » : résout les raccourcis Bureau « GenLauncher » (fil d'Ariane
+    /// sur le disque, créé par le wizard) → ajoute le dossier de l'install aux installs connues (persisté).
+    /// Survit à un reset de la config (le raccourci reste), marche même pour une install faite à la main, et
+    /// s'auto-répare à chaque démarrage. Les chemins morts/non-ZH sont ignorés (DiscoverAll re-filtre de toute façon).</summary>
+    private void SeedKnownFromShortcuts()
+    {
+        bool added = false;
+        foreach (var folder in DesktopGenLauncherTargets())
+        {
+            if (!GameLocator.IsZhFolder(folder)) continue;
+            if (_config.KnownInstalls.Any(p => string.Equals(p.TrimEnd('\\', '/'), folder.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase))) continue;
+            if (!string.IsNullOrEmpty(_config.M1Dir) && string.Equals(folder.TrimEnd('\\', '/'), _config.M1Dir!.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) continue;
+            _config.KnownInstalls.Add(folder);
+            added = true;
+            Log(string.Format(Loc.T("log.gl.found"), folder));
+        }
+        if (added) ConfigStore.Save(_config);
+    }
+
+    /// <summary>Dossiers d'install pointés par les raccourcis « GenLauncher*.lnk » du Bureau (utilisateur + public).
+    /// Cible = ...\GenLauncher.exe → on retient son dossier. Best-effort via WScript.Shell (COM).</summary>
+    private IEnumerable<string> DesktopGenLauncherTargets()
+    {
+        var outp = new List<string>();
+        try
+        {
+            var t = Type.GetTypeFromProgID("WScript.Shell");
+            if (t == null) return outp;
+            dynamic shell = Activator.CreateInstance(t)!;
+            foreach (var desk in new[]
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
+            })
+            {
+                if (string.IsNullOrEmpty(desk) || !Directory.Exists(desk)) continue;
+                foreach (var lnk in Directory.EnumerateFiles(desk, "*.lnk"))
+                {
+                    if (!Path.GetFileName(lnk).Contains("GenLauncher", StringComparison.OrdinalIgnoreCase)) continue;
+                    try
+                    {
+                        dynamic sc = shell.CreateShortcut(lnk);
+                        string target = (sc.TargetPath as string) ?? "";
+                        if (target.EndsWith("GenLauncher.exe", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string? dir = Path.GetDirectoryName(target);
+                            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir)) outp.Add(dir!);
+                        }
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
+        return outp;
+    }
+
     /// <summary>CALAGE AUTOMATIQUE (sans clic) : appelé à chaque chargement du tableau. Cale silencieusement
     /// l'Options.ini existant (anti-mismatch + perf) et le GenLauncherCfg.yaml de chaque install GenLauncher
     /// (ou le crée si GenLauncher.exe est là mais pas encore lancé). Idempotent : ne réécrit que si une valeur

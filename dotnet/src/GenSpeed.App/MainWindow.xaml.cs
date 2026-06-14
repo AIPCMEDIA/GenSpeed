@@ -25,6 +25,8 @@ public partial class MainWindow : Window
     private List<SpeedPreset> Speeds => _config.SpeedPresets;
     private List<string> _installs = new();   // TOUTES les installs découvertes (plus d'« install active »)
     private List<Target> _targets = new();
+    private string _lastModSig = "";          // signature disque (installs+mods GLM) au dernier LoadMods
+    private bool _loadingMods;                 // garde-fou ré-entrance LoadMods
 
     // (clé cat, symbole, couleur pastille)
     private static readonly (string Key, string Sym, string Dot)[] Cats =
@@ -77,6 +79,45 @@ public partial class MainWindow : Window
         SetupModContextMenu();
         Log(Loc.T("log.start"));
         LoadMods();
+
+        // Rafraîchissement auto : quand on revient sur GenSpeed (ex. après avoir installé un mod dans
+        // GenLauncher), re-scanner le tableau SI le disque a changé — sans devoir redémarrer GenSpeed.
+        Activated += OnActivatedRefresh;
+    }
+
+    /// <summary>À l'activation de la fenêtre : si la signature disque (installs + mods GLM) a changé depuis le
+    /// dernier chargement, recharge le tableau. Le calcul de signature est léger (énumération de dossiers, AUCUN
+    /// hachage) → pas de rescan lourd tant que rien n'a bougé. Couvre « j'installe un mod dans GenLauncher puis
+    /// je reviens sur GenSpeed ».</summary>
+    private void OnActivatedRefresh(object? sender, EventArgs e)
+    {
+        if (_loadingMods || ConfigStore.Suppressed) return;
+        try { if (LiveModSignature() != _lastModSig) { Log(Loc.T("log.refresh.auto")); LoadMods(); } }
+        catch { /* best-effort */ }
+    }
+
+    /// <summary>Signature LÉGÈRE du paysage de mods sur le disque : chemins d'install + noms des mods GLM avec leur
+    /// nombre de .gib + nb de .gib actifs à la racine (activation/désactivation). Aucune lecture d'archive ni hachage.</summary>
+    private string LiveModSignature()
+    {
+        var sb = new System.Text.StringBuilder();
+        var installs = InstallDiscovery.DiscoverAll(_config.KnownInstalls);
+        if (!string.IsNullOrEmpty(_config.M1Dir))
+            installs.RemoveAll(d => string.Equals(d.TrimEnd('\\'), _config.M1Dir!.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
+        foreach (var dir in installs.OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+        {
+            sb.Append(dir.ToLowerInvariant()).Append('|');
+            string glm = Path.Combine(dir, "GLM");
+            if (Directory.Exists(glm))
+                foreach (var m in Directory.EnumerateDirectories(glm).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+                {
+                    int gibs = 0; try { gibs = Directory.EnumerateFiles(m, "*.gib", SearchOption.AllDirectories).Count(); } catch { }
+                    sb.Append(Path.GetFileName(m)).Append('=').Append(gibs).Append(';');
+                }
+            try { sb.Append("root:").Append(Directory.EnumerateFiles(dir, "*.gib").Count()); } catch { }
+            sb.Append('\n');
+        }
+        return sb.ToString();
     }
 
     private bool _logVisible = true;
@@ -251,8 +292,13 @@ public partial class MainWindow : Window
 
     private async void LoadMods()
     {
+        if (_loadingMods) return;   // anti-ré-entrance (l'activation peut déclencher pendant un chargement)
+        _loadingMods = true;
+        try
+        {
         Title = "GenSpeed";
         _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p));
+        SeedKnownFromShortcuts();   // « toujours savoir où est M2 » : réenregistre l'install GenLauncher via son raccourci Bureau
         _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
         if (_installs.Count == 0)
         {
@@ -341,6 +387,12 @@ public partial class MainWindow : Window
         }
         if (_hashCacheDirty) { ConfigStore.Save(_config); _hashCacheDirty = false; }
         if (alreadyPatched > 0) Log(string.Format(Loc.T("log.alreadypatched"), alreadyPatched));
+        }
+        finally
+        {
+            _loadingMods = false;
+            try { _lastModSig = LiveModSignature(); } catch { }   // mémorise l'état disque → base de comparaison
+        }
     }
 
     private bool _hashCacheDirty;

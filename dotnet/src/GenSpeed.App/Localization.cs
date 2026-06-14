@@ -702,6 +702,8 @@ public sealed class Loc : INotifyPropertyChanged
         // Journal
         ["log.start"]    = ["GenSpeed (.NET 8 / WPF) démarré.", "GenSpeed (.NET 8 / WPF) started."],
         ["log.detected"] = ["{0} cible(s) détectée(s).", "{0} target(s) detected."],
+        ["log.refresh.auto"] = ["🔄 Changement détecté sur le disque → rafraîchissement du tableau.", "🔄 Disk change detected → refreshing the table."],
+        ["log.gl.found"] = ["📌 Install GenLauncher retrouvée (raccourci Bureau) : {0}", "📌 GenLauncher install found (Desktop shortcut): {0}"],
         ["log.gamedir"]  = ["Dossier jeu : {0}", "Game folder: {0}"],
         ["log.modsextra"]= ["+{0} mod(s) trouvé(s) dans : {1}", "+{0} mod(s) found in: {1}"],
         ["log.nogame"]   = ["Dossier du jeu introuvable (sélection manuelle à venir).",
