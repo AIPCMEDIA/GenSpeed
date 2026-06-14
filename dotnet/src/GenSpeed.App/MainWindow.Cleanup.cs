@@ -71,9 +71,11 @@ public partial class MainWindow
     /// <summary>Après steam://uninstall (asynchrone) : attend que Steam ait fini (appmanifest disparu, timeout
     /// ~5 min) puis re-scanne les installs CIBLÉES et supprime les résidus laissés par Steam (dossier restant,
     /// coquilles registre EA recréées, VirtualStore). Un UAC de plus (Program Files + HKLM), sans autre clic.</summary>
-    private async Task PostSteamCleanup(List<CleanupItem> steamChosen, List<string> installs, string backupDir)
+    private async Task PostSteamCleanup(List<CleanupItem> steamChosen, List<string> installs, string backupDir,
+                                        System.Text.StringBuilder? jl = null)
     {
         Log(Loc.T("clean.steam.waiting"));
+        jl?.AppendLine().AppendLine("--- Nettoyage post-Steam ---");
         var appIds = steamChosen.Select(s => s.Extra!).Where(a => !string.IsNullOrEmpty(a)).Distinct().ToList();
         for (int i = 0; i < 100 && appIds.Any(SteamAppInstalled); i++)   // ~5 min max (100 × 3 s)
         {
@@ -87,9 +89,10 @@ public partial class MainWindow
         var del = residue.Where(i => i.Removable && i.Category != CleanupCategory.Steam
                                      && i.Category != CleanupCategory.Restauration && i.Kind != CleanupKind.Info).ToList();
         foreach (var i in del) { i.Selected = true; i.ChosenMethod = CleanupMethod.SupprimerDirect; }
-        if (del.Count == 0) { Log(Loc.T("clean.steam.clean")); return; }
+        if (del.Count == 0) { Log(Loc.T("clean.steam.clean")); jl?.AppendLine("0 résidu post-Steam"); return; }
 
         Log(string.Format(Loc.T("clean.steam.residue.found"), del.Count));
+        jl?.AppendLine($"{del.Count} résidu(s) post-Steam");
         var job = new CleanupJob
         {
             BackupDir = backupDir, Items = del, Installs = installs, AutoSecondPass = false,
@@ -105,7 +108,11 @@ public partial class MainWindow
             if (code < 0) { Log(Loc.T("log.uaccancel")); return; }
             CleanupResult? r = File.Exists(job.ResultPath)
                 ? JsonSerializer.Deserialize<CleanupResult>(File.ReadAllText(job.ResultPath)) : null;
-            if (r != null) { foreach (var d in r.Done) Log("   " + d); foreach (var e in r.Errors) Log("⚠ " + e); }
+            if (r != null)
+            {
+                foreach (var d in r.Done) { Log("   " + d); jl?.AppendLine(d); }
+                foreach (var e in r.Errors) { Log("⚠ " + e); jl?.AppendLine("ERREUR: " + e); }
+            }
             Log(Loc.T("clean.steam.residue.done"));
         }
         finally { try { File.Delete(jobPath); File.Delete(job.ResultPath); } catch { } }
@@ -263,7 +270,7 @@ public partial class MainWindow
             // Jeux Steam COCHÉS : lancer la désinstallation officielle via Steam (jamais de suppression manuelle).
             LaunchSteamUninstalls(steamChosen);
             // En « tout supprimer » : attendre la fin de Steam puis nettoyer ses résidus automatiquement.
-            if (steamChosen.Count > 0 && fullWipe) await PostSteamCleanup(steamChosen, installs, backupDir);
+            if (steamChosen.Count > 0 && fullWipe) await PostSteamCleanup(steamChosen, installs, backupDir, jl);
 
             // GenTool d3d8.dll retiré/désactivé → vérifier que le DirectX 8 SYSTÈME (Windows) est sain.
             // Lecture seule ; si anomalie, proposer la réparation officielle de Windows (sfc /scannow).
@@ -292,6 +299,32 @@ public partial class MainWindow
                         catch (System.ComponentModel.Win32Exception) { Log(Loc.T("log.uaccancel")); }
                 }
             }
+
+            // ── VÉRIFICATION FINALE (lecture seule) : confirme qu'il ne reste aucun résidu supprimable. ──
+            try
+            {
+                var left = (await Task.Run(() => Cleanup.Scan(installs)))
+                    .Where(i => i.Removable && i.Category != CleanupCategory.Steam
+                                && i.Category != CleanupCategory.Restauration && i.Kind != CleanupKind.Info)
+                    .ToList();
+                jl.AppendLine();
+                if (left.Count == 0)
+                {
+                    Log(Loc.T("clean.verify.ok"));
+                    jl.AppendLine("=== Vérification finale : 0 résidu ✅ ===");
+                }
+                else
+                {
+                    Log("⚠ " + string.Format(Loc.T("clean.verify.left"), left.Count));
+                    jl.AppendLine($"=== Vérification finale : {left.Count} résidu(s) restant(s) ===");
+                    foreach (var l in left.Take(60))
+                    {
+                        Log("   • " + l.Display);
+                        jl.AppendLine($"   • {l.Display}  [{l.Path}]");
+                    }
+                }
+            }
+            catch { }
 
             SaveJournal();
 

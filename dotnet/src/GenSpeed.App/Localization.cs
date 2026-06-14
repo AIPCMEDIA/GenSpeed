@@ -443,6 +443,8 @@ public sealed class Loc : INotifyPropertyChanged
         ["clean.steam.clean"]   = ["✅ Aucun résidu après Steam.", "✅ No residue after Steam."],
         ["clean.steam.residue.found"] = ["↻ Nettoyage post-Steam : {0} résidu(s)…", "↻ Post-Steam cleanup: {0} residue item(s)…"],
         ["clean.steam.residue.done"]  = ["✅ Résidus post-Steam nettoyés.", "✅ Post-Steam residue cleaned."],
+        ["clean.verify.ok"]   = ["✅ Vérification finale : aucun résidu — nettoyage complet en un passage.", "✅ Final check: no residue — clean in a single pass."],
+        ["clean.verify.left"] = ["⚠ Vérification finale : {0} élément(s) restant(s) (verrouillé ? recréé par Steam/Windows ?). Voir la liste ci-dessous.", "⚠ Final check: {0} item(s) remaining (locked? recreated by Steam/Windows?). See the list below."],
 
         // Catégories du désinstalleur (clé = nom d'enum CleanupCategory)
         ["clean.cat.Jeu"]         = ["🎮 Jeu", "🎮 Game"],
