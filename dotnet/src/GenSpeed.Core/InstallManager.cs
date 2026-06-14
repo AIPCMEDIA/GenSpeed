@@ -61,13 +61,13 @@ public static class InstallManager
     /// <summary>Lit le `DownloadLink` (zip installeur GenLauncher, TOUJOURS à jour) dans le manifeste public
     /// de p0ls3r. Lecture seule d'un petit yaml (pas de téléchargement de binaire). Null si échec/réseau →
     /// l'appelant retombe sur le lien éditable de la config, puis sur la page ModDB.</summary>
-    public static async System.Threading.Tasks.Task<string?> FetchGenLauncherDownloadLinkAsync()
+    public static async System.Threading.Tasks.Task<string?> FetchGenLauncherDownloadLinkAsync(string? manifestUrl = null)
     {
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(6) };
             http.DefaultRequestHeaders.UserAgent.ParseAdd("GenSpeed");
-            string yaml = await http.GetStringAsync(GenLauncherManifestUrl);
+            string yaml = await http.GetStringAsync(string.IsNullOrWhiteSpace(manifestUrl) ? GenLauncherManifestUrl : manifestUrl);
             var m = Regex.Match(yaml, "DownloadLink:\\s*\"?(https?://\\S+?)\"?\\s*(?:\\r|\\n|$)");
             string? url = m.Success ? m.Groups[1].Value.Trim() : null;
             return url is { Length: > 0 } && url.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? url : null;

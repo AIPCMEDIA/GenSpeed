@@ -553,8 +553,8 @@ public sealed class InstallWizardWindow : Window
     private async void AutoInstallGenLauncher(string destDir)
     {
         _log(Loc.T("gl.link.resolving"));
-        string? url = await InstallManager.FetchGenLauncherDownloadLinkAsync();
-        if (string.IsNullOrWhiteSpace(url)) url = _config.GenLauncherUrl;
+        string? url = await InstallManager.FetchGenLauncherDownloadLinkAsync(_config.Link("genlauncher_manifest"));
+        if (string.IsNullOrWhiteSpace(url)) url = _config.Link("genlauncher_zip");
         if (string.IsNullOrWhiteSpace(url) || !url!.StartsWith("http", System.StringComparison.OrdinalIgnoreCase))
         { Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("gl.auto.nourl")); return; }
         // ModDB = Cloudflare → pas téléchargeable en direct : on bascule sur le navigateur.
@@ -600,9 +600,9 @@ public sealed class InstallWizardWindow : Window
     private async void OpenGenLauncherDownload()
     {
         _log(Loc.T("gl.link.resolving"));
-        string? url = await InstallManager.FetchGenLauncherDownloadLinkAsync();
-        if (string.IsNullOrWhiteSpace(url)) url = _config.GenLauncherUrl;
-        if (string.IsNullOrWhiteSpace(url)) url = "https://www.moddb.com/mods/genlauncher/downloads";
+        string? url = await InstallManager.FetchGenLauncherDownloadLinkAsync(_config.Link("genlauncher_manifest"));
+        if (string.IsNullOrWhiteSpace(url)) url = _config.Link("genlauncher_zip");
+        if (string.IsNullOrWhiteSpace(url)) url = _config.Link("genlauncher_moddb");
         _log(string.Format(Loc.T("gl.link.using"), url));
         OpenUrl(url!);
     }

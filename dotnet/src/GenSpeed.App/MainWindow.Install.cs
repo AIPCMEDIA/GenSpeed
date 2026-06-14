@@ -163,16 +163,9 @@ public partial class MainWindow
         }
     }
 
-    /// <summary>⚙ Config → modifier le lien de téléchargement direct de GenLauncher (utile quand une version
-    /// plus récente sort : on remplace l'id du fichier ModDB). La page de listing reste le secours.</summary>
-    private void OnCfgGenLauncherUrl()
-    {
-        string? url = Dialogs.Prompt(this, Loc.T("gllink.title"), Loc.T("gllink.msg"), _config.GenLauncherUrl);
-        if (string.IsNullOrWhiteSpace(url)) return;
-        _config.GenLauncherUrl = url.Trim();
-        ConfigStore.Save(_config);
-        Log(string.Format(Loc.T("gllink.set"), _config.GenLauncherUrl));
-    }
+    /// <summary>⚙ Config → panneau « 🔗 Liens de téléchargement » : édite toutes les URL dont GenSpeed a besoin
+    /// (GenLauncher, VC++, DirectX) sans recompiler. Un lien cassé se corrige ici.</summary>
+    private void OnCfgLinks() => LinksWindow.Show(this, _config);
 
     /// <summary>Déplace PHYSIQUEMENT une install (depuis le panneau « Mes installs ») vers un autre emplacement,
     /// et « tout suit » : dossier déplacé (même volume = instantané), installs connues mises à jour, raccourci

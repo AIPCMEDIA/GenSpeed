@@ -41,6 +41,15 @@ public sealed class GenConfig
     // mais épingle une version → ÉDITABLE (⚙ Config) quand une plus récente sort. La page de listing ModDB
     // reste le secours toujours-à-jour. (Le GitHub p0ls3r n'a pas de release binaire.)
     [JsonPropertyName("genlauncher_url")] public string GenLauncherUrl { get; set; } = "https://www.moddb.com/downloads/start/277509";
+    // Registre des liens de téléchargement (surcharge des défauts de DownloadLinks) : modifiable dans le JSON
+    // ou via le panneau « 🔗 Liens » → un lien cassé (URL Microsoft qui bouge…) se corrige SANS recompiler.
+    [JsonPropertyName("links")] public Dictionary<string, string> Links { get; set; } = new();
+
+    /// <summary>URL d'un lien (clé <see cref="GenSpeed.Core.DownloadLinks"/>) : la surcharge de la config si
+    /// présente et non vide, sinon le défaut codé.</summary>
+    public string Link(string key)
+        => (Links != null && Links.TryGetValue(key, out var v) && !string.IsNullOrWhiteSpace(v))
+            ? v.Trim() : GenSpeed.Core.DownloadLinks.DefaultFor(key);
     // Installations connues (jeu de base + mods autonomes type Reborn Omega). GameDir = active.
     [JsonPropertyName("known_installs")] public List<string> KnownInstalls { get; set; } = new();
     // Dossier d'install -> exe de lancement mémorisé (résout l'ambiguïté GenLauncher vs exe du mod).
