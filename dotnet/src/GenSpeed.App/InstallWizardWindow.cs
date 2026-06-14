@@ -49,6 +49,7 @@ public sealed class InstallWizardWindow : Window
     private int _progress;           // % d'install Steam
     private TextBlock? _waitText;
     private ProgressBar? _waitBar;
+    private bool _glTriggered;       // auto-install GenLauncher déclenchée une seule fois
 
     private readonly StackPanel _body = new() { Margin = new Thickness(20, 16, 20, 16) };
     private readonly StackPanel _footer = new()
@@ -361,9 +362,9 @@ public sealed class InstallWizardWindow : Window
         bool hasM1 = installs.Any(HasGl);
         int forkCount = installs.Count(d => !InstallManager.IsVanilla(d) && !HasGl(d));   // installs ni vierges ni GenLauncher = forks
         int nextFork = 2 + forkCount;   // M2, M3, …
-        if (hasM1 && _goal == Goal.GenLauncher) _goal = Goal.Fork;   // M1 indisponible → bascule sur Fork
+        if (hasM1 && _goal != Goal.Fork) _goal = Goal.Fork;             // M1 déjà là → seul Fork reste
+        if (!hasM1 && _goal == Goal.KeepVanilla) _goal = Goal.GenLauncher;
 
-        _body.Children.Add(GoalRow(Goal.KeepVanilla, Loc.T("wiz.goal.keep"), Loc.T("wiz.goal.keep.desc")));
         if (!hasM1)
             _body.Children.Add(GoalRow(Goal.GenLauncher, Loc.T("wiz.goal.modded"), Loc.T("wiz.goal.modded.desc")));
         else
@@ -373,14 +374,12 @@ public sealed class InstallWizardWindow : Window
 
         var back = NavButton("wiz.back"); back.Click += (_, _) => { _step = Step.Source; Render(); };
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
+        // « Terminer » : on garde juste M0 (déjà enregistré) — remplace l'ancien objectif « Garder M0 ».
+        var finish = NavButton("wiz.goal.finish");
+        finish.Click += (_, _) => { if (_sourceDir != null) _register(_sourceDir); Close(); };
         var next = NavButton("wiz.next", primary: true);
-        next.Click += (_, _) =>
-        {
-            // Seul « garder M0 » ne copie rien ; M1 (GenLauncher) et Mx (Fork) sont des copies de M0.
-            if (_goal == Goal.KeepVanilla) { _step = Step.Done; Render(); }
-            else { _step = Step.Destination; Render(); }
-        };
-        AddFooter(cancel, back, next);
+        next.Click += (_, _) => { _step = Step.Destination; Render(); };   // M1 et Mx = copies de M0
+        AddFooter(cancel, back, finish, next);
     }
 
     private Border GoalRow(Goal g, string title, string desc)
@@ -605,12 +604,20 @@ public sealed class InstallWizardWindow : Window
             if (!pr.DirectX9) missing.Add(Loc.T("wiz.prereq.dx"));
             _body.Children.Add(new TextBlock { Text = string.Format(Loc.T("wiz.prereq.missing"), string.Join(", ", missing)),
                 Foreground = B("orange"), TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 4) });
-            _body.Children.Add(MakeButton("wiz.btn.directx", () => OpenUrl("https://www.microsoft.com/en-us/download/details.aspx?id=35")));
+            _body.Children.Add(MakeButton("wiz.btn.directx", () => OpenUrl(_config.Link("directx_page"))));
         }
-        // Voie AUTO (recommandée) : GenSpeed télécharge le zip DIRECT (lien manifeste gen.insave.ovh),
-        // dézippe, pose l'exe dans la copie et propose de lancer. Zéro navigateur, zéro manip.
-        _body.Children.Add(MakeButton("wiz.btn.gl.auto", () => AutoInstallGenLauncher(destDir), primary: true));
-        // Repli manuel : télécharger via le navigateur (manifeste→config→ModDB), puis installer le zip téléchargé.
+        // AUTO : GenSpeed télécharge GenLauncher (zip direct du manifeste), le pose dans la copie, pré-configure
+        // (YAML + Options.ini) et crée le raccourci — TOUT SEUL, une seule fois. Les boutons restent en secours.
+        if (!_glTriggered)
+        {
+            _glTriggered = true;
+            _body.Children.Add(new TextBlock { Text = Loc.T("wiz.gl.autostart"), Foreground = B("accent"),
+                FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 4, 0, 6) });
+            Dispatcher.BeginInvoke(new Action(() => AutoInstallGenLauncher(destDir)));   // après le rendu courant
+        }
+        _body.Children.Add(new TextBlock { Text = Loc.T("wiz.gl.fallback"), Foreground = B("dim"), FontSize = 11,
+            TextWrapping = TextWrapping.Wrap, LineHeight = 16, Margin = new Thickness(0, 8, 0, 2) });
+        _body.Children.Add(MakeButton("wiz.btn.gl.auto", () => AutoInstallGenLauncher(destDir)));
         _body.Children.Add(MakeButton("wiz.btn.genlauncher", OpenGenLauncherDownload));
         _body.Children.Add(MakeButton("wiz.btn.gl.install", () => InstallGenLauncher(destDir)));
     }

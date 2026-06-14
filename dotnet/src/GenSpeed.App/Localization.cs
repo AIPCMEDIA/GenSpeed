@@ -149,6 +149,7 @@ public sealed class Loc : INotifyPropertyChanged
 
         ["wiz.s2.title"]= ["② Objectif", "② Goal"],
         ["wiz.s2.intro"]= ["Que veux-tu faire avec cette source ?", "What do you want to do with this source?"],
+        ["wiz.goal.finish"]    = ["✓ Terminer (garder juste M0)", "✓ Finish (keep just M0)"],
         ["wiz.goal.keep"]      = ["🛡 Garder M0 tel quel (rien à copier)", "🛡 Keep M0 as-is (nothing to copy)"],
         ["wiz.goal.keep.desc"] = ["Aucune copie. On enregistre l'install Steam (M0) telle quelle dans le tableau.",
                                   "No copy. The Steam install (M0) is registered as-is in the table."],
@@ -218,6 +219,8 @@ public sealed class Loc : INotifyPropertyChanged
         ["wiz.btn.directx"] = ["🌐 Télécharger DirectX (Microsoft)", "🌐 Download DirectX (Microsoft)"],
         ["wiz.btn.genlauncher"]= ["🌐 Télécharger GenLauncher (lien direct)", "🌐 Download GenLauncher (direct link)"],
         ["wiz.btn.genlauncher.list"]= ["📄 Page ModDB (toutes versions / si le lien direct a vieilli)", "📄 ModDB page (all versions / if the direct link is stale)"],
+        ["wiz.gl.autostart"]= ["📥 Installation automatique de GenLauncher en cours… (téléchargement + pose + pré-config)", "📥 Installing GenLauncher automatically… (download + place + pre-config)"],
+        ["wiz.gl.fallback"] = ["Si l'installation auto échoue, utilise un de ces boutons :", "If the auto install fails, use one of these buttons:"],
         ["wiz.btn.gl.auto"]= ["📥 Installer GenLauncher automatiquement (télécharge + dézippe + pose)", "📥 Install GenLauncher automatically (download + unzip + place)"],
         ["wiz.btn.gl.install"]= ["📦 …ou installer un zip déjà téléchargé", "📦 …or install an already-downloaded zip"],
         ["gl.auto.downloading"]= ["Téléchargement de GenLauncher…", "Downloading GenLauncher…"],
