@@ -645,18 +645,8 @@ public sealed class InstallWizardWindow : Window
 
     private static void OpenUrl(string url)
     {
-        url = LocalizeMsUrl(url);
+        url = Loc.MsUrl(url);
         try { Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }); } catch { }
-    }
-
-    /// <summary>Adapte le segment de langue d'une URL microsoft.com (`/en-us/`, `/fr-fr/`…) à la langue de
-    /// l'interface GenSpeed → la page MS s'ouvre dans la bonne langue. Le binaire téléchargé, lui, est identique.</summary>
-    private static string LocalizeMsUrl(string url)
-    {
-        if (string.IsNullOrEmpty(url) || !url.Contains("microsoft.com", System.StringComparison.OrdinalIgnoreCase)) return url;
-        string lang = Loc.I.Lang == 0 ? "fr-fr" : "en-us";
-        return System.Text.RegularExpressions.Regex.Replace(url, @"(microsoft\.com)/[a-z]{2}-[a-z]{2}/", "$1/" + lang + "/",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
     // ----- Bouton « action » pleine largeur, aligné à gauche -----

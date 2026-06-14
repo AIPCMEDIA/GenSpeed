@@ -58,17 +58,27 @@ public sealed class LinksWindow : Window
             list.Children.Add(new TextBlock { Text = e.Label, Foreground = B("fg"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 2) });
             var rowp = new DockPanel { LastChildFill = true };
             var reset = new Button { Content = Loc.T("links.reset"), Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            var open = new Button { Content = Loc.T("links.open"), Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             var stat = new TextBlock { Text = "•", Foreground = B("dim"), FontSize = 15, MinWidth = 22, TextAlignment = TextAlignment.Center, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             string def = e.DefaultUrl;
             var tb = new TextBox { Text = _config.Link(e.Key), FontFamily = new FontFamily("Consolas"), FontSize = 12, Padding = new Thickness(6, 5, 6, 5), VerticalContentAlignment = VerticalAlignment.Center };
             reset.Click += (_, _) => tb.Text = def;
-            DockPanel.SetDock(reset, Dock.Right); DockPanel.SetDock(stat, Dock.Right);
-            rowp.Children.Add(reset); rowp.Children.Add(stat); rowp.Children.Add(tb);
+            open.Click += (_, _) => OpenLink(tb.Text);
+            DockPanel.SetDock(reset, Dock.Right); DockPanel.SetDock(open, Dock.Right); DockPanel.SetDock(stat, Dock.Right);
+            rowp.Children.Add(reset); rowp.Children.Add(open); rowp.Children.Add(stat); rowp.Children.Add(tb);
             _boxes[e.Key] = tb; _status[e.Key] = stat;
             list.Children.Add(rowp);
         }
         root.Children.Add(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = list });
         Content = root;
+    }
+
+    /// <summary>Ouvre le lien dans le navigateur (page à consulter / fichier à télécharger). Page MS adaptée à la langue.</summary>
+    private static void OpenLink(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        url = Loc.MsUrl(url.Trim());
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true }); } catch { }
     }
 
     private void SaveAndClose()
@@ -112,7 +122,10 @@ public sealed class LinksWindow : Window
         try
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("GenSpeed");
+            // En-têtes « navigateur » : sinon Microsoft/CDN prennent la requête pour un bot et la refusent.
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+            http.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+            http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("fr,en;q=0.8");
             var resp = await http.SendAsync(new HttpRequestMessage(HttpMethod.Head, url), HttpCompletionOption.ResponseHeadersRead);
             int code = (int)resp.StatusCode;
             if (code is 403 or 405)   // serveur refuse HEAD -> petite requête GET

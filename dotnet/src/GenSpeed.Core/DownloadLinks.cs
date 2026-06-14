@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 namespace GenSpeed.Core;
 
 /// <summary>Registre central des liens de telechargement dont GenSpeed a besoin, avec leurs DEFAUTS.
@@ -17,8 +19,17 @@ public static class DownloadLinks
         new("vcredist_2008_x86",    "VC++ 2008 SP1 (x86)",                  "https://download.microsoft.com/download/5/D/8/5D8C65CB-C849-4025-8E95-C3966CAFD8AE/vcredist_x86.exe"),
         new("vcredist_2010_x86",    "VC++ 2010 SP1 (x86)",                  "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x86.exe"),
         new("directx_redist",       "DirectX June 2010 (redist hors-ligne)","https://download.microsoft.com/download/8/4/A/84A35BF1-DAFE-4AE8-82AF-AD2AE20B6B14/directx_Jun2010_redist.exe"),
+        new("directx_web",          "DirectX June 2010 (installeur web)",   "https://download.microsoft.com/download/1/7/1/1718ccc4-6315-4d8e-9543-8e28a4e18c4c/dxwebsetup.exe"),
         new("directx_page",         "DirectX End-User Runtime (page MS)",   "https://www.microsoft.com/en-us/download/details.aspx?id=35"),
     };
+
+    /// <summary>Adapte le segment de langue d'une URL microsoft.com (`/en-us/`, `/fr-fr/`…) à
+    /// <paramref name="langSegment"/> (ex. "fr-fr"). Les URL non-microsoft sont renvoyées telles quelles.</summary>
+    public static string LocalizeMs(string url, string langSegment)
+    {
+        if (string.IsNullOrEmpty(url) || !url.Contains("microsoft.com", System.StringComparison.OrdinalIgnoreCase)) return url;
+        return Regex.Replace(url, @"(microsoft\.com)/[a-z]{2}-[a-z]{2}/", "$1/" + langSegment + "/", RegexOptions.IgnoreCase);
+    }
 
     /// <summary>Defaut code pour une cle (chaine vide si cle inconnue).</summary>
     public static string DefaultFor(string key)

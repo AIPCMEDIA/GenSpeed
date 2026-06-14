@@ -34,6 +34,10 @@ public sealed class Loc : INotifyPropertyChanged
     /// <summary>Accès direct (code-behind).</summary>
     public static string T(string key) => I[key];
 
+    /// <summary>Adapte une URL microsoft.com à la langue de l'interface (fr-fr / en-us). Sert à ouvrir les
+    /// pages MS dans la bonne langue (le binaire téléchargé, lui, est identique).</summary>
+    public static string MsUrl(string url) => GenSpeed.Core.DownloadLinks.LocalizeMs(url, I.Lang == 0 ? "fr-fr" : "en-us");
+
     // [0] = FR, [1] = EN
     private static readonly Dictionary<string, string[]> Strings = new()
     {
@@ -228,9 +232,10 @@ public sealed class Loc : INotifyPropertyChanged
         ["links.reset"]   = ["↺ Défaut", "↺ Default"],
         ["links.close"]   = ["Fermer", "Close"],
         ["links.verify"]  = ["🔍 Vérifier tout", "🔍 Check all"],
+        ["links.open"]    = ["🌐 Ouvrir", "🌐 Open"],
         ["links.ok"]      = ["Joignable (HTTP {0})", "Reachable (HTTP {0})"],
-        ["links.http"]    = ["Réponse HTTP {0} — à vérifier", "HTTP {0} — needs checking"],
-        ["links.unreachable"]= ["Injoignable (réseau / URL morte)", "Unreachable (network / dead URL)"],
+        ["links.http"]    = ["HTTP {0} — vérifie avec « Ouvrir » (certains sites bloquent le test auto)", "HTTP {0} — check with \"Open\" (some sites block the auto test)"],
+        ["links.unreachable"]= ["Test auto échoué — vérifie avec « Ouvrir » (ex. ModDB/Cloudflare bloque les robots, mais marche au navigateur)", "Auto test failed — check with \"Open\" (e.g. ModDB/Cloudflare blocks bots but works in a browser)"],
         ["links.bad"]     = ["URL invalide", "Invalid URL"],
         ["cfg.gllink"]    = ["🔗 Lien de téléchargement GenLauncher…", "🔗 GenLauncher download link…"],
         ["gllink.title"]  = ["Lien GenLauncher", "GenLauncher link"],
