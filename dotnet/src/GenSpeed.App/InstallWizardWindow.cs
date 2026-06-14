@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -20,7 +21,7 @@ namespace GenSpeed.App;
 /// ici on guide l'étape, on ne l'automatise pas encore.</summary>
 public sealed class InstallWizardWindow : Window
 {
-    private enum Step { Source, Goal, Destination, Run, Done }
+    private enum Step { Source, Waiting, Goal, Destination, Run, Done }
     // Modèle GenPatcher-free, M0 reste VIERGE et sert de source UNIQUE (le jeu Steam est re-téléchargeable,
     // donc pas de master de sauvegarde séparé). KeepVanilla = garder M0 tel quel ;
     // GenLauncher = M1 = COPIE de M0 + GenLauncher ; Fork = Mx = COPIE de M0 + fork autonome (Reborn Omega…).
@@ -38,6 +39,16 @@ public sealed class InstallWizardWindow : Window
     private string? _sourceDir;
     private string? _destDir;
     private CopyResult? _copyResult;
+
+    // Suivi auto de l'install Steam + initialisation (étape Waiting).
+    private System.Windows.Threading.DispatcherTimer? _poll;
+    private string? _watchAppId;     // appli Steam surveillée
+    private bool _initPhase;         // false = install en cours ; true = init en cours
+    private bool _gameSeen;          // process du jeu vu (pour détecter sa fermeture = init fini)
+    private bool _polling;           // garde anti-ré-entrance (les Dialogs modaux laissent le timer ticker)
+    private int _progress;           // % d'install Steam
+    private TextBlock? _waitText;
+    private ProgressBar? _waitBar;
 
     private readonly StackPanel _body = new() { Margin = new Thickness(20, 16, 20, 16) };
     private readonly StackPanel _footer = new()
@@ -92,18 +103,21 @@ public sealed class InstallWizardWindow : Window
     {
         _body.Children.Clear();
         _footer.Children.Clear();
-        int n = (int)_step + 1;
-        _stepLabel.Text = string.Format(Loc.T("wiz.step"), System.Math.Min(n, 4), 4);
+        int n = _step switch { Step.Source or Step.Waiting => 1, Step.Goal => 2, Step.Destination => 3, _ => 4 };
+        _stepLabel.Text = string.Format(Loc.T("wiz.step"), n, 4);
 
         switch (_step)
         {
             case Step.Source: RenderSource(); break;
+            case Step.Waiting: RenderWaiting(); break;
             case Step.Goal: RenderGoal(); break;
             case Step.Destination: RenderDestination(); break;
             case Step.Run: RenderRun(); break;
             case Step.Done: RenderDone(); break;
         }
     }
+
+    protected override void OnClosed(EventArgs e) { StopPoll(); base.OnClosed(e); }
 
     private TextBlock Title2(string key) => new()
         { Text = Loc.T(key), Foreground = B("fg"), FontWeight = FontWeights.Bold, FontSize = 15, Margin = new Thickness(0, 0, 0, 4) };
@@ -225,27 +239,103 @@ public sealed class InstallWizardWindow : Window
         return ("wiz.badge.other", new SolidColorBrush(Color.FromRgb(0x9E, 0x9E, 0x9E)));
     }
 
+    /// <summary>Lance l'install Steam d'un jeu PUIS surveille tout seul : sondage `StateFlags=4` → init →
+    /// étape Objectif. L'utilisateur n'a plus à revenir cliquer « rechercher ».</summary>
     private void SteamInstall(string appId)
     {
-        // Message AVANT : Steam ouvre l'install ; rappeler de LANCER le jeu une fois après (initialisation),
-        // puis de revenir cliquer « Rechercher à nouveau ». Pas de bouton « lancer » dédié : on lance depuis Steam.
         if (!Dialogs.Confirm(this, Loc.T("wiz.title"), Loc.T("wiz.s1.steam.before"))) return;
-        if (InstallManager.SteamLifecycle("install", appId))
-            Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.steam.started"));
-        else
-            Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.steam.failed"));
+        if (!InstallManager.SteamLifecycle("install", appId)) { Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.steam.failed")); return; }
+        _watchAppId = appId; _initPhase = false; _gameSeen = false;
+        _progress = InstallManager.SteamAppProgressPercent(appId);
+        _step = Step.Waiting; StartPoll(); Render();
     }
 
-    /// <summary>Initialise une install non lancée : la démarre une fois via Steam (steam://run/&lt;appId&gt;).
-    /// Hors Steam (copie/fork) : pas d'appId → conseiller un lancement manuel.</summary>
+    /// <summary>Surveille l'INITIALISATION d'une install déjà présente mais jamais lancée (lance via Steam,
+    /// détecte process lancé→fermé). Hors Steam : message de lancement manuel, on surveille quand même le process.</summary>
     private void InitInstall(string dir)
     {
-        string? appId = InstallManager.SteamAppId(dir);
-        if (appId != null)
-            Dialogs.Info(this, Loc.T("wiz.title"),
-                InstallManager.SteamLifecycle("run", appId) ? Loc.T("wiz.s1.init.started") : Loc.T("wiz.s1.steam.failed"));
-        else
-            Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.init.manual"));
+        _watchAppId = InstallManager.SteamAppId(dir);
+        _gameSeen = false; _step = Step.Waiting;
+        StartPoll(); StartInitPhase();
+    }
+
+    private void StartPoll()
+    {
+        StopPoll();
+        _poll = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _poll.Tick += (_, _) => PollTick();
+        _poll.Start();
+    }
+
+    private void StopPoll() { _poll?.Stop(); _poll = null; }
+
+    private void PollTick()
+    {
+        if (_polling) return;               // un Dialog modal peut laisser le timer ticker → anti-ré-entrance
+        _polling = true;
+        try
+        {
+            if (!_initPhase)
+            {
+                if (_watchAppId == null) { StopPoll(); return; }
+                _progress = InstallManager.SteamAppProgressPercent(_watchAppId);
+                if (_waitText != null) _waitText.Text = string.Format(Loc.T("wiz.wait.install.pct"), _progress < 0 ? 0 : _progress);
+                if (_waitBar != null && _progress >= 0) _waitBar.Value = _progress;
+                if (InstallManager.SteamAppFullyInstalled(_watchAppId)) StartInitPhase();
+            }
+            else
+            {
+                bool running = InstallManager.GameProcessRunning();
+                if (running) _gameSeen = true;
+                else if (_gameSeen) FinishInit();
+            }
+        }
+        finally { _polling = false; }
+    }
+
+    /// <summary>Passe en phase init : explique, lance le jeu une fois (Steam), puis on attend qu'il soit
+    /// lancé puis FERMÉ. _initPhase mis AVANT le dialog (évite une re-détection « install finie » ré-entrante).</summary>
+    private void StartInitPhase()
+    {
+        _initPhase = true; _gameSeen = false;
+        Render();
+        if (_watchAppId != null)
+        {
+            Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.wait.init.explain"));
+            InstallManager.SteamLifecycle("run", _watchAppId);
+        }
+        else Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.init.manual"));
+    }
+
+    /// <summary>Init terminée (jeu lancé puis fermé, ou bouton « C'est fait ») → M0 prêt → étape Objectif.</summary>
+    private void FinishInit()
+    {
+        StopPoll();
+        _watchAppId = null; _initPhase = false;
+        _sourceDir = AutoDetectM0() ?? _sourceDir;
+        _step = Step.Goal; Render();
+    }
+
+    // ----- Étape : attente (install / init en cours) -----
+    private void RenderWaiting()
+    {
+        _body.Children.Add(Title2(_initPhase ? "wiz.wait.init.title" : "wiz.wait.install.title"));
+        _body.Children.Add(Para(_initPhase ? "wiz.wait.init.body" : "wiz.wait.install.body"));
+        _waitText = new TextBlock { Foreground = B("accent"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 6) };
+        _waitText.Text = _initPhase ? Loc.T("wiz.wait.init.hint") : string.Format(Loc.T("wiz.wait.install.pct"), _progress < 0 ? 0 : _progress);
+        _body.Children.Add(_waitText);
+        _waitBar = new ProgressBar { IsIndeterminate = _initPhase || _progress < 0, Value = Math.Max(0, _progress), Maximum = 100, Height = 14, Margin = new Thickness(0, 8, 0, 0) };
+        _body.Children.Add(_waitBar);
+
+        var cancel = NavButton("wiz.cancel");
+        cancel.Click += (_, _) => { StopPoll(); _watchAppId = null; _initPhase = false; _step = Step.Source; Render(); };
+        if (_initPhase)
+        {
+            var done = NavButton("wiz.wait.init.done", primary: true);
+            done.Click += (_, _) => FinishInit();
+            AddFooter(cancel, done);
+        }
+        else AddFooter(cancel);
     }
 
     private void PickSourceFolder()
