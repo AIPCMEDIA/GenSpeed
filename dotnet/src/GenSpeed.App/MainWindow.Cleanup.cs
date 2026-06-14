@@ -55,6 +55,62 @@ public partial class MainWindow
         if (steamChosen.Count > 0) Log(Loc.T("clean.steam.residue"));
     }
 
+    /// <summary>Un jeu Steam est-il encore installé (appmanifest présent dans une bibliothèque) ?
+    /// Sert à attendre la fin de la désinstallation Steam (le manifeste disparaît quand c'est fini).</summary>
+    private static bool SteamAppInstalled(string appId)
+    {
+        try
+        {
+            foreach (var lib in GameLocator.SteamLibraries())
+                if (System.IO.File.Exists(Path.Combine(lib, "steamapps", $"appmanifest_{appId}.acf"))) return true;
+        }
+        catch { }
+        return false;
+    }
+
+    /// <summary>Après steam://uninstall (asynchrone) : attend que Steam ait fini (appmanifest disparu, timeout
+    /// ~5 min) puis re-scanne les installs CIBLÉES et supprime les résidus laissés par Steam (dossier restant,
+    /// coquilles registre EA recréées, VirtualStore). Un UAC de plus (Program Files + HKLM), sans autre clic.</summary>
+    private async Task PostSteamCleanup(List<CleanupItem> steamChosen, List<string> installs, string backupDir)
+    {
+        Log(Loc.T("clean.steam.waiting"));
+        var appIds = steamChosen.Select(s => s.Extra!).Where(a => !string.IsNullOrEmpty(a)).Distinct().ToList();
+        for (int i = 0; i < 100 && appIds.Any(SteamAppInstalled); i++)   // ~5 min max (100 × 3 s)
+        {
+            if (!IsLoaded) return;
+            await Task.Delay(3000);
+        }
+
+        List<CleanupItem> residue;
+        try { residue = await Task.Run(() => Cleanup.Scan(installs)); }
+        catch { return; }
+        var del = residue.Where(i => i.Removable && i.Category != CleanupCategory.Steam
+                                     && i.Category != CleanupCategory.Restauration && i.Kind != CleanupKind.Info).ToList();
+        foreach (var i in del) { i.Selected = true; i.ChosenMethod = CleanupMethod.SupprimerDirect; }
+        if (del.Count == 0) { Log(Loc.T("clean.steam.clean")); return; }
+
+        Log(string.Format(Loc.T("clean.steam.residue.found"), del.Count));
+        var job = new CleanupJob
+        {
+            BackupDir = backupDir, Items = del, Installs = installs, AutoSecondPass = false,
+            ResultPath = Path.Combine(Path.GetTempPath(), $"genspeed_cleanup_poststeam_{Guid.NewGuid():N}.json"),
+        };
+        string jobPath = Path.Combine(Path.GetTempPath(), $"genspeed_cleanup_poststeamjob_{Guid.NewGuid():N}.json");
+        File.WriteAllText(jobPath, JsonSerializer.Serialize(job));
+        try
+        {
+            int code = Cleanup.NeedsElevation(del)
+                ? await RunElevated("--cleanup", jobPath)
+                : await Task.Run(() => CleanupRunner.Run(jobPath));
+            if (code < 0) { Log(Loc.T("log.uaccancel")); return; }
+            CleanupResult? r = File.Exists(job.ResultPath)
+                ? JsonSerializer.Deserialize<CleanupResult>(File.ReadAllText(job.ResultPath)) : null;
+            if (r != null) { foreach (var d in r.Done) Log("   " + d); foreach (var e in r.Errors) Log("⚠ " + e); }
+            Log(Loc.T("clean.steam.residue.done"));
+        }
+        finally { try { File.Delete(jobPath); File.Delete(job.ResultPath); } catch { } }
+    }
+
     private async void OnCfgUninstall()
     {
         // MACHINE ENTIÈRE : toutes les installs découvertes + traces globales (plus d'« install active »).
@@ -84,6 +140,12 @@ public partial class MainWindow
         // OFFICIELLE via Steam à la fin (GenSpeed ne supprime jamais ces fichiers à la main).
         var steamChosen = chosen.Where(i => i.Category == CleanupCategory.Steam && !string.IsNullOrEmpty(i.Extra)).ToList();
         var jobChosen = chosen.Where(i => i.Category != CleanupCategory.Steam).ToList();
+
+        // « Tout supprimer directement » = chaque élément retirable (hors Steam) est coché en SupprimerDirect.
+        // Dans ce seul cas, le job fera un 2e passage automatique (re-scan + suppression des résidus).
+        bool fullWipe = result.Any(i => i.Removable && i.Category != CleanupCategory.Steam)
+            && result.Where(i => i.Removable && i.Category != CleanupCategory.Steam)
+                     .All(i => i.Selected && i.ChosenMethod == CleanupMethod.SupprimerDirect);
 
         // Description groupée (même ordre que la fenêtre ET que la suppression réelle) :
         // sections par install puis traces globales ; à l'intérieur, l'ordre des étapes.
@@ -137,6 +199,7 @@ public partial class MainWindow
         {
             // Seuls des jeux Steam sont cochés : pas d'élévation nécessaire, désinstallation Steam directe.
             LaunchSteamUninstalls(steamChosen);
+            if (steamChosen.Count > 0 && fullWipe) await PostSteamCleanup(steamChosen, installs, backupDir);
             _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p));
             LoadMods();
             return;
@@ -144,7 +207,7 @@ public partial class MainWindow
 
         var job = new CleanupJob
         {
-            BackupDir = backupDir, Items = jobChosen,
+            BackupDir = backupDir, Items = jobChosen, Installs = installs, AutoSecondPass = fullWipe,
             ResultPath = Path.Combine(Path.GetTempPath(), $"genspeed_cleanup_result_{Guid.NewGuid():N}.json"),
         };
         string jobPath = Path.Combine(Path.GetTempPath(), $"genspeed_cleanup_job_{Guid.NewGuid():N}.json");
@@ -199,6 +262,8 @@ public partial class MainWindow
 
             // Jeux Steam COCHÉS : lancer la désinstallation officielle via Steam (jamais de suppression manuelle).
             LaunchSteamUninstalls(steamChosen);
+            // En « tout supprimer » : attendre la fin de Steam puis nettoyer ses résidus automatiquement.
+            if (steamChosen.Count > 0 && fullWipe) await PostSteamCleanup(steamChosen, installs, backupDir);
 
             // GenTool d3d8.dll retiré/désactivé → vérifier que le DirectX 8 SYSTÈME (Windows) est sain.
             // Lecture seule ; si anomalie, proposer la réparation officielle de Windows (sfc /scannow).

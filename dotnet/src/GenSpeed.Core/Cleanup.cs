@@ -45,6 +45,11 @@ public sealed class CleanupJob
     public string BackupDir { get; set; } = "";
     public List<CleanupItem> Items { get; set; } = new();
     public string ResultPath { get; set; } = "";
+    // Installs à re-scanner pour le 2e passage automatique (résidus).
+    public List<string> Installs { get; set; } = new();
+    // « Tout supprimer directement » → un 2e passage automatique (re-scan + suppression) dans le MÊME
+    // process élevé (donc sans UAC/interaction supplémentaire). Borné à une seule passe.
+    public bool AutoSecondPass { get; set; }
 }
 
 /// <summary>Résultat renvoyé par le process élevé.</summary>
@@ -962,16 +967,52 @@ public static class Cleanup
         try { Directory.CreateDirectory(job.BackupDir); } catch { }
         var manifest = new List<object>();
 
-        // Ordre SÛR et composite : install par install (contenu interne AVANT le dossier jeu),
-        // puis les traces globales (InstallDir == null) en dernier.
+        var roots = CleanupRoots(job);
+
+        // Passe 1 : supprimer les éléments choisis, puis retirer les dossiers devenus vides.
+        ExecuteItems(job.Items, job, res, manifest);
+        PruneEmptyDirs(job.Items, roots, res);
+
+        // 2e PASSAGE AUTOMATIQUE (uniquement « tout supprimer directement ») : on re-scanne et on supprime
+        // les résidus dans le MÊME process élevé → aucun UAC/interaction supplémentaire. Borné à 1 passe.
+        if (job.AutoSecondPass && job.Installs is { Count: > 0 })
+        {
+            var residue = Scan(job.Installs)
+                .Where(i => i.Removable && i.Category != CleanupCategory.Steam
+                            && i.Category != CleanupCategory.Restauration && i.Kind != CleanupKind.Info)
+                .ToList();
+            foreach (var i in residue) { i.Selected = true; i.ChosenMethod = CleanupMethod.SupprimerDirect; }
+            if (residue.Count > 0)
+            {
+                res.Done.Add($"↻ 2e passage automatique : {residue.Count} résidu(s) restant(s)");
+                ExecuteItems(residue, job, res, manifest);
+                PruneEmptyDirs(residue, roots, res);
+            }
+        }
+
+        // Manifeste + mode d'emploi de restauration.
+        try
+        {
+            System.IO.File.WriteAllText(Path.Combine(job.BackupDir, "manifest.json"),
+                JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
+            System.IO.File.WriteAllText(Path.Combine(job.BackupDir, "RESTORE.txt"), RestoreReadme(), new UTF8Encoding(false));
+        }
+        catch { }
+        return res;
+    }
+
+    /// <summary>Exécute (suppression/désactivation/restauration) un lot d'items, dans l'ordre SÛR :
+    /// install par install (contenu interne d'abord), traces globales en dernier.</summary>
+    private static void ExecuteItems(List<CleanupItem> items, CleanupJob job, CleanupResult res, List<object> manifest)
+    {
         var installOrder = new List<string>();
-        foreach (var it in job.Items)
+        foreach (var it in items)
             if (it.InstallDir != null && !installOrder.Contains(it.InstallDir, StringComparer.OrdinalIgnoreCase))
                 installOrder.Add(it.InstallDir);
         int InstallRank(CleanupItem i) => i.InstallDir == null ? int.MaxValue
             : installOrder.FindIndex(d => string.Equals(d, i.InstallDir, StringComparison.OrdinalIgnoreCase));
 
-        foreach (var it in job.Items.OrderBy(InstallRank).ThenBy(i => CategoryRank(i.Category)))
+        foreach (var it in items.OrderBy(InstallRank).ThenBy(i => CategoryRank(i.Category)))
         {
             if (it.ChosenMethod == CleanupMethod.Laisser) continue;
             try
@@ -1006,34 +1047,49 @@ public static class Cleanup
             }
             catch (Exception ex) { res.Errors.Add($"{it.Display}: {ex.Message}"); }
         }
+    }
 
-        // Balayage final : si la suppression des mods a laissé une racine GLM vide, on la retire
-        // (sinon il reste une coquille « GLM » 0 fichier — constaté en test réel).
-        foreach (var glmRoot in job.Items
-                     .Where(i => i.Category == CleanupCategory.Mods && i.Kind == CleanupKind.Dossier
-                                 && i.ChosenMethod != CleanupMethod.Laisser)
-                     .Select(i => System.IO.Path.GetDirectoryName(i.Path.TrimEnd('\\', '/')))
-                     .Where(p => p != null && System.IO.Path.GetFileName(p)!.Equals("GLM", StringComparison.OrdinalIgnoreCase))
-                     .Distinct(StringComparer.OrdinalIgnoreCase))
+    /// <summary>Racines autorisées pour le retrait de dossiers vides : dossiers d'install + données du jeu.
+    /// (Empêche de toucher un dossier vide hors périmètre.)</summary>
+    private static List<string> CleanupRoots(CleanupJob job)
+    {
+        var roots = new List<string>();
+        if (job.Installs != null) roots.AddRange(job.Installs.Where(d => !string.IsNullOrWhiteSpace(d)));
+        foreach (var it in job.Items) if (it.InstallDir != null) roots.Add(it.InstallDir);
+        roots.AddRange(UserDataDirs());
+        return roots.Select(r => { try { return Path.TrimEndingDirectorySeparator(Path.GetFullPath(r)); } catch { return r; } })
+                    .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    /// <summary>Retire les dossiers devenus VIDES après suppression : remonte la chaîne des parents de chaque
+    /// item supprimé et enlève tout dossier vide situé DANS une racine autorisée, de bas en haut (retirer un
+    /// enfant peut rendre le parent vide à son tour). Corrige le « il reste des coquilles → 2e passage ».</summary>
+    private static void PruneEmptyDirs(IEnumerable<CleanupItem> items, List<string> roots, CleanupResult res)
+    {
+        bool Under(string p) => roots.Any(r =>
+            string.Equals(p, r, StringComparison.OrdinalIgnoreCase) ||
+            p.StartsWith(r + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+
+        var cands = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var it in items)
+        {
+            if (it.ChosenMethod == CleanupMethod.Laisser) continue;
+            if (it.Kind != CleanupKind.Fichier && it.Kind != CleanupKind.Dossier) continue;
+            string? d;
+            try { d = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(it.Path))); }
+            catch { continue; }
+            while (d != null && Under(d)) { cands.Add(d); d = Path.GetDirectoryName(d); }
+        }
+        foreach (var dir in cands.OrderByDescending(p => p.Length))
             try
             {
-                if (Directory.Exists(glmRoot!) && !Directory.EnumerateFileSystemEntries(glmRoot!).Any())
+                if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
                 {
-                    Directory.Delete(glmRoot!);
-                    res.Done.Add("🗑 GLM (racine vide)");
+                    Directory.Delete(dir);
+                    res.Done.Add($"🗑 (dossier vide) {Path.GetFileName(dir)}");
                 }
             }
             catch { }
-
-        // Manifeste + mode d'emploi de restauration.
-        try
-        {
-            System.IO.File.WriteAllText(Path.Combine(job.BackupDir, "manifest.json"),
-                JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
-            System.IO.File.WriteAllText(Path.Combine(job.BackupDir, "RESTORE.txt"), RestoreReadme(), new UTF8Encoding(false));
-        }
-        catch { }
-        return res;
     }
 
     private static string SanitizeForBackup(string fullPath)

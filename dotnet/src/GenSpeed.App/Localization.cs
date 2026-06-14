@@ -438,6 +438,11 @@ public sealed class Loc : INotifyPropertyChanged
                                    "💨 Steam uninstall launched (AppID {0}) — confirm in the Steam window."],
         ["clean.steam.residue"] = ["💡 Steam ne supprime que SES fichiers : des ajouts tiers (addons, caches…) peuvent rester dans le dossier. Relance le désinstalleur après la fin de Steam — le dossier restant sera alors proposé en suppression normale.",
                                    "💡 Steam only removes ITS OWN files: third-party additions (addons, caches…) may remain in the folder. Re-run the uninstaller after Steam finishes — the leftover folder will then be offered for normal deletion."],
+        ["clean.steam.waiting"] = ["⏳ Attente de la fin de la désinstallation Steam (valide dans Steam)… un dernier nettoyage des résidus suivra (1 UAC).",
+                                   "⏳ Waiting for Steam to finish uninstalling (confirm in Steam)… a final residue cleanup will follow (1 UAC)."],
+        ["clean.steam.clean"]   = ["✅ Aucun résidu après Steam.", "✅ No residue after Steam."],
+        ["clean.steam.residue.found"] = ["↻ Nettoyage post-Steam : {0} résidu(s)…", "↻ Post-Steam cleanup: {0} residue item(s)…"],
+        ["clean.steam.residue.done"]  = ["✅ Résidus post-Steam nettoyés.", "✅ Post-Steam residue cleaned."],
 
         // Catégories du désinstalleur (clé = nom d'enum CleanupCategory)
         ["clean.cat.Jeu"]         = ["🎮 Jeu", "🎮 Game"],
