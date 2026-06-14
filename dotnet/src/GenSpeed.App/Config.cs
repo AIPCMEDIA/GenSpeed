@@ -34,10 +34,8 @@ public sealed class GenConfig
 {
     [JsonPropertyName("game_dir")]       public string? GameDir { get; set; }
     [JsonPropertyName("mods_dir")]       public string? ModsDir { get; set; }   // dossier GLM si GenLauncher est installé ailleurs
-    // Master M1 : copie VIERGE de sauvegarde (jamais patchée) servant de source aux forks (M2).
-    // Volontairement HORS KnownInstalls → jamais affiché dans le tableau ni l'assistant (anti-bêtise),
-    // mais GenSpeed garde son emplacement pour les copies. Re-pointable via ⚙ Config.
-    [JsonPropertyName("m1_dir")]         public string? M1Dir { get; set; }
+    // (m1_dir / master de sauvegarde RETIRÉ : M0 reste vierge et re-téléchargeable via Steam → il EST la source
+    //  unique des copies M1/Mx. La clé JSON éventuellement présente dans d'anciennes configs est simplement ignorée.)
     // Lien de téléchargement DIRECT de GenLauncher (ModDB). Direct = facile pour un utilisateur non technique ;
     // mais épingle une version → ÉDITABLE (⚙ Config) quand une plus récente sort. La page de listing ModDB
     // reste le secours toujours-à-jour. (Le GitHub p0ls3r n'a pas de release binaire.)

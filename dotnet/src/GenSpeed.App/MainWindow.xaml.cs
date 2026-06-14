@@ -102,8 +102,6 @@ public partial class MainWindow : Window
     {
         var sb = new System.Text.StringBuilder();
         var installs = InstallDiscovery.DiscoverAll(_config.KnownInstalls);
-        if (!string.IsNullOrEmpty(_config.M1Dir))
-            installs.RemoveAll(d => string.Equals(d.TrimEnd('\\'), _config.M1Dir!.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
         foreach (var dir in installs.OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
         {
             sb.Append(dir.ToLowerInvariant()).Append('|');
@@ -208,7 +206,7 @@ public partial class MainWindow : Window
     private void WireToolbar()
     {
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare), ("diag.verify", OnDiagVerify));
-        Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard), ("cfg.master", OnCfgMaster),
+        Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard),
                             ("cfg.tune", OnCfgTuneMultiplayer), ("cfg.gllink", OnCfgGenLauncherUrl),
                             ("cfg.addinstall", OnCfgAddInstall), ("cfg.modsdir", OnCfgModsDir),
                             ("cfg.launcher", OnCfgLauncher),
@@ -311,11 +309,7 @@ public partial class MainWindow : Window
             _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
             if (_installs.Count == 0) { Log(Loc.T("log.nogame")); return; }   // toujours rien après le dialogue
         }
-        // Le master M1 (copie de sauvegarde vierge) ne s'affiche JAMAIS dans le tableau (on n'y touche pas).
-        if (!string.IsNullOrEmpty(_config.M1Dir))
-            _installs.RemoveAll(d => string.Equals(d.TrimEnd('\\'), _config.M1Dir!.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
         Log(string.Format(Loc.T("log.installs.found"), _installs.Count));
-        if (!_m1Checked) { _m1Checked = true; CheckMasterM1(); }   // vérif master M1 une fois (au démarrage)
         AutoTune();   // calage auto (Options.ini + YAML GenLauncher), silencieux et idempotent
 
         var targets = new List<Target>();
