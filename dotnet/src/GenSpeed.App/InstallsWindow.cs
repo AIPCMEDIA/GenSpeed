@@ -21,16 +21,19 @@ public sealed class InstallsWindow : Window
     private readonly GenConfig _config;
     private readonly Func<List<string>, Dictionary<string, string>> _labeler;
     private readonly Action _onChanged;
+    private readonly Func<Window, string, System.Threading.Tasks.Task> _onMove;   // déplacer physiquement (tout suit)
     private readonly StackPanel _list = new() { Margin = new Thickness(16, 8, 16, 8) };
 
     public static void Show(Window owner, GenConfig config,
-                            Func<List<string>, Dictionary<string, string>> labeler, Action onChanged)
-        => new InstallsWindow(owner, config, labeler, onChanged).ShowDialog();
+                            Func<List<string>, Dictionary<string, string>> labeler, Action onChanged,
+                            Func<Window, string, System.Threading.Tasks.Task> onMove)
+        => new InstallsWindow(owner, config, labeler, onChanged, onMove).ShowDialog();
 
     private InstallsWindow(Window owner, GenConfig config,
-                           Func<List<string>, Dictionary<string, string>> labeler, Action onChanged)
+                           Func<List<string>, Dictionary<string, string>> labeler, Action onChanged,
+                           Func<Window, string, System.Threading.Tasks.Task> onMove)
     {
-        _config = config; _labeler = labeler; _onChanged = onChanged;
+        _config = config; _labeler = labeler; _onChanged = onChanged; _onMove = onMove;
 
         Title = Loc.T("installs.title"); Owner = owner; Width = 700; Height = 540;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -97,12 +100,19 @@ public sealed class InstallsWindow : Window
             Child = new TextBlock { Text = label, Foreground = B("accent"), FontWeight = FontWeights.Bold,
                 FontFamily = new FontFamily("Consolas"), HorizontalAlignment = HorizontalAlignment.Center },
         });
-        var col = new StackPanel { Width = 360, VerticalAlignment = VerticalAlignment.Center };
+        var col = new StackPanel { Width = 300, VerticalAlignment = VerticalAlignment.Center };
         col.Children.Add(new TextBlock { Text = Path.GetFileName(dir.TrimEnd('\\', '/')), Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
         col.Children.Add(new TextBlock { Text = dir, Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap });
         line.Children.Add(col);
 
-        var fix = new Button { Content = Loc.T("installs.fix"), Margin = new Thickness(6, 0, 4, 0), Padding = new Thickness(8, 4, 8, 4), VerticalAlignment = VerticalAlignment.Center };
+        // Déplacer physiquement (tout suit) — seulement pour les copies (pas une install Steam = M0).
+        if (InstallManager.SteamAppId(dir) == null)
+        {
+            var mv = new Button { Content = Loc.T("installs.move"), Margin = new Thickness(6, 0, 4, 0), Padding = new Thickness(8, 4, 8, 4), VerticalAlignment = VerticalAlignment.Center };
+            mv.Click += async (_, _) => { await _onMove(this, dir); Render(); };
+            line.Children.Add(mv);
+        }
+        var fix = new Button { Content = Loc.T("installs.fix"), Margin = new Thickness(4, 0, 4, 0), Padding = new Thickness(8, 4, 8, 4), VerticalAlignment = VerticalAlignment.Center };
         fix.Click += (_, _) => Repoint(dir);
         var rem = new Button { Content = Loc.T("installs.remove"), Padding = new Thickness(8, 4, 8, 4), VerticalAlignment = VerticalAlignment.Center };
         rem.Click += (_, _) => Remove(dir);

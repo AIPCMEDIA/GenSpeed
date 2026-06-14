@@ -174,33 +174,37 @@ public partial class MainWindow
         Log(string.Format(Loc.T("gllink.set"), _config.GenLauncherUrl));
     }
 
-    /// <summary>⚙ Config → Déplacer M1 (l'install GenLauncher) vers un autre emplacement. Le dossier garde le nom
-    /// « GenLauncher ». Déplace physiquement (même volume = instantané), met à jour les installs connues, le
-    /// raccourci Bureau (fil d'Ariane de la découverte) et l'emplacement mémorisé. Bloqué si GenLauncher/jeu tourne.</summary>
-    private async void OnCfgMoveM1()
+    /// <summary>Déplace PHYSIQUEMENT une install (depuis le panneau « Mes installs ») vers un autre emplacement,
+    /// et « tout suit » : dossier déplacé (même volume = instantané), installs connues mises à jour, raccourci
+    /// Bureau GenLauncher mis à jour (si M1), emplacement mémorisé. M1 garde le nom « GenLauncher » ; un fork garde
+    /// son nom. BLOQUÉ pour une install Steam (M0 → se déplace via Steam) ou si GenLauncher/jeu tourne.</summary>
+    internal async Task MoveInstallInteractive(System.Windows.Window owner, string dir)
     {
-        string? m1 = _installs.FirstOrDefault(d => File.Exists(Path.Combine(d, "GenLauncher.exe")));
-        if (m1 == null) { Dialogs.Info(this, "GenSpeed", Loc.T("m1move.none")); return; }
+        if (GenSpeed.Core.InstallManager.SteamAppId(dir) != null)
+        { Dialogs.Info(owner, "GenSpeed", Loc.T("m1move.steam")); return; }
         if (RunningGameProcs().Any(p => p is "GenLauncher" or "modded" or "generals" or "GeneralsZH"))
-        { Dialogs.Info(this, "GenSpeed", Loc.T("m1move.running")); return; }
+        { Dialogs.Info(owner, "GenSpeed", Loc.T("m1move.running")); return; }
+
+        bool isGl = File.Exists(Path.Combine(dir, "GenLauncher.exe"));
+        string folderName = isGl ? GenSpeed.Core.InstallManager.GenLauncherFolderName : Path.GetFileName(dir.TrimEnd('\\', '/'));
 
         var dlg = new OpenFolderDialog { Title = Loc.T("m1move.pick") };
-        try { dlg.InitialDirectory = Path.GetDirectoryName(m1); } catch { }
+        try { dlg.InitialDirectory = Path.GetDirectoryName(dir); } catch { }
         if (dlg.ShowDialog() != true) return;
-        string dest = Path.Combine(dlg.FolderName, GenSpeed.Core.InstallManager.GenLauncherFolderName);
-        if (string.Equals(Path.GetFullPath(dest).TrimEnd('\\', '/'), Path.GetFullPath(m1).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) return;
-        if (Directory.Exists(dest)) { Dialogs.Info(this, "GenSpeed", string.Format(Loc.T("m1move.exists"), dest)); return; }
+        string dest = Path.Combine(dlg.FolderName, folderName);
+        if (string.Equals(Path.GetFullPath(dest).TrimEnd('\\', '/'), Path.GetFullPath(dir).TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) return;
+        if (Directory.Exists(dest)) { Dialogs.Info(owner, "GenSpeed", string.Format(Loc.T("m1move.exists"), dest)); return; }
 
-        Log(string.Format(Loc.T("m1move.moving"), m1, dest));
-        var res = await Task.Run(() => GenSpeed.Core.InstallManager.MoveInstall(m1, dest));
-        if (!res.Ok) { Dialogs.Info(this, "GenSpeed", string.Format(Loc.T("m1move.fail"), res.Error)); Log("⚠ " + res.Error); return; }
+        Log(string.Format(Loc.T("m1move.moving"), dir, dest));
+        var res = await Task.Run(() => GenSpeed.Core.InstallManager.MoveInstall(dir, dest));
+        if (!res.Ok) { Dialogs.Info(owner, "GenSpeed", string.Format(Loc.T("m1move.fail"), res.Error)); Log("⚠ " + res.Error); return; }
 
-        _config.KnownInstalls.RemoveAll(p => string.Equals(p.TrimEnd('\\', '/'), m1.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase));
+        _config.KnownInstalls.RemoveAll(p => string.Equals(p.TrimEnd('\\', '/'), dir.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase));
         if (!_config.KnownInstalls.Any(p => string.Equals(p.TrimEnd('\\', '/'), dest.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)))
             _config.KnownInstalls.Add(dest);
         _config.InstallParent = dlg.FolderName;
         ConfigStore.Save(_config);
-        UpdateGenLauncherShortcut(Path.Combine(dest, "GenLauncher.exe"), dest);
+        if (isGl) UpdateGenLauncherShortcut(Path.Combine(dest, "GenLauncher.exe"), dest);
         Log(string.Format(Loc.T("m1move.done"), dest));
         LoadMods();
     }

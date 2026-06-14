@@ -138,6 +138,6 @@ public partial class MainWindow
     /// <summary>⚙ Config → « Mes installs » : panneau listant M0/M1/Mx + leurs emplacements (le JSON éditable),
     /// avec corriger / retirer / ajouter. Rafraîchit le tableau à chaque changement.</summary>
     private void OnCfgInstalls()
-        => InstallsWindow.Show(this, _config, MLabels, LoadMods);
+        => InstallsWindow.Show(this, _config, MLabels, LoadMods, MoveInstallInteractive);
 
 }
