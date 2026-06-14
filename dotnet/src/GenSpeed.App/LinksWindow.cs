@@ -1,4 +1,6 @@
 using System;
+using System.Net.Http;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -16,6 +18,7 @@ public sealed class LinksWindow : Window
 
     private readonly GenConfig _config;
     private readonly System.Collections.Generic.Dictionary<string, TextBox> _boxes = new();
+    private readonly System.Collections.Generic.Dictionary<string, TextBlock> _status = new();
 
     public static void Show(Window owner, GenConfig config) => new LinksWindow(owner, config).ShowDialog();
 
@@ -38,6 +41,9 @@ public sealed class LinksWindow : Window
         DockPanel.SetDock(head, Dock.Top); root.Children.Add(head);
 
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(16, 8, 16, 12) };
+        var verify = new Button { Content = Loc.T("links.verify"), MinWidth = 130, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
+        verify.Click += (_, _) => CheckAll(verify);
+        footer.Children.Add(verify);
         var save = new Button { Content = Loc.T("links.save"), MinWidth = 130, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
         if (St("PrimaryButton") is { } s) save.Style = s;
         save.Click += (_, _) => SaveAndClose();
@@ -52,11 +58,13 @@ public sealed class LinksWindow : Window
             list.Children.Add(new TextBlock { Text = e.Label, Foreground = B("fg"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 8, 0, 2) });
             var rowp = new DockPanel { LastChildFill = true };
             var reset = new Button { Content = Loc.T("links.reset"), Padding = new Thickness(8, 4, 8, 4), Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+            var stat = new TextBlock { Text = "•", Foreground = B("dim"), FontSize = 15, MinWidth = 22, TextAlignment = TextAlignment.Center, Margin = new Thickness(6, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
             string def = e.DefaultUrl;
             var tb = new TextBox { Text = _config.Link(e.Key), FontFamily = new FontFamily("Consolas"), FontSize = 12, Padding = new Thickness(6, 5, 6, 5), VerticalContentAlignment = VerticalAlignment.Center };
             reset.Click += (_, _) => tb.Text = def;
-            DockPanel.SetDock(reset, Dock.Right); rowp.Children.Add(reset); rowp.Children.Add(tb);
-            _boxes[e.Key] = tb;
+            DockPanel.SetDock(reset, Dock.Right); DockPanel.SetDock(stat, Dock.Right);
+            rowp.Children.Add(reset); rowp.Children.Add(stat); rowp.Children.Add(tb);
+            _boxes[e.Key] = tb; _status[e.Key] = stat;
             list.Children.Add(rowp);
         }
         root.Children.Add(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = list });
@@ -76,5 +84,47 @@ public sealed class LinksWindow : Window
         }
         ConfigStore.Save(_config);
         Close();
+    }
+
+    /// <summary>Teste chaque lien (HTTP) et met un badge ✅ / ⚠️ par ligne. HEAD léger, repli GET si refusé.</summary>
+    private async void CheckAll(Button btn)
+    {
+        btn.IsEnabled = false;
+        try
+        {
+            foreach (var e in DownloadLinks.All)
+            {
+                var s = _status[e.Key];
+                s.Text = "⏳"; s.Foreground = B("dim"); s.ToolTip = null;
+                var (ok, detail) = await CheckUrlAsync((_boxes[e.Key].Text ?? "").Trim());
+                s.Text = ok ? "✅" : "⚠️";
+                s.Foreground = ok ? new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50)) : new SolidColorBrush(Color.FromRgb(0xFF, 0xB3, 0x00));
+                s.ToolTip = detail;
+            }
+        }
+        finally { btn.IsEnabled = true; }
+    }
+
+    private static async Task<(bool ok, string detail)> CheckUrlAsync(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || !url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return (false, Loc.T("links.bad"));
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("GenSpeed");
+            var resp = await http.SendAsync(new HttpRequestMessage(HttpMethod.Head, url), HttpCompletionOption.ResponseHeadersRead);
+            int code = (int)resp.StatusCode;
+            if (code is 403 or 405)   // serveur refuse HEAD -> petite requête GET
+            {
+                var g = new HttpRequestMessage(HttpMethod.Get, url);
+                g.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(0, 0);
+                resp = await http.SendAsync(g, HttpCompletionOption.ResponseHeadersRead);
+                code = (int)resp.StatusCode;
+            }
+            bool ok = code is >= 200 and < 400;
+            return (ok, string.Format(Loc.T(ok ? "links.ok" : "links.http"), code));
+        }
+        catch { return (false, Loc.T("links.unreachable")); }
     }
 }
