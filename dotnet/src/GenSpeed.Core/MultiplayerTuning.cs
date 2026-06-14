@@ -75,7 +75,7 @@ public static class MultiplayerTuning
         "Addons: []\r\n" +
         "Patches: []\r\n" +
         "ModdedExe: true\r\n" +
-        "Windowed: true\r\n" +
+        "Windowed: false\r\n" +   // plein écran : le scroll caméra par les bords (souris) marche ; en fenêtré non
         "QuickStart: true\r\n" +
         "CameraHeight: 0\r\n" +
         "LaunchesCount: 0\r\n" +
