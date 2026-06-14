@@ -50,6 +50,7 @@ public sealed class InstallWizardWindow : Window
     private TextBlock? _waitText;
     private ProgressBar? _waitBar;
     private bool _glTriggered;       // auto-install GenLauncher déclenchée une seule fois
+    private bool _prereqMode;        // écran d'attente = installation des prérequis VC++/DirectX
 
     private readonly StackPanel _body = new() { Margin = new Thickness(20, 16, 20, 16) };
     private readonly StackPanel _footer = new()
@@ -308,18 +309,61 @@ public sealed class InstallWizardWindow : Window
         else Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.init.manual"));
     }
 
-    /// <summary>Init terminée (jeu lancé puis fermé, ou bouton « C'est fait ») → M0 prêt → étape Objectif.</summary>
-    private void FinishInit()
+    /// <summary>Init terminée (jeu lancé puis fermé, ou bouton « C'est fait ») → M0 prêt → vérif prérequis
+    /// système (en amont, une fois) → étape Objectif.</summary>
+    private async void FinishInit()
     {
         StopPoll();
         _watchAppId = null; _initPhase = false;
         _sourceDir = AutoDetectM0() ?? _sourceDir;
+        await EnsurePrereqsAsync();
         _step = Step.Goal; Render();
     }
 
-    // ----- Étape : attente (install / init en cours) -----
+    /// <summary>Vérifie VC++/DirectX (système). Présents → ne fait rien (autonome). Manquants → propose
+    /// l'auto-install (installeurs officiels Microsoft, silencieux/élevés, depuis le registre de liens). Repli :
+    /// ouvre la page MS + on continue. JAMAIS de cul-de-sac jusqu'à l'objectif.</summary>
+    private async System.Threading.Tasks.Task EnsurePrereqsAsync()
+    {
+        var pr = InstallManager.CheckPrereqs();
+        if (pr.AllOk) return;
+
+        var missing = new List<string>();
+        if (!pr.VcRedist) missing.Add(Loc.T("wiz.prereq.vc"));
+        if (!pr.DirectX9) missing.Add(Loc.T("wiz.prereq.dx"));
+        if (!Dialogs.Confirm(this, Loc.T("wiz.title"), string.Format(Loc.T("wiz.prereq.ask"), string.Join(", ", missing))))
+        { OpenUrl(_config.Link("directx_page")); return; }   // refus → page MS, on continue
+
+        _prereqMode = true; _step = Step.Waiting; Render();
+        var jobs = new List<(string Key, string Args)>();
+        if (!pr.VcRedist) { jobs.Add(("vcredist_2005_x86", "/q")); jobs.Add(("vcredist_2008_x86", "/qb")); jobs.Add(("vcredist_2010_x86", "/passive /norestart")); }
+        if (!pr.DirectX9) jobs.Add(("directx_web", "/Q"));
+        foreach (var j in jobs)
+        {
+            string label = DownloadLinks.All.FirstOrDefault(e => e.Key == j.Key)?.Label ?? j.Key;
+            if (_waitText != null) _waitText.Text = string.Format(Loc.T("wiz.prereq.installing"), label);
+            await InstallManager.DownloadAndRunInstallerAsync(_config.Link(j.Key), j.Args);
+        }
+        _prereqMode = false;
+
+        pr = InstallManager.CheckPrereqs();
+        if (!pr.AllOk && Dialogs.Confirm(this, Loc.T("wiz.title"), Loc.T("wiz.prereq.stillmissing")))
+            OpenUrl(_config.Link("directx_page"));
+    }
+
+    // ----- Étape : attente (install / init / prérequis en cours) -----
     private void RenderWaiting()
     {
+        if (_prereqMode)
+        {
+            _body.Children.Add(Title2("wiz.prereq.title"));
+            _body.Children.Add(Para("wiz.prereq.body"));
+            _waitText = new TextBlock { Foreground = B("accent"), FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 6) };
+            _waitText.Text = Loc.T("wiz.prereq.body");
+            _body.Children.Add(_waitText);
+            _body.Children.Add(new ProgressBar { IsIndeterminate = true, Height = 14, Margin = new Thickness(0, 8, 0, 0) });
+            return;   // pas de bouton : on enchaîne tout seul
+        }
         _body.Children.Add(Title2(_initPhase ? "wiz.wait.init.title" : "wiz.wait.install.title"));
         _body.Children.Add(Para(_initPhase ? "wiz.wait.init.body" : "wiz.wait.install.body"));
         _waitText = new TextBlock { Foreground = B("accent"), FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 6, 0, 6) };
