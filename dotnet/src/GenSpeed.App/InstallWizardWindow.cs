@@ -324,9 +324,9 @@ public sealed class InstallWizardWindow : Window
         _initPhase = true; _gameSeen = false;
         Render();
         Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.wait.init.explain"));
-        // Lancer en FENÊTRÉ (-win) directement l'exe : évite le crash si l'utilisateur clique ailleurs pendant
-        // le chargement plein écran. Repli sur Steam (plein écran) si l'exe est introuvable.
-        bool launched = _sourceDir != null && InstallManager.LaunchGameWindowed(_sourceDir);
+        // Lancer en FENÊTRÉ (-win) : pour une install Steam → steam.exe -applaunch <appId> -win (Steam lance =
+        // DRM OK + fenêtré) ; hors Steam → exe direct -win. Repli ultime : steam://run (plein écran).
+        bool launched = _sourceDir != null && InstallManager.LaunchGameWindowed(_sourceDir, _watchAppId);
         if (!launched)
         {
             if (_watchAppId != null) InstallManager.SteamLifecycle("run", _watchAppId);

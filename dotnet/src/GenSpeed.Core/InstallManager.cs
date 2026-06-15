@@ -338,15 +338,37 @@ public static class InstallManager
         catch { return null; }
     }
 
-    /// <summary>Lance le jeu en mode FENÊTRÉ (`-win`) pour l'initialisation : évite le crash si l'utilisateur
-    /// clique ailleurs pendant le chargement plein écran. Lance l'exe directement (Steam ouvert suffit pour la
-    /// ré-édition ZH). Renvoie faux si l'exe est introuvable / échec.</summary>
-    public static bool LaunchGameWindowed(string dir)
+    /// <summary>Chemin de steam.exe (registre HKCU\Software\Valve\Steam : SteamExe, sinon SteamPath\steam.exe), ou null.</summary>
+    public static string? SteamExePath()
     {
         try
         {
+            if (Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamExe", null) is string exe)
+            { exe = exe.Replace('/', '\\'); if (File.Exists(exe)) return exe; }
+            if (Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) is string path)
+            { string p = Path.Combine(path.Replace('/', '\\'), "steam.exe"); if (File.Exists(p)) return p; }
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>Lance le jeu en mode FENÊTRÉ (`-win`) pour l'initialisation : évite le crash si l'utilisateur clique
+    /// ailleurs pendant le chargement plein écran. Pour une install STEAM (appId connu) → `steam.exe -applaunch
+    /// &lt;appId&gt; -win` (Steam lance = DRM satisfait, et -win passe au jeu) ; sinon (fork/copie hors Steam) → exe
+    /// direct `-win`. Renvoie faux si rien n'a pu être lancé.</summary>
+    public static bool LaunchGameWindowed(string dir, string? appId)
+    {
+        try
+        {
+            string? steam = !string.IsNullOrWhiteSpace(appId) ? SteamExePath() : null;
+            if (steam != null)
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                { FileName = steam, Arguments = $"-applaunch {appId} -win", UseShellExecute = true });
+                return true;
+            }
             string? exe = FindGameExe(dir);
-            if (exe == null) return false;
+            if (exe == null) return false;   // hors Steam : exe direct (pas de DRM sur un fork)
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             { FileName = exe, Arguments = "-win", WorkingDirectory = dir, UseShellExecute = true });
             return true;
