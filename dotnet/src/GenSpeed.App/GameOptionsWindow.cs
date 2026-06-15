@@ -75,8 +75,58 @@ public sealed class GameOptionsWindow : Window
     {
         _list.Children.Add(new TextBlock { Text = Loc.T(headerKey), Foreground = color, FontWeight = FontWeights.Bold,
             FontSize = 14, Margin = new Thickness(0, 14, 0, 4) });
+        if (group == "match") _list.Children.Add(MatchSyncBar());
         foreach (var o in GameOptions.Defs.Where(x => x.Group == group))
             _list.Children.Add(Row(o));
+    }
+
+    /// <summary>Capture les valeurs actuellement affichées dans Config.GameOptions (sans écrire sur disque),
+    /// pour que le code exporté et un import préservent les réglages à l'écran.</summary>
+    private void CaptureReaders()
+    {
+        foreach (var o in GameOptions.Defs)
+            if (_readers.TryGetValue(o.Key, out var read)) _config.GameOptions[o.Key] = read();
+    }
+
+    /// <summary>Barre « synchroniser avec les amis » : mon code (copier) + coller le code reçu (appliquer),
+    /// avec le conseil « caler sur le PC le moins puissant ».</summary>
+    private UIElement MatchSyncBar()
+    {
+        var box = new StackPanel();
+        box.Children.Add(new TextBlock { Text = Loc.T("go.sync.title"), Foreground = B("accent"), FontWeight = FontWeights.Bold, Margin = new Thickness(0, 0, 0, 2) });
+        box.Children.Add(new TextBlock { Text = Loc.T("go.sync.note"), Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 15, Margin = new Thickness(0, 0, 0, 6) });
+        var status = new TextBlock { Foreground = B("accent"), FontSize = 11, Margin = new Thickness(0, 4, 0, 0), TextWrapping = TextWrapping.Wrap };
+
+        box.Children.Add(new TextBlock { Text = Loc.T("go.sync.mycode"), Foreground = B("fg"), FontSize = 11, Margin = new Thickness(0, 2, 0, 1) });
+        CaptureReaders();
+        var mine = new TextBox { Text = GameOptions.ExportMatchCode(_config), IsReadOnly = true, FontFamily = new FontFamily("Consolas"), FontSize = 11 };
+        var copy = new Button { Content = Loc.T("go.sync.copy"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
+        copy.Click += (_, _) => { try { CaptureReaders(); mine.Text = GameOptions.ExportMatchCode(_config); Clipboard.SetText(mine.Text); status.Foreground = B("accent"); status.Text = Loc.T("go.sync.copied"); } catch { } };
+        box.Children.Add(FillRow(mine, copy));
+
+        box.Children.Add(new TextBlock { Text = Loc.T("go.sync.paste"), Foreground = B("fg"), FontSize = 11, Margin = new Thickness(0, 6, 0, 1) });
+        var recv = new TextBox { FontFamily = new FontFamily("Consolas"), FontSize = 11 };
+        var apply = new Button { Content = Loc.T("go.sync.apply"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
+        apply.Click += (_, _) =>
+        {
+            CaptureReaders();
+            int n = GameOptions.ImportMatchCode(_config, recv.Text);
+            if (n > 0) { MessageBox.Show(this, string.Format(Loc.T("go.sync.applied"), n), Loc.T("go.title"), MessageBoxButton.OK, MessageBoxImage.Information); Render(); }
+            else { status.Foreground = new SolidColorBrush(Color.FromRgb(0xFF, 0x6B, 0x6B)); status.Text = Loc.T("go.sync.bad"); }
+        };
+        box.Children.Add(FillRow(recv, apply));
+        box.Children.Add(status);
+
+        return new Border { BorderBrush = B("border"), BorderThickness = new Thickness(1), Background = B("bgFrame"), CornerRadius = new CornerRadius(4), Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 2, 0, 6), Child = box };
+    }
+
+    private static UIElement FillRow(TextBox tb, Button btn)
+    {
+        var dp = new DockPanel { LastChildFill = true };
+        DockPanel.SetDock(btn, Dock.Right);
+        dp.Children.Add(btn);
+        dp.Children.Add(tb);
+        return dp;
     }
 
     private UIElement Row(GOpt o)

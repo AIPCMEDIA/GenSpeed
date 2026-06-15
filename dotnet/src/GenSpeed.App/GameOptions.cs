@@ -86,4 +86,42 @@ internal static class GameOptions
     /// (qui itère les installs GenLauncher).</summary>
     public static void ApplyIni(GenConfig c)
         => MultiplayerTuning.ApplyOptionsValues(MultiplayerTuning.DefaultOptionsIniPath(), EffectiveIni(c));
+
+    /// <summary>Les clés qui DOIVENT être identiques entre joueurs LAN : groupe "match" + Vulkan (impacte la
+    /// désync). Ce sont elles, et elles seules, que le code de synchro transporte.</summary>
+    public static IEnumerable<string> SyncKeys =>
+        Defs.Where(o => o.Group == "match").Select(o => o.Key).Append("UseVulkan");
+
+    /// <summary>Encode les réglages anti-désync en un code court partageable (« GS1-… », base64). Zéro réseau :
+    /// l'utilisateur le copie et l'envoie (Discord…), l'ami le colle.</summary>
+    public static string ExportMatchCode(GenConfig c)
+    {
+        var reco = Recommended();
+        var raw = string.Join(";", SyncKeys.Select(k => $"{k}={Value(c, k, reco)}"));
+        return "GS1-" + System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(raw));
+    }
+
+    /// <summary>Applique un code reçu d'un ami : ne touche QUE les clés anti-désync connues. Retourne le nombre
+    /// de réglages appliqués, ou -1 si le code est invalide.</summary>
+    public static int ImportMatchCode(GenConfig c, string? code)
+    {
+        try
+        {
+            code = (code ?? "").Trim();
+            if (code.StartsWith("GS1-", System.StringComparison.OrdinalIgnoreCase)) code = code.Substring(4);
+            if (string.IsNullOrWhiteSpace(code)) return -1;
+            string raw = System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String(code));
+            var valid = new HashSet<string>(SyncKeys);
+            int n = 0;
+            foreach (var pair in raw.Split(';', System.StringSplitOptions.RemoveEmptyEntries))
+            {
+                int i = pair.IndexOf('=');
+                if (i <= 0) continue;
+                string k = pair.Substring(0, i).Trim(), v = pair.Substring(i + 1).Trim();
+                if (valid.Contains(k)) { c.GameOptions[k] = v; n++; }
+            }
+            return n > 0 ? n : -1;
+        }
+        catch { return -1; }
+    }
 }
