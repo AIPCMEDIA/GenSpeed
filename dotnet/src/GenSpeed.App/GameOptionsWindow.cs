@@ -42,7 +42,7 @@ public sealed class GameOptionsWindow : Window
     private GameOptionsWindow(Window owner, GenConfig config, Action onApply, bool startOnNetwork = false)
     {
         _config = config; _onApply = onApply;
-        if (startOnNetwork) _page = 1;
+        if (startOnNetwork) _page = 2;   // ouvrir direct sur l'étape Réseau
 
         // État réseau initial : IP actuelles dans Options.ini, présence de nos règles pare-feu.
         string optPath = MultiplayerTuning.DefaultOptionsIniPath();
@@ -85,14 +85,17 @@ public sealed class GameOptionsWindow : Window
                 Margin = new Thickness(0, 4, 0, 6), ToolTip = Loc.T("go.pc.tip") });
             AddGroup("free", "go.grp.free", B("fg"));
         }
-        else
+        else if (_page == 1)
         {
             _stepLabel.Text = Loc.T("go.step2");
             AddGroup("match", "go.grp.match", Amber);   // inclut Vulkan
-            AddNetworkSection();                        // 🌐 IP LAN/en ligne + SendDelay + pare-feu
-            // Barre de synchro en TÊTE (visible sans scroller), insérée après les groupes pour que les _readers
-            // existent et que le code initial reflète l'écran.
+            // Barre de synchro en TÊTE (visible sans scroller), insérée après le groupe pour que les _readers existent.
             _list.Children.Insert(0, MatchSyncBar());
+        }
+        else
+        {
+            _stepLabel.Text = Loc.T("go.step3");
+            AddNetworkSection();                        // 🌐 IP LAN/en ligne + SendDelay + pare-feu
         }
         RenderFooter();
     }
@@ -103,21 +106,23 @@ public sealed class GameOptionsWindow : Window
         var reco = new Button { Content = Loc.T("go.reco"), Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6), ToolTip = Loc.T("go.reco.tip") };
         reco.Click += (_, _) => { _config.GameOptions.Clear(); Render(); };
 
-        if (_page == 0)
+        Button Nav(string key, int target, bool primary = false)
         {
-            var next = new Button { Content = Loc.T("go.next"), MinWidth = 150, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
-            if (St("PrimaryButton") is { } sp) next.Style = sp;
-            next.Click += (_, _) => { CaptureReaders(); _page = 1; Render(); };
-            _footer.Children.Add(reco); _footer.Children.Add(next);
+            var b = new Button { Content = Loc.T(key), MinWidth = primary ? 150 : 90, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
+            if (primary && St("PrimaryButton") is { } sp) b.Style = sp;
+            b.Click += (_, _) => { CaptureReaders(); _page = target; Render(); };
+            return b;
         }
+
+        if (_page > 0) _footer.Children.Add(Nav("go.back", _page - 1));
+        _footer.Children.Add(reco);
+        if (_page < 2) _footer.Children.Add(Nav(_page == 0 ? "go.next" : "go.next2", _page + 1, primary: true));
         else
         {
-            var back = new Button { Content = Loc.T("go.back"), Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
-            back.Click += (_, _) => { CaptureReaders(); _page = 0; Render(); };
             var save = new Button { Content = Loc.T("go.save"), MinWidth = 130, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
             if (St("PrimaryButton") is { } sp) save.Style = sp;
             save.Click += (_, _) => SaveAndClose();
-            _footer.Children.Add(back); _footer.Children.Add(reco); _footer.Children.Add(save);
+            _footer.Children.Add(save);
         }
         var close = new Button { Content = Loc.T("go.close"), MinWidth = 90, Padding = new Thickness(12, 6, 12, 6) };
         close.Click += (_, _) => Close();
