@@ -84,7 +84,10 @@ public sealed class GameOptionsWindow : Window
         string cur = GameOptions.Value(_config, o.Key);
         var col = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         col.Children.Add(new TextBlock { Text = Loc.T($"go.{o.Key}.l"), Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
-        col.Children.Add(new TextBlock { Text = Loc.T($"go.{o.Key}.h"), Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 15 });
+        string help = Loc.T($"go.{o.Key}.h");
+        if (o.Key == "Resolution" && ScreenInfo.NativeResolution() is { } nat)
+            help += " " + string.Format(Loc.T("go.res.native"), nat.Replace(" ", "×"));
+        col.Children.Add(new TextBlock { Text = help, Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 15 });
 
         FrameworkElement ctrl;
         if (o.Kind == "toggle")
