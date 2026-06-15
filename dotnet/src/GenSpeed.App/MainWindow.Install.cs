@@ -14,8 +14,11 @@ public partial class MainWindow
     /// <summary>Ouvre le wizard d'installation. M0 (source vierge) est auto-détecté ; toute install créée
     /// (M0 gardé, M1 GenLauncher, Mx fork) est enregistrée dans le tableau.</summary>
     private void OnInstallWizard()
-        => InstallWizardWindow.Show(this, _config, Log,
-               dir => { EnsureInstallListed(dir); LoadMods(); });   // install → tableau
+    {
+        ConfigStore.Suppressed = false;   // (ré)installer = on veut de nouveau persister (annule un wipe précédent même session)
+        InstallWizardWindow.Show(this, _config, Log,
+            dir => { EnsureInstallListed(dir); LoadMods(); });   // install → tableau
+    }
 
     /// <summary>Au démarrage sans aucune install détectée : proposer 2 choix clairs (Installer le jeu
     /// via Steam → ouvre l'assistant ; ou indiquer un dossier existant) au lieu d'un sélecteur Windows brut.</summary>

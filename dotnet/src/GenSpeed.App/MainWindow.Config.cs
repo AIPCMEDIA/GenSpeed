@@ -118,6 +118,7 @@ public partial class MainWindow
     private void EnsureInstallListed(string? dir)
     {
         if (string.IsNullOrEmpty(dir)) return;
+        ConfigStore.Suppressed = false;   // enregistrer explicitement une install réactive la sauvegarde (post-wipe même session)
         if (!_config.KnownInstalls.Any(p => string.Equals(p, dir, StringComparison.OrdinalIgnoreCase)))
         { _config.KnownInstalls.Add(dir); ConfigStore.Save(_config); }
     }
