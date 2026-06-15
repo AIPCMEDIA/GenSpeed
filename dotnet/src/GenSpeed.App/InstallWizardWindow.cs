@@ -21,9 +21,11 @@ namespace GenSpeed.App;
 /// ici on guide l'étape, on ne l'automatise pas encore.</summary>
 public sealed class InstallWizardWindow : Window
 {
-    private enum Step { Source, Waiting, Goal, Destination, Run, Done }
+    // Ordre OBJECTIF-D'ABORD : Goal (que veux-tu ?) → Source (garantir le jeu de base) → [Destination] →
+    // Options → [Run] → Done. Termes utilisateur SANS « M » (M0/M1/Mx = interne seulement).
+    private enum Step { Goal, Source, Waiting, Destination, Options, Run, Done }
     // Modèle GenPatcher-free, M0 reste VIERGE et sert de source UNIQUE (le jeu Steam est re-téléchargeable,
-    // donc pas de master de sauvegarde séparé). KeepVanilla = garder M0 tel quel ;
+    // donc pas de master de sauvegarde séparé). KeepVanilla = « juste jouer » (jeu de base seul, sans copie) ;
     // GenLauncher = M1 = COPIE de M0 + GenLauncher ; Fork = Mx = COPIE de M0 + fork autonome (Reborn Omega…).
     private enum Goal { KeepVanilla, GenLauncher, Fork }
 
@@ -34,7 +36,7 @@ public sealed class InstallWizardWindow : Window
     private readonly System.Action<string> _log;
     private readonly System.Action<string> _register;   // install normale → tableau (EnsureInstallListed + LoadMods)
 
-    private Step _step = Step.Source;
+    private Step _step = Step.Goal;
     private Goal _goal = Goal.GenLauncher;
     private string? _sourceDir;
     private string? _destDir;
@@ -68,9 +70,8 @@ public sealed class InstallWizardWindow : Window
         _config = config; _log = log; _register = register;
 
         // M0 = source UNIQUE (install vierge, Steam de préférence) : auto-détectée → pas de question source.
-        // Si M0 est prête (initialisée), on démarre direct sur le choix d'objectif (étape 2).
+        // Objectif-d'abord : on démarre TOUJOURS sur le choix d'objectif (le jeu de base est garanti ensuite).
         _sourceDir = AutoDetectM0();
-        if (_sourceDir != null && !InstallManager.NeedsInit(_sourceDir)) _step = Step.Goal;
 
         Title = Loc.T("wiz.title"); Owner = owner; Width = 720; Height = 600;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -106,15 +107,25 @@ public sealed class InstallWizardWindow : Window
     {
         _body.Children.Clear();
         _footer.Children.Clear();
-        int n = _step switch { Step.Source or Step.Waiting => 1, Step.Goal => 2, Step.Destination => 3, _ => 4 };
-        _stepLabel.Text = string.Format(Loc.T("wiz.step"), n, 4);
+        bool copy = _goal != Goal.KeepVanilla;                 // « juste jouer » = pas de copie ni destination
+        int total = copy ? 4 : 3;                              // Goal, Base, [Destination], Options
+        int n = _step switch
+        {
+            Step.Goal => 1,
+            Step.Source or Step.Waiting => 2,
+            Step.Destination => 3,
+            Step.Options => copy ? 4 : 3,
+            _ => total,
+        };
+        _stepLabel.Text = string.Format(Loc.T("wiz.step"), n, total);
 
         switch (_step)
         {
+            case Step.Goal: RenderGoal(); break;
             case Step.Source: RenderSource(); break;
             case Step.Waiting: RenderWaiting(); break;
-            case Step.Goal: RenderGoal(); break;
             case Step.Destination: RenderDestination(); break;
+            case Step.Options: RenderOptions(); break;
             case Step.Run: RenderRun(); break;
             case Step.Done: RenderDone(); break;
         }
@@ -197,13 +208,15 @@ public sealed class InstallWizardWindow : Window
         _body.Children.Add(MakeButton("wiz.s1.other", PickSourceFolder));
 
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
+        var back = NavButton("wiz.back"); back.Click += (_, _) => { _step = Step.Goal; Render(); };
         var next = NavButton("wiz.next", primary: true);
         // Bloqué tant que la source n'est pas choisie OU pas initialisée (init obligatoire avant la suite).
         bool ready = _sourceDir != null && !InstallManager.NeedsInit(_sourceDir);
         next.IsEnabled = ready;
         if (_sourceDir != null && !ready) next.ToolTip = Loc.T("wiz.s1.init.blocked");
-        next.Click += (_, _) => { _step = Step.Goal; Render(); };
-        AddFooter(cancel, next);
+        // « Juste jouer » → directement les options (pas de copie) ; sinon → choix de la destination.
+        next.Click += (_, _) => { _step = _goal == Goal.KeepVanilla ? Step.Options : Step.Destination; Render(); };
+        AddFooter(cancel, back, next);
     }
 
     private Border SourceRow(string dir)
@@ -322,7 +335,7 @@ public sealed class InstallWizardWindow : Window
         if (_installQueue.Count > 0) { var next = _installQueue[0]; _installQueue.RemoveAt(0); SteamInstall(next); return; }
         _sourceDir = AutoDetectM0() ?? _sourceDir;
         await EnsurePrereqsAsync();
-        _step = Step.Goal; Render();
+        _step = Step.Source; Render();   // jeu de base prêt → l'utilisateur enchaîne (Destination/Options)
     }
 
     /// <summary>Vérifie VC++/DirectX (système). Présents → ne fait rien (autonome). Manquants → propose
@@ -404,31 +417,30 @@ public sealed class InstallWizardWindow : Window
         _body.Children.Add(Title2("wiz.s2.title"));
         _body.Children.Add(Para("wiz.s2.intro"));
 
-        // Contexte : M1 (GenLauncher) est UNIQUE → proposé seulement s'il n'existe pas encore.
-        // Les forks sont MULTIPLES → toujours proposés, numérotés selon l'existant (M2, M3…).
+        // Contexte : le hub GenLauncher (M1) est UNIQUE → proposé seulement s'il n'existe pas encore.
+        // Les forks sont MULTIPLES → toujours proposés, numérotés selon l'existant (n°2, n°3…).
         var installs = InstallDiscovery.DiscoverAll(_config.KnownInstalls);
         bool HasGl(string d) { try { return File.Exists(Path.Combine(d, "GenLauncher.exe")); } catch { return false; } }
         bool hasM1 = installs.Any(HasGl);
-        int forkCount = installs.Count(d => !InstallManager.IsVanilla(d) && !HasGl(d));   // installs ni vierges ni GenLauncher = forks
-        int nextFork = 2 + forkCount;   // M2, M3, …
-        if (hasM1 && _goal != Goal.Fork) _goal = Goal.Fork;             // M1 déjà là → seul Fork reste
-        if (!hasM1 && _goal == Goal.KeepVanilla) _goal = Goal.GenLauncher;
+        int forkCount = installs.Count(d => !InstallManager.IsVanilla(d) && !HasGl(d));   // ni vierges ni GenLauncher = forks
+        int nextFork = 2 + forkCount;
+        if (hasM1 && _goal == Goal.GenLauncher) _goal = Goal.KeepVanilla;   // hub déjà là → défaut « juste jouer »
 
+        // 1) Juste jouer (jeu de base seul, sans copie) — toujours dispo.
+        _body.Children.Add(GoalRow(Goal.KeepVanilla, Loc.T("wiz.goal.play"), Loc.T("wiz.goal.play.desc")));
+        // 2) Jouer aux mods (hub GenLauncher) — seulement s'il n'en existe pas déjà un.
         if (!hasM1)
             _body.Children.Add(GoalRow(Goal.GenLauncher, Loc.T("wiz.goal.modded"), Loc.T("wiz.goal.modded.desc")));
         else
             _body.Children.Add(new TextBlock { Text = Loc.T("wiz.goal.m1exists"), Foreground = B("dim"),
                 FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 16, Margin = new Thickness(2, 2, 0, 6) });
+        // 3) Fork autonome — numéroté.
         _body.Children.Add(GoalRow(Goal.Fork, string.Format(Loc.T("wiz.goal.fork"), nextFork), Loc.T("wiz.goal.fork.desc")));
 
-        var back = NavButton("wiz.back"); back.Click += (_, _) => { _step = Step.Source; Render(); };
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
-        // « Terminer » : on garde juste M0 (déjà enregistré) — remplace l'ancien objectif « Garder M0 ».
-        var finish = NavButton("wiz.goal.finish");
-        finish.Click += (_, _) => { if (_sourceDir != null) _register(_sourceDir); Close(); };
         var next = NavButton("wiz.next", primary: true);
-        next.Click += (_, _) => { _step = Step.Destination; Render(); };   // M1 et Mx = copies de M0
-        AddFooter(cancel, back, finish, next);
+        next.Click += (_, _) => { _step = Step.Source; Render(); };   // puis on garantit le jeu de base
+        AddFooter(cancel, next);
     }
 
     private Border GoalRow(Goal g, string title, string desc)
@@ -501,12 +513,12 @@ public sealed class InstallWizardWindow : Window
 
         bool ok = RenderGuards();
 
-        var back = NavButton("wiz.back"); back.Click += (_, _) => { _step = Step.Goal; Render(); };
+        var back = NavButton("wiz.back"); back.Click += (_, _) => { _step = Step.Source; Render(); };
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
-        var copy = NavButton("wiz.copy", primary: true);
-        copy.IsEnabled = ok;
-        copy.Click += async (_, _) => await StartCopyAsync();
-        AddFooter(cancel, back, copy);
+        var next = NavButton("wiz.next", primary: true);
+        next.IsEnabled = ok;                          // garde-fous OK → on peut continuer vers les options
+        next.Click += (_, _) => { _step = Step.Options; Render(); };
+        AddFooter(cancel, back, next);
     }
 
     /// <summary>Source réelle de la copie : TOUJOURS M0 (la source vierge auto-détectée à l'étape 1).</summary>
@@ -555,6 +567,37 @@ public sealed class InstallWizardWindow : Window
     }
 
     private static string Mb(long bytes) => bytes < 0 ? "?" : $"{bytes >> 20} {Loc.T("unit.mb")}";
+
+    // ----- Étape Options : toujours affichée, PRÉ-RÉGLÉE selon le PC ; l'utilisateur peut juste continuer,
+    //        ou ouvrir le sélecteur détaillé. Globale (un seul Options.ini) → vaut pour le jeu de base ET les
+    //        copies GenLauncher. Pour une copie, le détail (Vulkan + EffectiveIni) est ré-appliqué dans Placed(). -----
+    private void RenderOptions()
+    {
+        _body.Children.Add(Title2("wiz.opt.title"));
+        _body.Children.Add(Para("wiz.opt.intro"));
+        _body.Children.Add(new TextBlock
+        {
+            Text = "🖥  " + string.Format(Loc.T("go.pc.detected"), PcInfo.Summary(), Loc.T("go.lvl." + PcInfo.RecommendedGraphics())),
+            Foreground = B("accent"), FontSize = 12, TextWrapping = TextWrapping.Wrap, LineHeight = 16,
+            Margin = new Thickness(0, 2, 0, 8), ToolTip = Loc.T("go.pc.tip"),
+        });
+        _body.Children.Add(MakeButton("wiz.opt.adjust", () => GameOptionsWindow.Show(this, _config, () => { })));
+        _body.Children.Add(new TextBlock { Text = Loc.T("go.scope"), Foreground = B("dim"), FontSize = 11,
+            FontStyle = FontStyles.Italic, TextWrapping = TextWrapping.Wrap, LineHeight = 15, Margin = new Thickness(2, 8, 0, 0) });
+
+        var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
+        var back = NavButton("wiz.back");
+        back.Click += (_, _) => { _step = _goal == Goal.KeepVanilla ? Step.Source : Step.Destination; Render(); };
+        // « Juste jouer » : applique les options et termine. Sinon : applique puis lance la copie.
+        var next = NavButton(_goal == Goal.KeepVanilla ? "wiz.finish" : "wiz.copy", primary: true);
+        next.Click += async (_, _) =>
+        {
+            GameOptions.ApplyIni(_config);   // écrit l'Options.ini global (vaut pour toutes les installs)
+            if (_goal == Goal.KeepVanilla) { _step = Step.Done; Render(); }
+            else await StartCopyAsync();
+        };
+        AddFooter(cancel, back, next);
+    }
 
     // ----- Étape 4 : Copie -----
     private void RenderRun()
