@@ -314,6 +314,46 @@ public static class InstallManager
     public static bool NeedsInit(string dir)
         => !string.IsNullOrWhiteSpace(dir) && File.Exists(Path.Combine(dir, "Data", "INI", "INIZH.big"));
 
+    /// <summary>Init VRAIMENT terminée : INIZH.big consommé (NeedsInit faux) ET Options.ini écrit par le jeu —
+    /// preuve qu'il a atteint un état utilisable (menu) et quitté proprement. INIZH.big seul est consommé TROP TÔT
+    /// (avant le menu), donc un crash en plein chargement le supprime sans finir l'init → vérif insuffisante.</summary>
+    public static bool IsInitialized(string dir)
+        => !NeedsInit(dir) && MultiplayerTuning.FindOptionsIni() != null;
+
+    /// <summary>Exe principal du jeu dans <paramref name="dir"/> (Generals.exe), sinon le 1er .exe hors outils
+    /// (WorldBuilder/GenLauncher/GenTool/EdgeScroller/setup). null si aucun.</summary>
+    public static string? FindGameExe(string dir)
+    {
+        try
+        {
+            string direct = Path.Combine(dir, "Generals.exe");
+            if (File.Exists(direct)) return direct;
+            return Directory.EnumerateFiles(dir, "*.exe").FirstOrDefault(f =>
+            {
+                string n = Path.GetFileName(f).ToLowerInvariant();
+                return n != "worldbuilder.exe" && n != "genlauncher.exe" && n != "gentoolupdater.exe"
+                    && n != "edgescroller.exe" && !n.Contains("setup");
+            });
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Lance le jeu en mode FENÊTRÉ (`-win`) pour l'initialisation : évite le crash si l'utilisateur
+    /// clique ailleurs pendant le chargement plein écran. Lance l'exe directement (Steam ouvert suffit pour la
+    /// ré-édition ZH). Renvoie faux si l'exe est introuvable / échec.</summary>
+    public static bool LaunchGameWindowed(string dir)
+    {
+        try
+        {
+            string? exe = FindGameExe(dir);
+            if (exe == null) return false;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            { FileName = exe, Arguments = "-win", WorkingDirectory = dir, UseShellExecute = true });
+            return true;
+        }
+        catch { return false; }
+    }
+
     /// <summary>AppID Steam qui gère ce dossier (via son appmanifest), ou null si hors Steam (copie manuelle / fork).
     /// Sert au « lancer une fois pour initialiser » (steam://run/&lt;appId&gt;).</summary>
     public static string? SteamAppId(string gameDir)

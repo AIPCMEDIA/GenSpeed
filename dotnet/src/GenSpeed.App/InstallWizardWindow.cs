@@ -170,9 +170,9 @@ public sealed class InstallWizardWindow : Window
             _body.Children.Add(new TextBlock { Text = Loc.T("wiz.s1.found"), Foreground = B("dim"), Margin = new Thickness(0, 0, 0, 6) });
             foreach (var dir in installs) _body.Children.Add(SourceRow(dir));
 
-            // Garde-fou d'initialisation : la source choisie n'a jamais été lancée (INIZH.big présent) →
-            // l'avertir + proposer de la lancer une fois, AVANT de passer à la suite.
-            if (_sourceDir != null && InstallManager.NeedsInit(_sourceDir))
+            // Garde-fou d'initialisation : la source n'est pas VRAIMENT initialisée (Options.ini pas encore écrit,
+            // même si INIZH.big est consommé) → l'avertir + proposer de la lancer une fois, AVANT de continuer.
+            if (_sourceDir != null && !InstallManager.IsInitialized(_sourceDir))
             {
                 _body.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 10, 0, 8) });
                 _body.Children.Add(new TextBlock
@@ -210,8 +210,8 @@ public sealed class InstallWizardWindow : Window
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
         var back = NavButton("wiz.back"); back.Click += (_, _) => { _step = Step.Goal; Render(); };
         var next = NavButton("wiz.next", primary: true);
-        // Bloqué tant que la source n'est pas choisie OU pas initialisée (init obligatoire avant la suite).
-        bool ready = _sourceDir != null && !InstallManager.NeedsInit(_sourceDir);
+        // Bloqué tant que la source n'est pas choisie OU pas VRAIMENT initialisée (Options.ini écrit).
+        bool ready = _sourceDir != null && InstallManager.IsInitialized(_sourceDir);
         next.IsEnabled = ready;
         if (_sourceDir != null && !ready) next.ToolTip = Loc.T("wiz.s1.init.blocked");
         // « Juste jouer » → directement les options (pas de copie) ; sinon → choix de la destination.
@@ -233,7 +233,7 @@ public sealed class InstallWizardWindow : Window
         var col = new StackPanel();
         col.Children.Add(new TextBlock { Text = Path.GetFileName(dir.TrimEnd('\\', '/')), Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
         string sub = dir + "   ·   " + Loc.T(badgeKey);
-        if (InstallManager.NeedsInit(dir)) sub += "   ·   ⚠ " + Loc.T("wiz.s1.needinit");
+        if (!InstallManager.IsInitialized(dir)) sub += "   ·   ⚠ " + Loc.T("wiz.s1.needinit");
         col.Children.Add(new TextBlock { Text = sub, Foreground = B("dim"), FontSize = 11 });
         inner.Children.Add(col);
 
@@ -305,7 +305,13 @@ public sealed class InstallWizardWindow : Window
             {
                 bool running = InstallManager.GameProcessRunning();
                 if (running) _gameSeen = true;
-                else if (_gameSeen) FinishInit();
+                else if (_gameSeen)
+                {
+                    // Le jeu s'est fermé. N'avancer que si l'init est VRAIMENT finie (Options.ini écrit) ;
+                    // sinon (crash avant le menu) → prévenir et laisser relancer.
+                    if (_sourceDir != null && InstallManager.IsInitialized(_sourceDir)) FinishInit();
+                    else InitIncomplete();
+                }
             }
         }
         finally { _polling = false; }
@@ -317,12 +323,15 @@ public sealed class InstallWizardWindow : Window
     {
         _initPhase = true; _gameSeen = false;
         Render();
-        if (_watchAppId != null)
+        Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.wait.init.explain"));
+        // Lancer en FENÊTRÉ (-win) directement l'exe : évite le crash si l'utilisateur clique ailleurs pendant
+        // le chargement plein écran. Repli sur Steam (plein écran) si l'exe est introuvable.
+        bool launched = _sourceDir != null && InstallManager.LaunchGameWindowed(_sourceDir);
+        if (!launched)
         {
-            Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.wait.init.explain"));
-            InstallManager.SteamLifecycle("run", _watchAppId);
+            if (_watchAppId != null) InstallManager.SteamLifecycle("run", _watchAppId);
+            else Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.init.manual"));
         }
-        else Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.s1.init.manual"));
     }
 
     /// <summary>Init terminée (jeu lancé puis fermé, ou bouton « C'est fait ») → M0 prêt → vérif prérequis
@@ -336,6 +345,17 @@ public sealed class InstallWizardWindow : Window
         _sourceDir = AutoDetectM0() ?? _sourceDir;
         await EnsurePrereqsAsync();
         _step = Step.Source; Render();   // jeu de base prêt → l'utilisateur enchaîne (Destination/Options)
+    }
+
+    /// <summary>Le jeu s'est fermé SANS finir l'init (Options.ini absent — crash en plein chargement, clic ailleurs
+    /// en plein écran…). On NE valide PAS : retour à l'étape jeu de base (qui re-affiche l'avertissement + le
+    /// bouton « lancer une fois »), avec un message clair.</summary>
+    private void InitIncomplete()
+    {
+        StopPoll();
+        _initPhase = false; _gameSeen = false; _watchAppId = null;
+        _step = Step.Source; Render();
+        Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.init.incomplete"));
     }
 
     /// <summary>Vérifie VC++/DirectX (système). Présents → ne fait rien (autonome). Manquants → propose
@@ -395,7 +415,11 @@ public sealed class InstallWizardWindow : Window
         if (_initPhase)
         {
             var done = NavButton("wiz.wait.init.done", primary: true);
-            done.Click += (_, _) => FinishInit();
+            done.Click += (_, _) =>
+            {
+                if (_sourceDir != null && InstallManager.IsInitialized(_sourceDir)) FinishInit();
+                else Dialogs.Info(this, Loc.T("wiz.title"), Loc.T("wiz.init.incomplete"));
+            };
             AddFooter(cancel, done);
         }
         else AddFooter(cancel);
