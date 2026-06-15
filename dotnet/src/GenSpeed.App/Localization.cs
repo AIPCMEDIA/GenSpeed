@@ -166,6 +166,11 @@ public sealed class Loc : INotifyPropertyChanged
         ["wiz.opt.intro"]      = ["Déjà pré-réglées selon ton PC — tu peux simplement continuer. Ou ouvre le détail pour ajuster (résolution, graphismes, et les réglages à aligner avec tes amis en LAN).",
                                   "Already pre-set for your PC — you can just continue. Or open the details to adjust (resolution, graphics, and the settings to match with your friends for LAN)."],
         ["wiz.opt.adjust"]     = ["🎛 Ouvrir / ajuster les options de jeu…", "🎛 Open / adjust game options…"],
+        ["wiz.opt.net.warn"]   = ["🌐 ⚠ Réseau LAN : un adaptateur risque de détourner ton IP ({0} = {1}). En LAN, tes amis pourraient ne pas te voir. Répare-le avant de jouer.",
+                                  "🌐 ⚠ LAN network: an adapter may hijack your IP ({0} = {1}). On LAN, your friends might not see you. Fix it before playing."],
+        ["wiz.opt.net.fix"]    = ["🌐 Réparer l'IP LAN…", "🌐 Fix LAN IP…"],
+        ["wiz.opt.net.ok"]     = ["🌐 ✅ Réseau LAN OK : ton IP {0} sera bien utilisée en partie LAN.", "🌐 ✅ LAN network OK: your IP {0} will be used for LAN games."],
+        ["wiz.opt.net.nolan"]  = ["🌐 Aucune IP 192.168.x détectée (pas branché au réseau local ?). Sans importance si tu joues en ligne et pas en LAN.", "🌐 No 192.168.x IP detected (not on the local network?). Doesn't matter if you play online, not LAN."],
 
         ["wiz.s3.title"]= ["Où créer la copie ?", "Where to create the copy?"],
         ["wiz.s3.intro"]= ["Choisis un dossier NEUF, hors du dossier Steam (ex. D:\\Jeux\\ZH-Contra). La source ne sera pas modifiée.",

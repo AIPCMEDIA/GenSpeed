@@ -585,6 +585,31 @@ public sealed class InstallWizardWindow : Window
         _body.Children.Add(new TextBlock { Text = Loc.T("go.scope"), Foreground = B("dim"), FontSize = 11,
             FontStyle = FontStyles.Italic, TextWrapping = TextWrapping.Wrap, LineHeight = 15, Margin = new Thickness(2, 8, 0, 0) });
 
+        // Vérification « prêt pour le LAN » : un adaptateur parasite (Hyper-V 172.x, WSL, VPN) peut détourner
+        // l'IP LAN du jeu → on prévient ici et on propose de le réparer (réversible, UAC). Cf. NetFixWindow.
+        _body.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 12, 0, 8) });
+        var parasites = NetInfo.Parasites();
+        if (parasites.Count > 0)
+        {
+            _body.Children.Add(new TextBlock
+            {
+                Text = string.Format(Loc.T("wiz.opt.net.warn"), parasites[0].Name, parasites[0].Ipv4),
+                Foreground = B("orange"), FontWeight = FontWeights.SemiBold,
+                TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 6),
+            });
+            _body.Children.Add(MakeButton("wiz.opt.net.fix", () => { NetFixWindow.Show(this); Render(); }));
+        }
+        else
+        {
+            string? lan = NetInfo.LanIp();
+            _body.Children.Add(new TextBlock
+            {
+                Text = lan != null ? string.Format(Loc.T("wiz.opt.net.ok"), lan) : Loc.T("wiz.opt.net.nolan"),
+                Foreground = lan != null ? new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50)) : B("dim"),
+                TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 4),
+            });
+        }
+
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
         var back = NavButton("wiz.back");
         back.Click += (_, _) => { _step = _goal == Goal.KeepVanilla ? Step.Source : Step.Destination; Render(); };
