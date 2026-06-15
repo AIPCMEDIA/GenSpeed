@@ -8,19 +8,26 @@ using GenSpeed.Core;
 
 namespace GenSpeed.App;
 
-/// <summary>Sélecteur « Options de jeu » : chaque option avec un libellé + une explication brève (bilingue),
-/// pré-cochée intelligemment (analyse PC), MODIFIABLE. Groupes : 🟢 libres, 🔴 à aligner avec l'ami, ⚡ Vulkan.</summary>
+/// <summary>Sélecteur « Options de jeu » en 2 étapes : Étape 1 = 🟢 réglages libres (PC + goût, zéro risque LAN),
+/// Étape 2 = 🔴 à aligner avec les amis (+ barre de synchro par code + ⚡ Vulkan). Chaque option a un libellé +
+/// une explication brève (bilingue), pré-cochée selon le PC, MODIFIABLE.</summary>
 public sealed class GameOptionsWindow : Window
 {
     private static readonly string[] ResChoices = { "native", "1920 1080", "1600 900", "1366 768", "1280 720" };
 
     private static Brush B(string key) => (Brush)Application.Current.FindResource(key);
     private static Style? St(string key) => Application.Current.TryFindResource(key) as Style;
+    private static Brush Amber => new SolidColorBrush(Color.FromRgb(0xFF, 0xB3, 0x00));
 
     private readonly GenConfig _config;
     private readonly Action _onApply;
     private readonly StackPanel _list = new() { Margin = new Thickness(16, 8, 16, 8) };
+    private readonly StackPanel _footer = new() { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(16, 8, 16, 12) };
     private readonly Dictionary<string, Func<string>> _readers = new();
+    private readonly TextBlock _stepLabel = new() { Foreground = B("dim"), FontSize = 12, Margin = new Thickness(0, 3, 0, 0), TextWrapping = TextWrapping.Wrap };
+
+    private int _page;                 // 0 = libre, 1 = à aligner
+    private TextBox? _codeBox;         // champ « mon code » (page 1), mis à jour en direct quand on coche
 
     public static void Show(Window owner, GenConfig config, Action onApply)
         => new GameOptionsWindow(owner, config, onApply).ShowDialog();
@@ -37,26 +44,11 @@ public sealed class GameOptionsWindow : Window
         var head = new StackPanel { Margin = new Thickness(16, 14, 16, 6) };
         head.Children.Add(new TextBlock { Text = "🎛  " + Loc.T("go.title"), Foreground = B("accent"),
             FontFamily = new FontFamily("Consolas"), FontWeight = FontWeights.Bold, FontSize = 18 });
-        head.Children.Add(new TextBlock { Text = Loc.T("go.intro"), Foreground = B("dim"), FontSize = 12,
-            TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 3, 0, 0) });
-        head.Children.Add(new TextBlock {
-            Text = "🖥  " + string.Format(Loc.T("go.pc.detected"), PcInfo.Summary(), Loc.T("go.lvl." + PcInfo.RecommendedGraphics())),
-            Foreground = B("accent"), FontSize = 12, TextWrapping = TextWrapping.Wrap, LineHeight = 16,
-            Margin = new Thickness(0, 6, 0, 0), ToolTip = Loc.T("go.pc.tip") });
+        head.Children.Add(_stepLabel);
         head.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 8, 0, 0) });
         DockPanel.SetDock(head, Dock.Top); root.Children.Add(head);
 
-        var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(16, 8, 16, 12) };
-        var reco = new Button { Content = Loc.T("go.reco"), Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6), ToolTip = Loc.T("go.reco.tip") };
-        reco.Click += (_, _) => { _config.GameOptions.Clear(); Render(); };
-        var save = new Button { Content = Loc.T("go.save"), MinWidth = 130, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
-        if (St("PrimaryButton") is { } s) save.Style = s;
-        save.Click += (_, _) => SaveAndClose();
-        var close = new Button { Content = Loc.T("go.close"), MinWidth = 100, Padding = new Thickness(12, 6, 12, 6) };
-        close.Click += (_, _) => Close();
-        footer.Children.Add(reco); footer.Children.Add(save); footer.Children.Add(close);
-        DockPanel.SetDock(footer, Dock.Bottom); root.Children.Add(footer);
-
+        DockPanel.SetDock(_footer, Dock.Bottom); root.Children.Add(_footer);
         root.Children.Add(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = _list });
         Content = root;
         Render();
@@ -66,12 +58,54 @@ public sealed class GameOptionsWindow : Window
     {
         _list.Children.Clear();
         _readers.Clear();
-        AddGroup("free",  "go.grp.free",  B("fg"));
-        AddGroup("match", "go.grp.match", new SolidColorBrush(Color.FromRgb(0xFF, 0xB3, 0x00)));
-        AddGroup("adv",   "go.grp.adv",   new SolidColorBrush(Color.FromRgb(0xFF, 0xB3, 0x00)));
-        // La barre de synchro est en TÊTE de liste (visible dès l'ouverture, sans scroller) — mais elle a besoin
-        // des _readers peuplés par les AddGroup ci-dessus pour exporter les valeurs affichées : on l'insère après.
-        _list.Children.Insert(0, MatchSyncBar());
+        _codeBox = null;
+
+        if (_page == 0)
+        {
+            _stepLabel.Text = Loc.T("go.step1");
+            _list.Children.Add(new TextBlock {
+                Text = "🖥  " + string.Format(Loc.T("go.pc.detected"), PcInfo.Summary(), Loc.T("go.lvl." + PcInfo.RecommendedGraphics())),
+                Foreground = B("accent"), FontSize = 12, TextWrapping = TextWrapping.Wrap, LineHeight = 16,
+                Margin = new Thickness(0, 4, 0, 6), ToolTip = Loc.T("go.pc.tip") });
+            AddGroup("free", "go.grp.free", B("fg"));
+        }
+        else
+        {
+            _stepLabel.Text = Loc.T("go.step2");
+            AddGroup("match", "go.grp.match", Amber);
+            AddGroup("adv", "go.grp.adv", Amber);
+            // Barre de synchro en TÊTE (visible sans scroller), insérée après les groupes pour que les _readers
+            // existent et que le code initial reflète l'écran.
+            _list.Children.Insert(0, MatchSyncBar());
+        }
+        RenderFooter();
+    }
+
+    private void RenderFooter()
+    {
+        _footer.Children.Clear();
+        var reco = new Button { Content = Loc.T("go.reco"), Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6), ToolTip = Loc.T("go.reco.tip") };
+        reco.Click += (_, _) => { _config.GameOptions.Clear(); Render(); };
+
+        if (_page == 0)
+        {
+            var next = new Button { Content = Loc.T("go.next"), MinWidth = 150, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
+            if (St("PrimaryButton") is { } sp) next.Style = sp;
+            next.Click += (_, _) => { CaptureReaders(); _page = 1; Render(); };
+            _footer.Children.Add(reco); _footer.Children.Add(next);
+        }
+        else
+        {
+            var back = new Button { Content = Loc.T("go.back"), Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
+            back.Click += (_, _) => { CaptureReaders(); _page = 0; Render(); };
+            var save = new Button { Content = Loc.T("go.save"), MinWidth = 130, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
+            if (St("PrimaryButton") is { } sp) save.Style = sp;
+            save.Click += (_, _) => SaveAndClose();
+            _footer.Children.Add(back); _footer.Children.Add(reco); _footer.Children.Add(save);
+        }
+        var close = new Button { Content = Loc.T("go.close"), MinWidth = 90, Padding = new Thickness(12, 6, 12, 6) };
+        close.Click += (_, _) => Close();
+        _footer.Children.Add(close);
     }
 
     private void AddGroup(string group, string headerKey, Brush color)
@@ -82,12 +116,20 @@ public sealed class GameOptionsWindow : Window
             _list.Children.Add(Row(o));
     }
 
-    /// <summary>Capture les valeurs actuellement affichées dans Config.GameOptions (sans écrire sur disque),
-    /// pour que le code exporté et un import préservent les réglages à l'écran.</summary>
+    /// <summary>Capture les valeurs affichées dans Config.GameOptions (sans écrire sur disque) : permet de
+    /// préserver l'étape courante en changeant de page, et de refléter l'écran dans le code/à l'enregistrement.</summary>
     private void CaptureReaders()
     {
         foreach (var o in GameOptions.Defs)
             if (_readers.TryGetValue(o.Key, out var read)) _config.GameOptions[o.Key] = read();
+    }
+
+    /// <summary>Recalcule « mon code » en direct (appelé à chaque changement d'une option anti-désync).</summary>
+    private void LiveCode()
+    {
+        if (_codeBox is null) return;
+        CaptureReaders();
+        _codeBox.Text = GameOptions.ExportMatchCode(_config);
     }
 
     /// <summary>Barre « synchroniser avec les amis » : mon code (copier) + coller le code reçu (appliquer),
@@ -101,13 +143,13 @@ public sealed class GameOptionsWindow : Window
 
         box.Children.Add(new TextBlock { Text = Loc.T("go.sync.mycode"), Foreground = B("fg"), FontSize = 11, Margin = new Thickness(0, 2, 0, 1) });
         CaptureReaders();
-        var mine = new TextBox { Text = GameOptions.ExportMatchCode(_config), IsReadOnly = true, FontFamily = new FontFamily("Consolas"), FontSize = 11 };
+        _codeBox = new TextBox { Text = GameOptions.ExportMatchCode(_config), IsReadOnly = true, FontFamily = new FontFamily("Consolas"), FontSize = 12, FontWeight = FontWeights.Bold };
         var copy = new Button { Content = Loc.T("go.sync.copy"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
-        copy.Click += (_, _) => { try { CaptureReaders(); mine.Text = GameOptions.ExportMatchCode(_config); Clipboard.SetText(mine.Text); status.Foreground = B("accent"); status.Text = Loc.T("go.sync.copied"); } catch { } };
-        box.Children.Add(FillRow(mine, copy));
+        copy.Click += (_, _) => { try { LiveCode(); Clipboard.SetText(_codeBox!.Text); status.Foreground = B("accent"); status.Text = Loc.T("go.sync.copied"); } catch { } };
+        box.Children.Add(FillRow(_codeBox, copy));
 
         box.Children.Add(new TextBlock { Text = Loc.T("go.sync.paste"), Foreground = B("fg"), FontSize = 11, Margin = new Thickness(0, 6, 0, 1) });
-        var recv = new TextBox { FontFamily = new FontFamily("Consolas"), FontSize = 11 };
+        var recv = new TextBox { FontFamily = new FontFamily("Consolas"), FontSize = 12 };
         var apply = new Button { Content = Loc.T("go.sync.apply"), Margin = new Thickness(6, 0, 0, 0), Padding = new Thickness(10, 3, 10, 3) };
         apply.Click += (_, _) =>
         {
@@ -133,6 +175,7 @@ public sealed class GameOptionsWindow : Window
 
     private UIElement Row(GOpt o)
     {
+        bool sync = o.Group == "match" || o.Yaml;   // option anti-désync → met à jour le code en direct
         string cur = GameOptions.Value(_config, o.Key);
         var col = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         col.Children.Add(new TextBlock { Text = Loc.T($"go.{o.Key}.l"), Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
@@ -146,7 +189,20 @@ public sealed class GameOptionsWindow : Window
         {
             var cb = new CheckBox { IsChecked = cur.Equals("yes", StringComparison.OrdinalIgnoreCase), VerticalAlignment = VerticalAlignment.Center };
             _readers[o.Key] = () => cb.IsChecked == true ? "yes" : "no";
+            if (sync) { cb.Checked += (_, _) => LiveCode(); cb.Unchecked += (_, _) => LiveCode(); }
             ctrl = cb;
+        }
+        else if (o.Kind == "particles")
+        {
+            int n = int.TryParse(cur, out var p) ? Math.Clamp(p, 100, 50000) : 1000;
+            var valLbl = new TextBlock { Text = n.ToString(), MinWidth = 48, VerticalAlignment = VerticalAlignment.Center, TextAlignment = TextAlignment.Right, Foreground = B("fg"), FontWeight = FontWeights.SemiBold };
+            var sl = new Slider { Minimum = 100, Maximum = 50000, Value = n, Width = 210, VerticalAlignment = VerticalAlignment.Center,
+                TickFrequency = 100, IsSnapToTickEnabled = true, SmallChange = 100, LargeChange = 1000, Margin = new Thickness(8, 0, 0, 0) };
+            sl.ValueChanged += (_, _) => { valLbl.Text = ((int)Math.Round(sl.Value)).ToString(); if (sync) LiveCode(); };
+            _readers[o.Key] = () => ((int)Math.Round(sl.Value)).ToString();
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            sp.Children.Add(valLbl); sp.Children.Add(sl);
+            ctrl = sp;
         }
         else
         {
@@ -156,6 +212,7 @@ public sealed class GameOptionsWindow : Window
             if (!choices.Contains(cur, StringComparer.OrdinalIgnoreCase)) combo.Items.Add(cur);
             combo.SelectedItem = choices.FirstOrDefault(c => c.Equals(cur, StringComparison.OrdinalIgnoreCase)) ?? cur;
             _readers[o.Key] = () => (combo.SelectedItem as string) ?? cur;
+            if (sync) combo.SelectionChanged += (_, _) => LiveCode();
             ctrl = combo;
         }
 
@@ -174,11 +231,10 @@ public sealed class GameOptionsWindow : Window
 
     private void SaveAndClose()
     {
-        foreach (var o in GameOptions.Defs)
-            if (_readers.TryGetValue(o.Key, out var read)) _config.GameOptions[o.Key] = read();
+        CaptureReaders();                 // étape courante ; l'autre étape est déjà dans _config (capturée à la navigation)
         ConfigStore.Save(_config);
         GameOptions.ApplyIni(_config);
-        _onApply();   // applique Vulkan aux installs GenLauncher + rafraîchit
+        _onApply();                       // applique Vulkan aux installs GenLauncher + rafraîchit
         Close();
     }
 }

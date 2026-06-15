@@ -87,40 +87,40 @@ internal static class GameOptions
     public static void ApplyIni(GenConfig c)
         => MultiplayerTuning.ApplyOptionsValues(MultiplayerTuning.DefaultOptionsIniPath(), EffectiveIni(c));
 
-    /// <summary>Les clés qui DOIVENT être identiques entre joueurs LAN : groupe "match" + Vulkan (impacte la
-    /// désync). Ce sont elles, et elles seules, que le code de synchro transporte.</summary>
-    public static IEnumerable<string> SyncKeys =>
-        Defs.Where(o => o.Group == "match").Select(o => o.Key).Append("UseVulkan");
+    /// <summary>Les 7 booléens anti-désync (les 6 du groupe "match" + Vulkan), dans un ORDRE FIXE : leur position
+    /// est le numéro de bit dans le code court. NE JAMAIS réordonner (casserait les codes existants).</summary>
+    private static readonly string[] BoolSync =
+        { "HeatEffects", "ExtraAnimations", "ShowTrees", "ShowSoftWaterEdge", "DynamicLOD", "SendDelay", "UseVulkan" };
 
-    /// <summary>Encode les réglages anti-désync en un code court partageable (« GS1-… », base64). Zéro réseau :
-    /// l'utilisateur le copie et l'envoie (Discord…), l'ami le colle.</summary>
+    /// <summary>Toutes les clés que le code de synchro transporte : les 7 booléens + MaxParticleCount (nombre).</summary>
+    public static IEnumerable<string> SyncKeys => BoolSync.Append("MaxParticleCount");
+
+    /// <summary>Encode les réglages anti-désync en un code COURT (« GS2-7F-1000 ») : 7 oui/non packés en un octet
+    /// hexa + le nombre de particules. Zéro réseau : l'utilisateur le copie, l'ami le colle.</summary>
     public static string ExportMatchCode(GenConfig c)
     {
         var reco = Recommended();
-        var raw = string.Join(";", SyncKeys.Select(k => $"{k}={Value(c, k, reco)}"));
-        return "GS1-" + System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(raw));
+        int bits = 0;
+        for (int i = 0; i < BoolSync.Length; i++)
+            if (Value(c, BoolSync[i], reco).Equals("yes", System.StringComparison.OrdinalIgnoreCase)) bits |= 1 << i;
+        return $"GS2-{bits:X2}-{Value(c, "MaxParticleCount", reco)}";
     }
 
-    /// <summary>Applique un code reçu d'un ami : ne touche QUE les clés anti-désync connues. Retourne le nombre
+    /// <summary>Applique un code « GS2-… » reçu d'un ami : ne touche QUE les clés anti-désync. Retourne le nombre
     /// de réglages appliqués, ou -1 si le code est invalide.</summary>
     public static int ImportMatchCode(GenConfig c, string? code)
     {
         try
         {
-            code = (code ?? "").Trim();
-            if (code.StartsWith("GS1-", System.StringComparison.OrdinalIgnoreCase)) code = code.Substring(4);
-            if (string.IsNullOrWhiteSpace(code)) return -1;
-            string raw = System.Text.Encoding.UTF8.GetString(System.Convert.FromBase64String(code));
-            var valid = new HashSet<string>(SyncKeys);
+            code = (code ?? "").Trim().ToUpperInvariant();
+            if (!code.StartsWith("GS2-")) return -1;
+            var p = code.Substring(4).Split('-');
+            if (p.Length < 2) return -1;
+            int bits = System.Convert.ToInt32(p[0], 16);
             int n = 0;
-            foreach (var pair in raw.Split(';', System.StringSplitOptions.RemoveEmptyEntries))
-            {
-                int i = pair.IndexOf('=');
-                if (i <= 0) continue;
-                string k = pair.Substring(0, i).Trim(), v = pair.Substring(i + 1).Trim();
-                if (valid.Contains(k)) { c.GameOptions[k] = v; n++; }
-            }
-            return n > 0 ? n : -1;
+            for (int i = 0; i < BoolSync.Length; i++) { c.GameOptions[BoolSync[i]] = (bits & (1 << i)) != 0 ? "yes" : "no"; n++; }
+            if (int.TryParse(p[1], out var part)) { c.GameOptions["MaxParticleCount"] = System.Math.Clamp(part, 100, 50000).ToString(); n++; }
+            return n;
         }
         catch { return -1; }
     }
