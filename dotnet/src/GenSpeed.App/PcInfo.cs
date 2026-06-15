@@ -7,6 +7,16 @@ namespace GenSpeed.App;
 /// pour RECOMMANDER un niveau graphique. L'utilisateur reste libre de changer.</summary>
 internal static class PcInfo
 {
+    /// <summary>Résumé lisible « GPU · RAM Go » (pour montrer à l'utilisateur sur quoi se base la reco).</summary>
+    public static string Summary()
+    {
+        string g = Gpu();
+        long ram = RamBytes();
+        string gpu = string.IsNullOrWhiteSpace(g) ? "GPU inconnu" : g;
+        string r = ram > 0 ? $"{Math.Round(ram / 1024.0 / 1024 / 1024)} Go" : "RAM inconnue";
+        return $"{gpu} · {r}";
+    }
+
     /// <summary>Nom de la carte graphique principale (ex. « Intel(R) UHD Graphics 620 », « NVIDIA GeForce… »).</summary>
     public static string Gpu()
     {

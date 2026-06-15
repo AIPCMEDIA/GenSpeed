@@ -39,11 +39,15 @@ public sealed class GameOptionsWindow : Window
             FontFamily = new FontFamily("Consolas"), FontWeight = FontWeights.Bold, FontSize = 18 });
         head.Children.Add(new TextBlock { Text = Loc.T("go.intro"), Foreground = B("dim"), FontSize = 12,
             TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 3, 0, 0) });
+        head.Children.Add(new TextBlock {
+            Text = "🖥  " + string.Format(Loc.T("go.pc.detected"), PcInfo.Summary(), Loc.T("go.lvl." + PcInfo.RecommendedGraphics())),
+            Foreground = B("accent"), FontSize = 12, TextWrapping = TextWrapping.Wrap, LineHeight = 16,
+            Margin = new Thickness(0, 6, 0, 0), ToolTip = Loc.T("go.pc.tip") });
         head.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 8, 0, 0) });
         DockPanel.SetDock(head, Dock.Top); root.Children.Add(head);
 
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(16, 8, 16, 12) };
-        var reco = new Button { Content = Loc.T("go.reco"), Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
+        var reco = new Button { Content = Loc.T("go.reco"), Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6), ToolTip = Loc.T("go.reco.tip") };
         reco.Click += (_, _) => { _config.GameOptions.Clear(); Render(); };
         var save = new Button { Content = Loc.T("go.save"), MinWidth = 130, Margin = new Thickness(0, 0, 8, 0), Padding = new Thickness(12, 6, 12, 6) };
         if (St("PrimaryButton") is { } s) save.Style = s;
