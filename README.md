@@ -7,15 +7,15 @@
 **Accélère le gameplay de *Command & Conquer™ Generals – Zero Hour* (et de ses mods), même en LAN.**
 *Speed up the gameplay of C&C Generals: Zero Hour (and its mods), even in LAN.*
 
-[![Version](https://img.shields.io/badge/v2.3-BETA-orange?style=flat)](#-v23-beta--assistant-dinstallation-propre--clean-install-assistant)
+[![Version](https://img.shields.io/badge/v2.4-BETA-orange?style=flat)](#-v24-beta--options-de-jeu--réseau--clean-install)
 [![Platform](https://img.shields.io/badge/Windows-10_/_11-blue?style=flat)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-8_/_WPF-512BD4?style=flat)](#)
 
 </div>
 
-> 🧪 **v2.3 est une BETA.** Elle introduit l'**assistant d'installation propre** et le **calage multijoueur automatique** (voir ci-dessous). Ces fonctions sont nouvelles : **sauvegarde tes données avant**, et remonte tout souci via une **issue**. La v2.2 stable reste disponible dans les [Releases](../../releases).
-> *🧪 **v2.3 is a BETA.** It adds the clean-install assistant and automatic multiplayer tuning. These are new — **back up your data first** and report issues. The stable v2.2 stays available in [Releases](../../releases).*
+> 🧪 **v2.4 est une BETA.** Elle ajoute le **sélecteur d'options de jeu en 3 étapes** (graphismes pré-réglés selon ton PC, réglages anti-mismatch synchronisables par code, **section Réseau** : IP LAN/en ligne + pare-feu) et un **assistant d'installation refait « objectif d'abord »**. Nouveau : **sauvegarde tes données avant**, et remonte tout souci via une **issue**. La v2.2 stable reste disponible dans les [Releases](../../releases).
+> *🧪 **v2.4 is a BETA.** It adds the **3-step game-options picker** (PC-aware graphics, anti-mismatch settings sharable via a short code, a **Network section**: LAN/online IP + firewall) and a **reworked "goal-first" install assistant**. New — **back up your data first** and report issues. The stable v2.2 stays in [Releases](../../releases).*
 
 > 🇫🇷 GenSpeed modifie les fichiers de données (`.ini`) du jeu/mod pour rendre les parties plus rapides : unités plus véloces, constructions/recharges plus courtes, presets de caméra. Plus un **outil de diagnostic de désync (mismatch) LAN** qui compare ton install à celle d'un ami et nomme exactement ce qui diffère.
 >
@@ -23,21 +23,32 @@
 
 ---
 
-## 🧪 v2.3 (BETA) — Assistant d'installation propre / Clean-install assistant
+## 🧪 v2.4 (BETA) — Options de jeu & Réseau / Game options & Network
 
 🇫🇷
-- 🧙 **Assistant d'installation (sans GenPatcher)** : détecte ton jeu Steam — le **M0**, gardé **vierge** — et crée en quelques clics un **hub GenLauncher (M1)** ou un **fork autonome (M2, M3…)**. Copie propre depuis M0, **GenLauncher pré-configuré** (pas d'installation auto de GenTool, pas de setup au 1er lancement), raccourci Bureau. La source n'est jamais demandée (c'est toujours M0) ; le nom de dossier de M1 est toujours « GenLauncher », à l'emplacement de ton choix.
-- 🎚️ **Calage multijoueur AUTOMATIQUE** : à chaque démarrage, GenSpeed aligne **tout seul** les **réglages anti-mismatch** d'`Options.ini`, la **résolution native** de ton écran, et la config GenLauncher (GenSpeed-safe) — sans rien écraser de tes choix. Plus rien à régler à la main pour le LAN.
-- 📍 **Panneau « Mes installs »** : la liste éditable de tes emplacements **M0 / M1 / Mx** (le JSON de config = source de vérité). **📦 Déplacer** une install (le dossier bouge **et tout suit** : raccourci, config) ou **✏ Re-pointer** si tu l'as déplacée à la main hors GenSpeed.
-- 🔄 **Tableau auto-rafraîchi** : installe ou retire un mod dans GenLauncher → il apparaît/disparaît dans GenSpeed **sans le redémarrer**.
-- 🧹 **Désinstalleur renforcé** : nettoyage **en un seul passage** (gère le délai de désinstallation de Steam) avec **vérification finale « 0 résidu »**.
+- 🎛️ **Sélecteur d'options de jeu en 3 étapes**, tout pré-coché selon **ton PC** (analyse locale GPU + RAM, **zéro télémétrie**) et **tout modifiable**, avec une **explication par option** (FR/EN) :
+  - **① Libres** — résolution, souris, qualité graphique, anticrénelage, vitesse de défilement… (aucun risque LAN)
+  - **② À aligner** — les **7 réglages anti-mismatch** (ceux que protège GenPatcher) + Vulkan, avec un **code de synchro court** (`GS2-…`) : le joueur au PC le moins puissant copie son code, les autres le collent → tout le monde **identique** d'un copier-coller.
+  - **③ Réseau** — **choix de l'IP du jeu** pour le **LAN** et pour le **jeu en ligne** (comme dans Options → Réseau du jeu, **préréglé sur ton 192.168.x** → fini l'IP 172.x Hyper-V qui te rend invisible en LAN), le **délai d'envoi**, et une case **« autoriser le jeu dans le pare-feu Windows »** (Privé/Public).
+- 🧙 **Assistant d'installation refait « objectif d'abord »** : on te demande d'abord **ce que tu veux** (🎮 juste jouer · 🧩 jouer aux mods (hub GenLauncher) · 📦 fork autonome), **en clair** ; puis on garantit le jeu de base, on règle les options, c'est tout. **Initialisation du jeu en mode fenêtré** (plus de crash si tu cliques ailleurs) avec une **vérification d'init fiable** (attend qu'`Options.ini` soit écrit).
+- 🔗 **Liens de téléchargement éditables** (menu Config) : corrige une URL sans recompiler ; vérification HTTP intégrée.
 
 🇬🇧
-- 🧙 **Install assistant (GenPatcher-free)**: detects your Steam game — **M0**, kept **pristine** — and in a few clicks creates a **GenLauncher hub (M1)** or a **standalone fork (M2, M3…)**. Clean copy from M0, **GenLauncher pre-configured** (no auto GenTool, no first-run setup), desktop shortcut. The source is never asked (it's always M0); M1's folder is always named "GenLauncher", at the location you choose.
-- 🎚️ **AUTOMATIC multiplayer tuning**: on every launch GenSpeed aligns the **anti-mismatch** `Options.ini` settings, your screen's **native resolution**, and the GenLauncher config **by itself** — without overwriting your choices. Nothing to set by hand for LAN.
-- 📍 **"My installs" panel**: the editable list of your **M0 / M1 / Mx** locations (the config JSON = source of truth). **📦 Move** an install (the folder moves **and everything follows**: shortcut, config) or **✏ Re-point** it if you moved it manually outside GenSpeed.
-- 🔄 **Auto-refreshing table**: add or remove a mod in GenLauncher → it appears/disappears in GenSpeed **without restarting it**.
-- 🧹 **Hardened uninstaller**: **single-pass** cleanup (handles Steam's uninstall delay) with a final **"0 leftover"** verification.
+- 🎛️ **3-step game-options picker**, everything pre-checked for **your PC** (local GPU + RAM analysis, **zero telemetry**) and **fully editable**, with a **per-option explanation** (FR/EN):
+  - **① Free** — resolution, mouse, graphics quality, anti-aliasing, scroll speed… (no LAN risk)
+  - **② Match** — the **7 anti-mismatch settings** (the ones GenPatcher protects) + Vulkan, with a **short sync code** (`GS2-…`): the player with the weakest PC copies their code, the others paste it → everyone **identical** in one copy-paste.
+  - **③ Network** — **pick the game's IP** for **LAN** and for **online** (like in-game Options → Network, **pre-set to your 192.168.x** → no more 172.x Hyper-V IP that makes you invisible on LAN), the **send delay**, and an **"allow the game through Windows Firewall"** checkbox (Private/Public).
+- 🧙 **Reworked "goal-first" install assistant**: it first asks **what you want** (🎮 just play · 🧩 play with mods (GenLauncher hub) · 📦 standalone fork), in **plain words**; then secures the base game, sets the options, done. **Windowed game initialization** (no more crash if you click elsewhere) with a **reliable init check** (waits for `Options.ini` to be written).
+- 🔗 **Editable download links** (Config menu): fix a URL without recompiling; built-in HTTP check.
+
+<details>
+<summary>✨ v2.3 — assistant d'installation propre (M0/M1/Mx) + calage multi automatique</summary>
+
+- 🧙 **Assistant d'installation (sans GenPatcher)** : détecte ton jeu Steam (**M0**, gardé **vierge**) et crée un **hub GenLauncher (M1)** ou un **fork autonome (M2, M3…)** — copie propre, GenLauncher pré-configuré, raccourci Bureau.
+- 🎚️ **Calage multijoueur AUTOMATIQUE** : à chaque démarrage, aligne les réglages anti-mismatch d'`Options.ini`, la résolution native, et la config GenLauncher — sans écraser tes choix.
+- 📍 **Panneau « Mes installs »** (déplacer / re-pointer) · 🔄 **tableau auto-rafraîchi** · 🧹 **désinstalleur renforcé** (« 0 résidu »).
+
+</details>
 
 <details>
 <summary>✨ v2.2 — vérifier les fichiers + diagnostic enrichi + désinstalleur durci</summary>
@@ -252,6 +263,15 @@ MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage,
 ---
 
 ## 📝 Changelog
+
+### v2.4 (beta)
+- 🎛️ **Sélecteur d'options de jeu en 3 étapes** (① Libres / ② À aligner / ③ Réseau), **pré-coché selon le PC** (`PcInfo` : GPU via EnumDisplayDevices + RAM via GlobalMemoryStatusEx, 100 % local), **tout modifiable**, **une explication bilingue par option**. ~20 réglages couverts (résolution, souris, LOD, textures, anticrénelage, ombres, **ScrollFactor**, double-clic attaque-déplacement, riposte auto…)
+- 🔗 **Code de synchro anti-mismatch court** (`GS2-XX-NNNN` : 7 booléens packés en 1 octet hexa + nb de particules) : copier/coller pour aligner les réglages entre joueurs LAN ; conseil intégré « caler sur le PC le moins puissant ». Recalculé **en direct** quand on coche
+- 🌐 **Section Réseau** : choix de l'**IP LAN** (`IPAddress`) et **IP en ligne** (`GameSpyIPAddress`) parmi les cartes détectées (étiquetées réseau-local / virtuelle Hyper-V à éviter), **préréglées sur le 192.168.x** ; **SendDelay** déplacé ici ; **autorisation pare-feu Windows** (Privé/Public, règle entrante par exe, élevée/UAC, pré-cochée sauf si déjà posée)
+- 🧙 **Assistant refait OBJECTIF-D'ABORD** : étape 1 = « que veux-tu ? » en clair (juste jouer / hub GenLauncher / fork autonome, **sans jargon M0/M1/Mx**) → jeu de base garanti → options. Étape options présente sur **tous** les chemins (un seul `Options.ini` global, vaut aussi pour le jeu de base). « Generals seul » abandonné (inutile, ZH se suffit)
+- 🪟 **Initialisation du jeu en mode fenêtré** (`steam.exe -applaunch <appid> -win`) → plus de crash si on clique ailleurs pendant le chargement ; **vérification d'init fiable** (attend la création d'`Options.ini`, pas seulement `INIZH.big` consommé) avec message « init incomplète » + relance
+- ⚡ AutoTune applique désormais **les choix de l'utilisateur** (`EffectiveIni` + Vulkan par install) ; `IsInitialized`, `SteamExePath`, `LaunchGameWindowed`, `ApplyOptionsValues`/`ReadOptionValue`/`SetYamlKey` ajoutés
+- 🔗 **Registre de liens de téléchargement éditable** + vérification HTTP (URL Microsoft adaptée à la langue)
 
 ### v2.3 (beta)
 - 🧙 **Assistant d'installation propre (GenPatcher-free)** : modèle **M0 / M1 / Mx** — M0 = jeu Steam d'origine **vierge** (source unique, auto-détectée, jamais touchée) ; **M1** = copie de M0 + GenLauncher (hub, dossier toujours « GenLauncher », emplacement par défaut proposé/éditable) ; **M2, M3…** = copies de M0 + fork autonome. Objectif contextuel (M1 unique → proposé une seule fois ; forks multiples → numérotés)
