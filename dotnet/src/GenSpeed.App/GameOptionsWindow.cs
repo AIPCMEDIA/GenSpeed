@@ -72,8 +72,7 @@ public sealed class GameOptionsWindow : Window
         else
         {
             _stepLabel.Text = Loc.T("go.step2");
-            AddGroup("match", "go.grp.match", Amber);
-            AddGroup("adv", "go.grp.adv", Amber);
+            AddGroup("match", "go.grp.match", Amber);   // inclut désormais Vulkan (plus de bloc « Avancé » séparé)
             // Barre de synchro en TÊTE (visible sans scroller), insérée après les groupes pour que les _readers
             // existent et que le code initial reflète l'écran.
             _list.Children.Insert(0, MatchSyncBar());

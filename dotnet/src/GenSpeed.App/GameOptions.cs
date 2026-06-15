@@ -16,25 +16,28 @@ internal static class GameOptions
     public static readonly GOpt[] Defs =
     {
         // 🟢 Libres — aucun impact LAN
-        new("Resolution",        false, "free",  "res"),
-        new("UseAlternateMouse", false, "free",  "toggle"),
-        new("StaticGameLOD",     false, "free",  "lod",       new[] { "Low", "Medium", "High" }),
-        new("TextureReduction",  false, "free",  "tex",       new[] { "0", "1", "2" }),
-        new("UseShadowVolumes",  false, "free",  "toggle"),
-        new("UseShadowDecals",   false, "free",  "toggle"),
-        new("UseCloudMap",       false, "free",  "toggle"),
-        new("UseLightMap",       false, "free",  "toggle"),
-        new("BuildingOcclusion", false, "free",  "toggle"),
-        // 🔴 À aligner avec l'ami (pré-cochés sûrs)
-        new("HeatEffects",       false, "match", "toggle"),
-        new("ExtraAnimations",   false, "match", "toggle"),
-        new("ShowTrees",         false, "match", "toggle"),
-        new("ShowSoftWaterEdge", false, "match", "toggle"),
-        new("DynamicLOD",        false, "match", "toggle"),
-        new("SendDelay",         false, "match", "toggle"),
-        new("MaxParticleCount",  false, "match", "particles", new[] { "500", "1000", "1500" }),
-        // ⚡ Avancé
-        new("UseVulkan",         true,  "adv",   "toggle"),
+        new("Resolution",             false, "free",  "res"),
+        new("UseAlternateMouse",      false, "free",  "toggle"),
+        new("ScrollFactor",           false, "free",  "choice", new[] { "10", "20", "30", "40", "50", "60", "80", "100" }),
+        new("UseDoubleClickAttackMove", false, "free", "toggle"),
+        new("Retaliation",            false, "free",  "toggle"),
+        new("StaticGameLOD",          false, "free",  "lod",    new[] { "Low", "Medium", "High" }),
+        new("TextureReduction",       false, "free",  "tex",    new[] { "0", "1", "2" }),
+        new("AntiAliasing",           false, "free",  "choice", new[] { "0", "2", "4" }),
+        new("UseShadowVolumes",       false, "free",  "toggle"),
+        new("UseShadowDecals",        false, "free",  "toggle"),
+        new("UseCloudMap",            false, "free",  "toggle"),
+        new("UseLightMap",            false, "free",  "toggle"),
+        new("BuildingOcclusion",      false, "free",  "toggle"),
+        // 🔴 À aligner avec l'ami (pré-cochés sûrs) — + Vulkan (doit matcher aussi, fusionné ici sans bloc à part)
+        new("HeatEffects",            false, "match", "toggle"),
+        new("ExtraAnimations",        false, "match", "toggle"),
+        new("ShowTrees",              false, "match", "toggle"),
+        new("ShowSoftWaterEdge",      false, "match", "toggle"),
+        new("DynamicLOD",             false, "match", "toggle"),
+        new("SendDelay",              false, "match", "toggle"),
+        new("MaxParticleCount",       false, "match", "particles", new[] { "500", "1000", "1500" }),
+        new("UseVulkan",              true,  "match", "toggle"),
     };
 
     /// <summary>Valeurs recommandées (pré-cochage) : anti-mismatch sûrs, graphismes selon la puissance du PC,
@@ -48,12 +51,16 @@ internal static class GameOptions
         {
             ["Resolution"] = "native",
             ["UseAlternateMouse"] = "yes",
+            ["ScrollFactor"] = "50",
+            ["UseDoubleClickAttackMove"] = "no",
+            ["Retaliation"] = "yes",
             ["StaticGameLOD"] = gfx == "light" ? "Medium" : "High",
             ["TextureReduction"] = gfx == "high" ? "0" : gfx == "balanced" ? "1" : "2",
+            ["AntiAliasing"] = gfx == "high" ? "4" : gfx == "balanced" ? "2" : "0",
             ["UseShadowVolumes"] = yn(eff), ["UseShadowDecals"] = yn(eff), ["UseCloudMap"] = yn(eff),
             ["UseLightMap"] = yn(eff), ["BuildingOcclusion"] = yn(eff),
             ["HeatEffects"] = "no", ["ExtraAnimations"] = "no", ["ShowTrees"] = "no", ["ShowSoftWaterEdge"] = "no",
-            ["DynamicLOD"] = "no", ["SendDelay"] = "no", ["MaxParticleCount"] = "1000",
+            ["DynamicLOD"] = "no", ["SendDelay"] = "yes", ["MaxParticleCount"] = "1000",
             ["UseVulkan"] = "no",
         };
     }
