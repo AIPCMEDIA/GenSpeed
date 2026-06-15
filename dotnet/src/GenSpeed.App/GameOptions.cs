@@ -35,9 +35,11 @@ internal static class GameOptions
         new("ShowTrees",              false, "match", "toggle"),
         new("ShowSoftWaterEdge",      false, "match", "toggle"),
         new("DynamicLOD",             false, "match", "toggle"),
-        new("SendDelay",              false, "match", "toggle"),
         new("MaxParticleCount",       false, "match", "particles", new[] { "500", "1000", "1500" }),
         new("UseVulkan",              true,  "match", "toggle"),
+        // 🌐 Réseau — SendDelay (doit s'aligner aussi : porté par le code de synchro). IP & pare-feu sont gérés
+        // hors Defs (contrôles dynamiques) dans GameOptionsWindow.
+        new("SendDelay",              false, "net",   "toggle"),
     };
 
     /// <summary>Valeurs recommandées (pré-cochage) : anti-mismatch sûrs, graphismes selon la puissance du PC,

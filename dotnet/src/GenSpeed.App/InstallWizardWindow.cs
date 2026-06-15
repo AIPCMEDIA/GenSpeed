@@ -624,7 +624,7 @@ public sealed class InstallWizardWindow : Window
             FontWeight = lanOk ? FontWeights.Normal : FontWeights.SemiBold,
             TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 6),
         });
-        _body.Children.Add(MakeButton("wiz.opt.net.fix", () => { NetFixWindow.Show(this); Render(); }));
+        _body.Children.Add(MakeButton("wiz.opt.net.fix", () => { GameOptionsWindow.Show(this, _config, () => { }, startOnNetwork: true); Render(); }));
 
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
         var back = NavButton("wiz.back");

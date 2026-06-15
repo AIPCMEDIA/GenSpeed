@@ -26,15 +26,29 @@ public sealed class GameOptionsWindow : Window
     private readonly Dictionary<string, Func<string>> _readers = new();
     private readonly TextBlock _stepLabel = new() { Foreground = B("dim"), FontSize = 12, Margin = new Thickness(0, 3, 0, 0), TextWrapping = TextWrapping.Wrap };
 
-    private int _page;                 // 0 = libre, 1 = à aligner
+    private int _page;                 // 0 = libre, 1 = à aligner + réseau
     private TextBox? _codeBox;         // champ « mon code » (page 1), mis à jour en direct quand on coche
 
-    public static void Show(Window owner, GenConfig config, Action onApply)
-        => new GameOptionsWindow(owner, config, onApply).ShowDialog();
+    // Réseau (section 🌐 de la page 1) — survivent à la navigation pour ne pas perdre un choix non enregistré.
+    private string _lanIpSel = NetInfo.Auto;     // IPAddress
+    private string _onlineIpSel = NetInfo.Auto;  // GameSpyIPAddress
+    private bool _fwExists;                       // nos règles pare-feu déjà posées ? (calculé à la 1re section réseau)
+    private bool _fwPriv, _fwPub;                 // cases « ajouter au pare-feu » (profils Privé / Public)
+    private bool _fwInit;                         // pare-feu déjà sondé (évite un re-sondage PowerShell à chaque rendu)
 
-    private GameOptionsWindow(Window owner, GenConfig config, Action onApply)
+    public static void Show(Window owner, GenConfig config, Action onApply, bool startOnNetwork = false)
+        => new GameOptionsWindow(owner, config, onApply, startOnNetwork).ShowDialog();
+
+    private GameOptionsWindow(Window owner, GenConfig config, Action onApply, bool startOnNetwork = false)
     {
         _config = config; _onApply = onApply;
+        if (startOnNetwork) _page = 1;
+
+        // État réseau initial : IP actuelles dans Options.ini, présence de nos règles pare-feu.
+        string optPath = MultiplayerTuning.DefaultOptionsIniPath();
+        _lanIpSel = MultiplayerTuning.ReadOptionValue(optPath, "IPAddress") is { Length: > 0 } a ? a : (NetInfo.LanIp() ?? NetInfo.Auto);
+        _onlineIpSel = MultiplayerTuning.ReadOptionValue(optPath, "GameSpyIPAddress") is { Length: > 0 } b ? b : NetInfo.Auto;
+        // Le sondage pare-feu (PowerShell, ~1 s) est différé à l'affichage de la section réseau (FirewallRow).
         Title = Loc.T("go.title"); Owner = owner; Width = 740; Height = 700;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Background = B("bgRoot"); Foreground = B("fg");
@@ -74,7 +88,8 @@ public sealed class GameOptionsWindow : Window
         else
         {
             _stepLabel.Text = Loc.T("go.step2");
-            AddGroup("match", "go.grp.match", Amber);   // inclut désormais Vulkan (plus de bloc « Avancé » séparé)
+            AddGroup("match", "go.grp.match", Amber);   // inclut Vulkan
+            AddNetworkSection();                        // 🌐 IP LAN/en ligne + SendDelay + pare-feu
             // Barre de synchro en TÊTE (visible sans scroller), insérée après les groupes pour que les _readers
             // existent et que le code initial reflète l'écran.
             _list.Children.Insert(0, MatchSyncBar());
@@ -115,6 +130,77 @@ public sealed class GameOptionsWindow : Window
             FontSize = 14, Margin = new Thickness(0, 14, 0, 4) });
         foreach (var o in GameOptions.Defs.Where(x => x.Group == group))
             _list.Children.Add(Row(o));
+    }
+
+    /// <summary>Section 🌐 Réseau (page 1) : IP LAN + IP en ligne (comme Options → Réseau du jeu, préréglées sur
+    /// le réseau local), SendDelay (réglage réseau, à aligner), et l'autorisation pare-feu.</summary>
+    private void AddNetworkSection()
+    {
+        _list.Children.Add(new TextBlock { Text = Loc.T("go.grp.net"), Foreground = new SolidColorBrush(Color.FromRgb(0x4F, 0xC3, 0xF7)),
+            FontWeight = FontWeights.Bold, FontSize = 14, Margin = new Thickness(0, 16, 0, 4) });
+
+        _list.Children.Add(IpRow("net.lan.label", "net.lan.help", _lanIpSel, v => _lanIpSel = v));
+        _list.Children.Add(IpRow("net.online.label", "net.online.help", _onlineIpSel, v => _onlineIpSel = v));
+        if (GameOptions.Defs.FirstOrDefault(d => d.Key == "SendDelay") is { } sd) _list.Children.Add(Row(sd));
+        _list.Children.Add(FirewallRow());
+    }
+
+    /// <summary>Une ligne « IP » : libellé + aide + menu déroulant (Auto + IP détectées, étiquetées).</summary>
+    private UIElement IpRow(string labelKey, string helpKey, string current, Action<string> onChange)
+    {
+        var col = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        col.Children.Add(new TextBlock { Text = Loc.T(labelKey), Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
+        col.Children.Add(new TextBlock { Text = Loc.T(helpKey), Foreground = B("dim"), FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 15 });
+
+        var combo = new ComboBox { Width = 240, VerticalAlignment = VerticalAlignment.Center };
+        void Add(string val, string disp) => combo.Items.Add(new ComboBoxItem { Content = disp, Tag = val });
+        Add(NetInfo.Auto, Loc.T("net.auto"));
+        var cands = NetInfo.Candidates();
+        foreach (var c in cands)
+        {
+            string tag = c.IsLan ? Loc.T("net.tag.lan") : c.IsParasite ? Loc.T("net.tag.virtual") : Loc.T("net.tag.other");
+            Add(c.Ip, $"{c.Ip}  —  {tag}");
+        }
+        if (current != NetInfo.Auto && !cands.Any(c => c.Ip == current)) Add(current, $"{current}  —  {Loc.T("net.tag.other")}");
+        combo.SelectedItem = combo.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == current) ?? combo.Items.Cast<ComboBoxItem>().First();
+        combo.SelectionChanged += (_, _) => onChange((combo.SelectedItem as ComboBoxItem)?.Tag as string ?? NetInfo.Auto);
+
+        return WrapRow(col, combo);
+    }
+
+    /// <summary>Ligne « pare-feu » : cases Privé / Public (pré-cochées sauf si nos règles existent déjà).</summary>
+    private UIElement FirewallRow()
+    {
+        if (!_fwInit) { _fwExists = FirewallInfo.RuleExists(); _fwPriv = _fwPub = !_fwExists; _fwInit = true; }
+        var col = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        col.Children.Add(new TextBlock { Text = Loc.T("go.fw.label"), Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
+        col.Children.Add(new TextBlock { Text = Loc.T(_fwExists ? "go.fw.exists" : "go.fw.help"), Foreground = B("dim"),
+            FontSize = 11, TextWrapping = TextWrapping.Wrap, LineHeight = 15 });
+
+        var cbP = new CheckBox { Content = Loc.T("go.fw.priv"), IsChecked = _fwPriv, VerticalAlignment = VerticalAlignment.Center };
+        cbP.Checked += (_, _) => _fwPriv = true; cbP.Unchecked += (_, _) => _fwPriv = false;
+        var cbU = new CheckBox { Content = Loc.T("go.fw.pub"), IsChecked = _fwPub, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(12, 0, 0, 0) };
+        cbU.Checked += (_, _) => _fwPub = true; cbU.Unchecked += (_, _) => _fwPub = false;
+        var ctrl = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        ctrl.Children.Add(cbP); ctrl.Children.Add(cbU);
+
+        return WrapRow(col, ctrl);
+    }
+
+    /// <summary>Encapsule une ligne « description à gauche, contrôle à droite » dans le cadre standard.</summary>
+    private UIElement WrapRow(UIElement col, FrameworkElement ctrl)
+    {
+        var line = new DockPanel { LastChildFill = true };
+        ctrl.Margin = new Thickness(10, 0, 0, 0);
+        DockPanel.SetDock(ctrl, Dock.Right);
+        line.Children.Add(ctrl);
+        line.Children.Add(col);
+        return new Border
+        {
+            BorderBrush = B("border"), BorderThickness = new Thickness(1), Background = B("bgFrame"),
+            CornerRadius = new CornerRadius(4), Padding = new Thickness(10, 7, 10, 7), Margin = new Thickness(0, 3, 0, 3),
+            Child = line,
+        };
     }
 
     /// <summary>Capture les valeurs affichées dans Config.GameOptions (sans écrire sur disque) : permet de
@@ -176,7 +262,7 @@ public sealed class GameOptionsWindow : Window
 
     private UIElement Row(GOpt o)
     {
-        bool sync = o.Group == "match" || o.Yaml;   // option anti-désync → met à jour le code en direct
+        bool sync = GameOptions.SyncKeys.Contains(o.Key);   // option portée par le code de synchro → MAJ live
         string cur = GameOptions.Value(_config, o.Key);
         var col = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         col.Children.Add(new TextBlock { Text = Loc.T($"go.{o.Key}.l"), Foreground = B("fg"), FontWeight = FontWeights.SemiBold });
@@ -235,6 +321,15 @@ public sealed class GameOptionsWindow : Window
         CaptureReaders();                 // étape courante ; l'autre étape est déjà dans _config (capturée à la navigation)
         ConfigStore.Save(_config);
         GameOptions.ApplyIni(_config);
+        // 🌐 IP réseau du jeu → Options.ini (IPAddress = LAN, GameSpyIPAddress = en ligne). Préréglées sur le LAN.
+        MultiplayerTuning.ApplyOptionsValues(MultiplayerTuning.DefaultOptionsIniPath(),
+            new[] { ("IPAddress", _lanIpSel), ("GameSpyIPAddress", _onlineIpSel) });
+        // 🌐 Pare-feu (ÉLEVÉ/UAC) si demandé et pas déjà posé par nous.
+        if ((_fwPriv || _fwPub) && !_fwExists)
+        {
+            var exes = FirewallInfo.GameExes(_config);
+            if (exes.Count > 0) FirewallInfo.AddElevated(exes, _fwPriv, _fwPub);
+        }
         _onApply();                       // applique Vulkan aux installs GenLauncher + rafraîchit
         Close();
     }
