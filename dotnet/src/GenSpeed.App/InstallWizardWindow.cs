@@ -726,9 +726,13 @@ public sealed class InstallWizardWindow : Window
         var seed = MultiplayerTuning.SeedOrTuneYaml(destDir);
         if (seed.Ok) _log(seed.Applied < 0 ? string.Format(Loc.T("gl.seeded"), seed.Path)
                                            : string.Format(Loc.T("tune.yaml.ok"), Path.GetFileName(destDir.TrimEnd('\\', '/')), seed.Applied));
-        // Pré-créer l'Options.ini baseline (anti-mismatch + perf) AVANT le 1er lancement du jeu → calé dès la
-        // 1re partie (le jeu lit l'existant et complète le reste). Ensuite AutoTune le maintient à chaque run.
-        var optSeed = MultiplayerTuning.ApplyOptions(MultiplayerTuning.DefaultOptionsIniPath(), ScreenInfo.NativeResolution());
+        // Pousser le CHOIX Vulkan de l'utilisateur dans le YAML neuf (la baseline l'a mis à false) → dès le 1er
+        // lancement GenLauncher est dans le bon mode, sans attendre le prochain AutoTune.
+        var yp = MultiplayerTuning.FindGenLauncherYaml(destDir);
+        if (yp != null) MultiplayerTuning.SetYamlKey(yp, "UseVulkan", GameOptions.Vulkan(_config) ? "true" : "false");
+        // Pré-créer l'Options.ini AVANT le 1er lancement du jeu, avec les CHOIX de l'utilisateur (EffectiveIni,
+        // PC-aware) — pas l'ancienne baseline figée. Ensuite AutoTune le maintient à chaque run.
+        var optSeed = MultiplayerTuning.ApplyOptionsValues(MultiplayerTuning.DefaultOptionsIniPath(), GameOptions.EffectiveIni(_config));
         if (optSeed.Ok && optSeed.Applied != 0) _log(string.Format(Loc.T("tune.opt.ok"), optSeed.Applied));
         // Raccourci Bureau (« GenLauncher » ; suffixe du dossier seulement si collision avec une autre install).
         CreateDesktopShortcut(res.ExePath!, destDir);
