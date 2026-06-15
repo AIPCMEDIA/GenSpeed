@@ -44,6 +44,8 @@ public sealed class GameOptionsWindow : Window
         var head = new StackPanel { Margin = new Thickness(16, 14, 16, 6) };
         head.Children.Add(new TextBlock { Text = "🎛  " + Loc.T("go.title"), Foreground = B("accent"),
             FontFamily = new FontFamily("Consolas"), FontWeight = FontWeights.Bold, FontSize = 18 });
+        head.Children.Add(new TextBlock { Text = Loc.T("go.scope"), Foreground = B("dim"), FontSize = 11,
+            FontStyle = FontStyles.Italic, TextWrapping = TextWrapping.Wrap, LineHeight = 15, Margin = new Thickness(0, 2, 0, 0) });
         head.Children.Add(_stepLabel);
         head.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 8, 0, 0) });
         DockPanel.SetDock(head, Dock.Top); root.Children.Add(head);

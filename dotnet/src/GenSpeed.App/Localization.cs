@@ -248,6 +248,8 @@ public sealed class Loc : INotifyPropertyChanged
                              "✅ GenLauncher placed in:\n{0}\n(Desktop shortcut added.)\n\nLaunch it now to install your mods?\n(On first launch, answer \"No\" to \"apply recommended settings\".)"],
         ["cfg.gameoptions"]= ["🎛 Options de jeu (résolution, graphismes…)…", "🎛 Game options (resolution, graphics…)…"],
         ["go.title"]      = ["Options de jeu", "Game options"],
+        ["go.scope"]      = ["Vaut pour TOUTES tes installs (Steam vanilla + GenLauncher) — un seul Options.ini par PC. Exception : Vulkan ne concerne que GenLauncher.",
+                             "Applies to ALL your installs (Steam vanilla + GenLauncher) — one Options.ini per PC. Exception: Vulkan only affects GenLauncher."],
         ["go.step1"]      = ["Étape 1/2 — 🟢 Réglages libres (selon ton PC et ton goût, aucun risque LAN). Tous pré-cochés, tous modifiables.",
                              "Step 1/2 — 🟢 Free settings (based on your PC and taste, no LAN risk). All pre-checked, all editable."],
         ["go.step2"]      = ["Étape 2/2 — 🔴 À aligner avec tes amis (LAN). Synchronise-les avec le code ci-dessous, ou laisse les valeurs sûres.",
