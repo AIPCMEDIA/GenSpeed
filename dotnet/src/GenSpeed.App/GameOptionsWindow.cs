@@ -69,13 +69,15 @@ public sealed class GameOptionsWindow : Window
         AddGroup("free",  "go.grp.free",  B("fg"));
         AddGroup("match", "go.grp.match", new SolidColorBrush(Color.FromRgb(0xFF, 0xB3, 0x00)));
         AddGroup("adv",   "go.grp.adv",   new SolidColorBrush(Color.FromRgb(0xFF, 0xB3, 0x00)));
+        // La barre de synchro est en TÊTE de liste (visible dès l'ouverture, sans scroller) — mais elle a besoin
+        // des _readers peuplés par les AddGroup ci-dessus pour exporter les valeurs affichées : on l'insère après.
+        _list.Children.Insert(0, MatchSyncBar());
     }
 
     private void AddGroup(string group, string headerKey, Brush color)
     {
         _list.Children.Add(new TextBlock { Text = Loc.T(headerKey), Foreground = color, FontWeight = FontWeights.Bold,
             FontSize = 14, Margin = new Thickness(0, 14, 0, 4) });
-        if (group == "match") _list.Children.Add(MatchSyncBar());
         foreach (var o in GameOptions.Defs.Where(x => x.Group == group))
             _list.Children.Add(Row(o));
     }
@@ -117,7 +119,7 @@ public sealed class GameOptionsWindow : Window
         box.Children.Add(FillRow(recv, apply));
         box.Children.Add(status);
 
-        return new Border { BorderBrush = B("border"), BorderThickness = new Thickness(1), Background = B("bgFrame"), CornerRadius = new CornerRadius(4), Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 2, 0, 6), Child = box };
+        return new Border { BorderBrush = B("accent"), BorderThickness = new Thickness(2), Background = B("bgFrame"), CornerRadius = new CornerRadius(4), Padding = new Thickness(10, 8, 10, 8), Margin = new Thickness(0, 2, 0, 10), Child = box };
     }
 
     private static UIElement FillRow(TextBox tb, Button btn)
