@@ -144,24 +144,27 @@ public partial class MainWindow
     {
         if (ConfigStore.Suppressed || _installs.Count == 0) return;
 
-        // 1) Options.ini (unique, Documents) — uniquement s'il existe déjà (créé par le jeu/wizard ; on n'invente
-        //    pas un fichier de zéro ici, le wizard s'en charge à l'install).
+        // 1) Options.ini (unique, Documents) — applique les CHOIX de l'utilisateur (sinon défauts sûrs/PC-aware).
+        //    Uniquement s'il existe déjà (créé par le jeu/wizard/picker ; on n'invente pas un fichier ici).
         string? opt = MultiplayerTuning.FindOptionsIni();
         if (opt != null)
         {
-            var r = MultiplayerTuning.ApplyOptions(opt, ScreenInfo.NativeResolution());
+            var r = MultiplayerTuning.ApplyOptionsValues(opt, GameOptions.EffectiveIni(_config));
             if (r.Ok && r.Applied != 0) Log(string.Format(Loc.T("tune.auto.opt"), r.Applied));
             else if (!r.Ok) Log("⚠ " + r.Error);
         }
 
         // 2) GenLauncherCfg.yaml par install — pas touché si GenLauncher est ouvert (il l'écraserait).
         if (RunningGameProcs().Contains("GenLauncher")) return;
+        string vulkan = GameOptions.Vulkan(_config) ? "true" : "false";   // choix utilisateur (défaut false)
         foreach (var dir in _installs)
         {
             bool hasYaml = MultiplayerTuning.FindGenLauncherYaml(dir) != null;
             bool hasExe = File.Exists(Path.Combine(dir, "GenLauncher.exe"));
             if (!hasYaml && !hasExe) continue;
             var yr = MultiplayerTuning.SeedOrTuneYaml(dir);
+            var yp = MultiplayerTuning.FindGenLauncherYaml(dir);
+            if (yp != null) MultiplayerTuning.SetYamlKey(yp, "UseVulkan", vulkan);
             if (yr.Ok && yr.Applied != 0) Log(string.Format(Loc.T("tune.auto.yaml"), InstallLabel(dir)));
         }
     }
@@ -169,6 +172,10 @@ public partial class MainWindow
     /// <summary>⚙ Config → panneau « 🔗 Liens de téléchargement » : édite toutes les URL dont GenSpeed a besoin
     /// (GenLauncher, VC++, DirectX) sans recompiler. Un lien cassé se corrige ici.</summary>
     private void OnCfgLinks() => LinksWindow.Show(this, _config);
+
+    /// <summary>⚙ Config → sélecteur « 🎛 Options de jeu » : résolution, souris, qualité graphique, anti-mismatch,
+    /// Vulkan — pré-cochés (analyse PC), tous modifiables, avec explication par option. Écrit Options.ini + YAML.</summary>
+    private void OnCfgGameOptions() => GameOptionsWindow.Show(this, _config, LoadMods);
 
     /// <summary>Déplace PHYSIQUEMENT une install (depuis le panneau « Mes installs ») vers un autre emplacement,
     /// et « tout suit » : dossier déplacé (même volume = instantané), installs connues mises à jour, raccourci

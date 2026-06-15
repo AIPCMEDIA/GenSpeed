@@ -207,7 +207,7 @@ public partial class MainWindow : Window
     {
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare), ("diag.verify", OnDiagVerify));
         Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard), ("cfg.installs", OnCfgInstalls),
-                            ("cfg.tune", OnCfgTuneMultiplayer), ("cfg.links", OnCfgLinks),
+                            ("cfg.gameoptions", OnCfgGameOptions), ("cfg.links", OnCfgLinks),
                             ("cfg.addinstall", OnCfgAddInstall), ("cfg.modsdir", OnCfgModsDir),
                             ("cfg.launcher", OnCfgLauncher),
                             ("cfg.uninstall", OnCfgUninstall),

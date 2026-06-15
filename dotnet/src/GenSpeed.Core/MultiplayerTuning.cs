@@ -41,7 +41,7 @@ public static class MultiplayerTuning
         ("AskBeforeCheck",        "false"),  // cohérence (plus de vérif → rien à demander)
         ("CameraHeight",          "0"),      // GenSpeed seul maître de la caméra
         ("ModdedExe",             "true"),   // exe xezon : caméra/zoom débloqués en LAN
-        ("UseVulkan",             "false"),  // renderer Vulkan signalé affectant le pathfinding → desync
+        // (UseVulkan retiré du forçage : c'est désormais un CHOIX utilisateur, pré-coché OFF, géré via GameOptions.)
         ("AutoDeleteOldVersions", "false"),  // garder la flexibilité de version (anti-mismatch)
         ("AutoUpdateGentool",     "false"),  // pas de GenTool (choix utilisateur ; n'est pas requis)
         ("FirstStart",            "false"),  // setup déjà fait → pas de ré-exécution du 1er lancement GenLauncher
@@ -158,6 +158,51 @@ public static class MultiplayerTuning
             return new(true, applied, optionsIniPath, null);
         }
         catch (Exception ex) { return new(false, 0, optionsIniPath, ex.Message); }
+    }
+
+    /// <summary>Comme ApplyOptions mais avec des VALEURS arbitraires (les choix de l'utilisateur), FORCÉES
+    /// (remplace/ajoute chaque clé). Crée le fichier s'il manque. N'écrit que si changement (idempotent).</summary>
+    public static TuningResult ApplyOptionsValues(string optionsIniPath, IReadOnlyList<(string Key, string Value)> values)
+    {
+        try
+        {
+            if (!File.Exists(optionsIniPath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(optionsIniPath)!);
+                File.WriteAllLines(optionsIniPath, values.Select(v => $"{v.Key} = {v.Value}"), new UTF8Encoding(false));
+                return new(true, values.Count, optionsIniPath, null);
+            }
+            var lines = File.ReadAllLines(optionsIniPath).ToList();
+            int applied = 0;
+            foreach (var (key, val) in values)
+            {
+                var rx = new Regex(@"^\s*" + Regex.Escape(key) + @"\s*=.*$", RegexOptions.IgnoreCase);
+                int idx = lines.FindIndex(l => rx.IsMatch(l));
+                string line = $"{key} = {val}";
+                if (idx >= 0) { if (lines[idx] != line) { lines[idx] = line; applied++; } }
+                else { lines.Add(line); applied++; }
+            }
+            if (applied == 0) return new(true, 0, optionsIniPath, null);
+            try { File.Copy(optionsIniPath, optionsIniPath + ".gsbak", overwrite: true); } catch { }
+            File.WriteAllLines(optionsIniPath, lines, new UTF8Encoding(false));
+            return new(true, applied, optionsIniPath, null);
+        }
+        catch (Exception ex) { return new(false, 0, optionsIniPath, ex.Message); }
+    }
+
+    /// <summary>Édite UNE clé root-level d'un GenLauncherCfg.yaml (ex. UseVulkan). N'écrit que si changement.</summary>
+    public static void SetYamlKey(string yamlPath, string key, string value)
+    {
+        try
+        {
+            if (!File.Exists(yamlPath)) return;
+            string text = File.ReadAllText(yamlPath);
+            var rx = new Regex(@"(?m)^" + Regex.Escape(key) + @":[ \t].*$");
+            if (!rx.IsMatch(text)) return;
+            string updated = rx.Replace(text, $"{key}: {value}", 1);
+            if (updated != text) File.WriteAllText(yamlPath, updated, new UTF8Encoding(false));
+        }
+        catch { }
     }
 
     /// <summary>Applique les réglages GenSpeed-safe (root-level) dans GenLauncherCfg.yaml par édition ciblée

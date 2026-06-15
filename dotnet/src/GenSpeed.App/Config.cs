@@ -35,6 +35,9 @@ public sealed class GenConfig
     [JsonPropertyName("game_dir")]       public string? GameDir { get; set; }
     [JsonPropertyName("mods_dir")]       public string? ModsDir { get; set; }   // dossier GLM si GenLauncher est installé ailleurs
     [JsonPropertyName("install_parent")] public string? InstallParent { get; set; }   // dernier emplacement PARENT choisi pour une copie (défaut sticky)
+    // Choix d'options de jeu de l'utilisateur (Options.ini + clés YAML « vulkan »/« windowed ») : pré-cochés
+    // intelligemment (analyse PC) mais TOUS modifiables. Vide = AutoTune applique les défauts sûrs.
+    [JsonPropertyName("game_options")] public Dictionary<string, string> GameOptions { get; set; } = new();
     // (m1_dir / master de sauvegarde RETIRÉ : M0 reste vierge et re-téléchargeable via Steam → il EST la source
     //  unique des copies M1/Mx. La clé JSON éventuellement présente dans d'anciennes configs est simplement ignorée.)
     // Lien de téléchargement DIRECT de GenLauncher (ModDB). Direct = facile pour un utilisateur non technique ;
