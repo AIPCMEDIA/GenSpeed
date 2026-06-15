@@ -585,30 +585,22 @@ public sealed class InstallWizardWindow : Window
         _body.Children.Add(new TextBlock { Text = Loc.T("go.scope"), Foreground = B("dim"), FontSize = 11,
             FontStyle = FontStyles.Italic, TextWrapping = TextWrapping.Wrap, LineHeight = 15, Margin = new Thickness(2, 8, 0, 0) });
 
-        // Vérification « prêt pour le LAN » : un adaptateur parasite (Hyper-V 172.x, WSL, VPN) peut détourner
-        // l'IP LAN du jeu → on prévient ici et on propose de le réparer (réversible, UAC). Cf. NetFixWindow.
+        // IP réseau du jeu (comme Options → Réseau du jeu) : on montre l'IP LAN actuellement choisie et on propose
+        // de la sélectionner. Pour le LAN, il faut le 192.168.x (sinon le jeu peut prendre une 172.x Hyper-V).
         _body.Children.Add(new Border { Height = 1, Background = B("bgFrame2"), Margin = new Thickness(0, 12, 0, 8) });
-        var parasites = NetInfo.Parasites();
-        if (parasites.Count > 0)
+        string? curLanIp = MultiplayerTuning.ReadOptionValue(MultiplayerTuning.DefaultOptionsIniPath(), "IPAddress");
+        string? lanIp = NetInfo.LanIp();
+        bool lanOk = curLanIp != null && curLanIp.StartsWith("192.168.");
+        _body.Children.Add(new TextBlock
         {
-            _body.Children.Add(new TextBlock
-            {
-                Text = string.Format(Loc.T("wiz.opt.net.warn"), parasites[0].Name, parasites[0].Ipv4),
-                Foreground = B("orange"), FontWeight = FontWeights.SemiBold,
-                TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 6),
-            });
-            _body.Children.Add(MakeButton("wiz.opt.net.fix", () => { NetFixWindow.Show(this); Render(); }));
-        }
-        else
-        {
-            string? lan = NetInfo.LanIp();
-            _body.Children.Add(new TextBlock
-            {
-                Text = lan != null ? string.Format(Loc.T("wiz.opt.net.ok"), lan) : Loc.T("wiz.opt.net.nolan"),
-                Foreground = lan != null ? new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50)) : B("dim"),
-                TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 4),
-            });
-        }
+            Text = lanOk ? string.Format(Loc.T("wiz.opt.net.ok"), curLanIp)
+                 : lanIp != null ? string.Format(Loc.T("wiz.opt.net.warn"), lanIp)
+                 : Loc.T("wiz.opt.net.nolan"),
+            Foreground = lanOk ? new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x50)) : lanIp != null ? B("orange") : B("dim"),
+            FontWeight = lanOk ? FontWeights.Normal : FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap, LineHeight = 17, Margin = new Thickness(0, 0, 0, 6),
+        });
+        _body.Children.Add(MakeButton("wiz.opt.net.fix", () => { NetFixWindow.Show(this); Render(); }));
 
         var cancel = NavButton("wiz.cancel"); cancel.Click += (_, _) => Close();
         var back = NavButton("wiz.back");

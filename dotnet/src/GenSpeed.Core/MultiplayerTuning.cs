@@ -190,6 +190,23 @@ public static class MultiplayerTuning
         catch (Exception ex) { return new(false, 0, optionsIniPath, ex.Message); }
     }
 
+    /// <summary>Lit la valeur d'une clé d'Options.ini (ex. « IPAddress »), ou null si absente / fichier manquant.</summary>
+    public static string? ReadOptionValue(string optionsIniPath, string key)
+    {
+        try
+        {
+            if (!File.Exists(optionsIniPath)) return null;
+            var rx = new Regex(@"^\s*" + Regex.Escape(key) + @"\s*=\s*(.+?)\s*$", RegexOptions.IgnoreCase);
+            foreach (var l in File.ReadAllLines(optionsIniPath))
+            {
+                var m = rx.Match(l);
+                if (m.Success) return m.Groups[1].Value.Trim();
+            }
+            return null;
+        }
+        catch { return null; }
+    }
+
     /// <summary>Édite UNE clé root-level d'un GenLauncherCfg.yaml (ex. UseVulkan). N'écrit que si changement.</summary>
     public static void SetYamlKey(string yamlPath, string key, string value)
     {
