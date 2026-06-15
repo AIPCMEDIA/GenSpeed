@@ -215,7 +215,7 @@ public partial class MainWindow : Window
         Dropdown(PreviewBtn, ("preview.key", () => RunPreview("key")),
                              ("preview.full", () => RunPreview("full")),
                              ("preview.mod", () => RunPreview("mod")));
-        Dropdown(MpBtn, ("mp.replay", OnReplay));
+        Dropdown(MpBtn, ("mp.netfix", OnNetFix), ("mp.replay", OnReplay));
     }
 
     /// <summary>Attache un menu déroulant thémé (Popup de boutons) à un bouton de la barre d'outils.</summary>

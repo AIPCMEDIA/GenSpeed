@@ -177,6 +177,10 @@ public partial class MainWindow
     /// Vulkan — pré-cochés (analyse PC), tous modifiables, avec explication par option. Écrit Options.ini + YAML.</summary>
     private void OnCfgGameOptions() => GameOptionsWindow.Show(this, _config, LoadMods);
 
+    /// <summary>🌐 Multijoueur → « Réparer l'IP LAN » : détecte un adaptateur parasite (Hyper-V Default Switch en
+    /// 172.x, WSL, VPN…) qui détourne l'IP LAN du jeu, et propose de le désactiver (UAC). Réversible.</summary>
+    private void OnNetFix() => NetFixWindow.Show(this);
+
     /// <summary>Déplace PHYSIQUEMENT une install (depuis le panneau « Mes installs ») vers un autre emplacement,
     /// et « tout suit » : dossier déplacé (même volume = instantané), installs connues mises à jour, raccourci
     /// Bureau GenLauncher mis à jour (si M1), emplacement mémorisé. M1 garde le nom « GenLauncher » ; un fork garde
