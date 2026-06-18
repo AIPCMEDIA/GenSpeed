@@ -101,11 +101,13 @@
 
 ## 📸 Aperçu / Screenshots
 
-| Assistant — accueil / Assistant home | Mode avancé (tableau) / Advanced view |
+| Accueil — « ce que tu as » / Home | Vitesse / caméra / Speed & camera |
 |:---:|:---:|
-| ![Assistant](docs/screenshots/06-assistant-hub.png) | ![Avancé](docs/screenshots/01-main-eva.png) |
-| **Diagnostic mismatch** | **Thèmes / Themes** (assistant) |
-| ![Diagnostic](docs/screenshots/05-diagnostic.png) | ![USA theme](docs/screenshots/07-assistant-usa.png) ![China theme](docs/screenshots/08-assistant-china.png) |
+| ![Accueil](docs/screenshots/10-accueil.jpg) | ![Vitesse](docs/screenshots/11-vitesse-camera.jpg) |
+| **Installer un fork (catalogue auto) / Install a fork** | **Options de jeu & sync LAN / Game options & LAN sync** |
+| ![Fork](docs/screenshots/13-install.jpg) | ![Options](docs/screenshots/12-options-lan.jpg) |
+| **Thème USA — assistant / USA theme** | **Thème Chine — assistant / China theme** |
+| ![USA](docs/screenshots/07-assistant-usa.png) | ![China](docs/screenshots/08-assistant-china.png) |
 
 ---
 
