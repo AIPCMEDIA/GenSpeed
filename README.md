@@ -7,15 +7,15 @@
 **Accélère le gameplay de *Command & Conquer™ Generals – Zero Hour* (et de ses mods), même en LAN.**
 *Speed up the gameplay of C&C Generals: Zero Hour (and its mods), even in LAN.*
 
-[![Version](https://img.shields.io/badge/v2.4-BETA-orange?style=flat)](#-v24-beta--options-de-jeu--réseau--clean-install)
+[![Version](https://img.shields.io/badge/v2.5-BETA-orange?style=flat)](#-v25-beta--assistant-tout-en-un--all-in-one-assistant)
 [![Platform](https://img.shields.io/badge/Windows-10_/_11-blue?style=flat)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-8_/_WPF-512BD4?style=flat)](#)
 
 </div>
 
-> 🧪 **v2.4 est une BETA.** Elle ajoute le **sélecteur d'options de jeu en 3 étapes** (graphismes pré-réglés selon ton PC, réglages anti-mismatch synchronisables par code, **section Réseau** : IP LAN/en ligne + pare-feu) et un **assistant d'installation refait « objectif d'abord »**. Nouveau : **sauvegarde tes données avant**, et remonte tout souci via une **issue**. La v2.2 stable reste disponible dans les [Releases](../../releases).
-> *🧪 **v2.4 is a BETA.** It adds the **3-step game-options picker** (PC-aware graphics, anti-mismatch settings sharable via a short code, a **Network section**: LAN/online IP + firewall) and a **reworked "goal-first" install assistant**. New — **back up your data first** and report issues. The stable v2.2 stays in [Releases](../../releases).*
+> 🧪 **v2.5 est une BETA.** L'**assistant devient la porte d'entrée unique** : l'app démarre dessus (**splash** au lancement, puis un accueil « ce que tu as » + objectifs **en cartes cliquables**, plus de « Suivant »). Tes **mods GenLauncher** sont listés, chaque jeu/mod a son bouton **▶ Lancer**, et la **version/build** s'affiche dans l'en-tête. Fiabilité renforcée : une install sur **disque secondaire endormi ne disparaît plus**, et le suivi reflète fidèlement install/désinstall (fini les installs « fantômes »). **Sauvegarde tes données avant** et remonte tout souci via une **issue**. La v2.2 stable reste dans les [Releases](../../releases).
+> *🧪 **v2.5 is a BETA.** The **assistant becomes the single front door**: the app starts on it (**splash** at launch, then a "what you have" home + goals as **clickable cards**, no more "Next"). Your **GenLauncher mods** are listed, each game/mod has a **▶ Launch** button, and the **version/build** shows in the header. More robust: an install on a **spun-down secondary drive no longer vanishes**, and tracking mirrors install/uninstall faithfully (no more "ghost" installs). **Back up your data first** and report issues. The stable v2.2 stays in [Releases](../../releases).*
 
 > 🇫🇷 GenSpeed modifie les fichiers de données (`.ini`) du jeu/mod pour rendre les parties plus rapides : unités plus véloces, constructions/recharges plus courtes, presets de caméra. Plus un **outil de diagnostic de désync (mismatch) LAN** qui compare ton install à celle d'un ami et nomme exactement ce qui diffère.
 >
@@ -23,7 +23,24 @@
 
 ---
 
-## 🧪 v2.4 (BETA) — Options de jeu & Réseau / Game options & Network
+## 🧪 v2.5 (BETA) — Assistant tout-en-un / All-in-one assistant
+
+🇫🇷
+- 🧙 **L'assistant est la porte d'entrée** : l'app démarre dessus — **splash au lancement**, puis un **accueil conscient de l'état** (« ce que tu as » : jeu de base, hub GenLauncher + ses mods, forks). Le **mode avancé** (tableau détaillé) reste à un clic.
+- 🃏 **Tout en cartes, cliquable directement** : objectifs d'installation et choix lancés au clic (**plus de bouton « Suivant »**), un bouton **▶ Lancer** par jeu/mod, et les **actions de gestion** (vitesse/caméra, options, diagnostic, désinstaller) en cartes.
+- 🧩 **Mods GenLauncher visibles** sur l'accueil, sous leur hub, avec leur réglage vitesse/caméra s'il existe — **rafraîchis automatiquement** au retour de GenLauncher.
+- 🔖 **Version + build affichés** dans l'en-tête (tu vois d'un coup d'œil que tu lances le bon build).
+- 🛡️ **Détection & désinstallation fiabilisées** : une install sur **disque secondaire endormi** ne disparaît plus ; « désinstaller tout » **tient le suivi à jour** (fini les installs « fantômes » après suppression).
+
+🇬🇧
+- 🧙 **The assistant is the front door**: the app starts on it — **startup splash**, then a **state-aware home** ("what you have": base game, GenLauncher hub + its mods, forks). The **advanced view** (detailed table) stays one click away.
+- 🃏 **All cards, click-to-act**: install goals and choices launch on click (**no more "Next" button**), a **▶ Launch** button per game/mod, and **management actions** (speed/camera, options, diagnostic, uninstall) as cards.
+- 🧩 **GenLauncher mods shown** on the home, under their hub, with their speed/camera setting if any — **auto-refreshed** when you come back from GenLauncher.
+- 🔖 **Version + build shown** in the header (see at a glance you're running the right build).
+- 🛡️ **More reliable detection & uninstall**: an install on a **spun-down secondary drive** no longer vanishes; "uninstall everything" **keeps tracking in sync** (no more "ghost" installs after removal).
+
+<details>
+<summary>✨ v2.4 — options de jeu (3 étapes) + réseau + assistant objectif-d'abord</summary>
 
 🇫🇷
 - 🎛️ **Sélecteur d'options de jeu en 3 étapes**, tout pré-coché selon **ton PC** (analyse locale GPU + RAM, **zéro télémétrie**) et **tout modifiable**, avec une **explication par option** (FR/EN) :
@@ -40,6 +57,8 @@
   - **③ Network** — **pick the game's IP** for **LAN** and for **online** (like in-game Options → Network, **pre-set to your 192.168.x** → no more 172.x Hyper-V IP that makes you invisible on LAN), the **send delay**, and an **"allow the game through Windows Firewall"** checkbox (Private/Public).
 - 🧙 **Reworked "goal-first" install assistant**: it first asks **what you want** (🎮 just play · 🧩 play with mods (GenLauncher hub) · 📦 standalone fork), in **plain words**; then secures the base game, sets the options, done. **Windowed game initialization** (no more crash if you click elsewhere) with a **reliable init check** (waits for `Options.ini` to be written).
 - 🔗 **Editable download links** (Config menu): fix a URL without recompiling; built-in HTTP check.
+
+</details>
 
 <details>
 <summary>✨ v2.3 — assistant d'installation propre (M0/M1/Mx) + calage multi automatique</summary>
@@ -231,7 +250,9 @@ Le code C# (.NET 8 / WPF) est dans [`dotnet/`](dotnet/). / The C# code (.NET 8 /
 ```powershell
 cd dotnet
 dotnet run --project src/GenSpeed.App      # lancer en dev / run in dev
-.\publish.ps1                              # générer l'exe autonome / build the standalone exe
+# générer l'exe autonome (single-file compressé) / build the standalone exe:
+dotnet publish src/GenSpeed.App -c Release -r win-x64 --self-contained `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
 ```
 
 ---
@@ -263,6 +284,13 @@ MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage,
 ---
 
 ## 📝 Changelog
+
+### v2.5 (beta)
+- 🧙 **Assistant = porte d'entrée unique** : l'app démarre dessus (fenêtre non-modale), **splash logo** au lancement ; **mode avancé** (tableau) à un clic, retour assistant via le bouton dédié. En-tête affichant **version + horodatage du build**
+- 🃏 **Accueil tout en cartes** : objectifs d'install et choix (jeu de base / hub GenLauncher / fork / installation complète) **lancés au clic** — suppression des boutons « Suivant » et des sélecteurs ; carte « Installer ici » sur la destination, cartes « Continuer/Terminer/Copier ». Composant vitesse/caméra partagé (mêmes blocs en mode avancé et dans l'assistant), tableau à gauche / réglages à droite
+- 🧩 **Accueil conscient des mods** : « ce que tu as » liste les installs (JSON = source de vérité) **et leurs mods GenLauncher** (dossiers GLM contenant des `.gib`), avec le réglage vitesse/caméra mémorisé ; **bouton ▶ Lancer par install** ; **rafraîchissement auto** au retour de focus (mod installé/désinstallé dans GenLauncher visible directement)
+- 🛡️ **Fiabilité détection/désinstall** : une install sur **disque secondaire endormi** ne disparaît plus (plus de purge au démarrage sur faux négatif `Directory.Exists` ; réveil anticipé des disques pendant le splash ; affichage « confiance au JSON »). **« Désinstaller tout » tient le JSON à jour** (`ForgetUninstalled` : retire known_installs + install_forks + états par chemin, puis persiste) → fini les installs **fantômes**. Un fork installé juste après un wipe est bien persisté
+- 🔧 Divers : « ✕ Quitter » sur l'accueil (au lieu de fermer en mode avancé) ; fermer l'assistant quitte GenSpeed ; nettoyage de code mort
 
 ### v2.4 (beta)
 - 🎛️ **Sélecteur d'options de jeu en 3 étapes** (① Libres / ② À aligner / ③ Réseau), **pré-coché selon le PC** (`PcInfo` : GPU via EnumDisplayDevices + RAM via GlobalMemoryStatusEx, 100 % local), **tout modifiable**, **une explication bilingue par option**. ~20 réglages couverts (résolution, souris, LOD, textures, anticrénelage, ombres, **ScrollFactor**, double-clic attaque-déplacement, riposte auto…)

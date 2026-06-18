@@ -22,18 +22,26 @@ public partial class MainWindow
     private async void OnApply(object sender, RoutedEventArgs e) => await RunPatch("apply");
     private async void OnRestore(object sender, RoutedEventArgs e) => await RunPatch("restore");
 
-    private async Task RunPatch(string mode)
+    private async Task RunPatch(string mode, Window? owner = null)
     {
+        owner ??= this;   // fenêtre propriétaire des pop-ups (assistant si déclenché depuis le hub, sinon MainWindow)
         var rows = _rows.Where(r => r.Sel && r.Target != null).ToList();
         if (rows.Count == 0) { Log(Loc.T("log.nosel")); return; }
+
+        // Patcher/dépatcher = action « je veux que ce soit enregistré » → on réactive la sauvegarde au cas où
+        // elle aurait été coupée (Suppressed resté true après un wipe incluant la config GenSpeed). Sinon le
+        // réglage vitesse/caméra ne serait pas persisté → affiché « patché (réglage inconnu) » au redémarrage.
+        ConfigStore.Suppressed = false;
 
         // Dépatch : ne garder que les mods réellement patchés (présence d'un .speedbak).
         if (mode == "restore")
         {
-            var patchedRows = rows.Where(r => r.Target!.Files.Any(fp => File.Exists(fp + ".speedbak"))).ToList();
+            // Patché = présence d'un .speedbak (archives/INI) OU, pour un fork (.pak), des loose override encore là.
+            var patchedRows = rows.Where(r => r.Target!.Files.Any(fp => File.Exists(fp + ".speedbak"))
+                || (r.Target!.Type == TargetType.Pak && r.PatchedFiles.Keys.Any(File.Exists))).ToList();
             if (patchedRows.Count == 0)
             {
-                Dialogs.Info(this, "GenSpeed", Loc.T("restore.nothing"));
+                Dialogs.Info(owner, "GenSpeed", Loc.T("restore.nothing"));
                 Log(Loc.T("restore.nothing"));
                 return;
             }
@@ -41,15 +49,15 @@ public partial class MainWindow
         }
 
         if (mode == "apply" &&
-            !Dialogs.ConfirmApply(this, rows.Select(r => $"{FriendlyLabel(r.Mod)}  ({InstallLabel(r.InstallDir)})"),
-                                  BuildChangeSummary(),
+            !Dialogs.ConfirmApply(owner, rows.Select(r => $"{FriendlyLabel(r.Mod)}  ({InstallLabel(r.InstallDir)})"),
+                                  SpeedCam.BuildChangeSummary(),
                                   string.Join(" · ", rows.Select(r => r.InstallDir).Distinct(StringComparer.OrdinalIgnoreCase))))
             return;
 
         // Multi-installs : un sous-job par install, UNE seule élévation UAC pour le tout.
         var job = new PatchJob
         {
-            Mode = mode, Factors = ReadFactors(), Cam = ReadCam(),
+            Mode = mode, Factors = SpeedCam.ReadFactors(), Cam = SpeedCam.ReadCam(),
             ResultPath = Path.Combine(Path.GetTempPath(), $"genspeed_result_{Guid.NewGuid():N}.json"),
         };
         foreach (var g in rows.GroupBy(r => r.InstallDir, StringComparer.OrdinalIgnoreCase))
@@ -68,7 +76,7 @@ public partial class MainWindow
         ApplyBtn.IsEnabled = RestoreBtn.IsEnabled = false;
         Log(Loc.T(mode == "apply" ? "log.applying" : "log.restoring"));
         if (mode == "apply")
-            Log($"   ⚡ {SpeedLabel.Text}  ·  📷 {CamLabel.Text}  →  {string.Join(", ", rows.Select(r => FriendlyLabel(r.Mod)))}");
+            Log($"   ⚡ {SpeedCam.SpeedLabelText}  ·  📷 {SpeedCam.CamLabelText}  →  {string.Join(", ", rows.Select(r => FriendlyLabel(r.Mod)))}");
         try
         {
             int code = await RunElevated(mode == "apply" ? "--apply" : "--restore", jobPath);
@@ -78,16 +86,16 @@ public partial class MainWindow
             if (res == null) { Log("⚠ " + Loc.T("log.noresult")); return; }
             foreach (var err in res.Errors) Log("⚠ " + err);
             bool camApplied = mode == "apply" &&
-                ReadCam().Any(kv => kv.Key != "CameraYaw" && !string.IsNullOrEmpty(kv.Value));
+                SpeedCam.ReadCam().Any(kv => kv.Key != "CameraYaw" && !string.IsNullOrEmpty(kv.Value));
             foreach (var r in rows)
             {
                 if (!res.Patched.TryGetValue(r.StateKey, out var pf)) continue;
                 r.PatchedFiles = pf;
                 if (mode == "apply")
                 {
-                    r.Patched = $"{pf.Count}/{r.Target!.ArchiveCount}";
-                    r.Vitesse = SpeedLabel.Text;
-                    r.Camera = camApplied ? (_camIdx > 0 ? CamLabel.Text : Loc.T("cam.custom")) : Loc.T("orig");
+                    r.Patched = r.Target!.Type == TargetType.Pak ? pf.Count.ToString() : $"{pf.Count}/{r.Target!.ArchiveCount}";
+                    r.Vitesse = SpeedCam.SpeedLabelText;
+                    r.Camera = camApplied ? (SpeedCam.CamIdx > 0 ? SpeedCam.CamLabelText : Loc.T("cam.custom")) : Loc.T("orig");
                     _config.PatchedState[r.StateKey] = new PatchedInfo { Speed = r.Vitesse, Camera = r.Camera, Files = pf };
                     Log($"   • {FriendlyLabel(r.Mod)} : {pf.Count}/{r.Target!.ArchiveCount} " + Loc.T("log.filespatched"));
                 }
@@ -112,11 +120,11 @@ public partial class MainWindow
                 var lan = await Task.Run(() =>
                 {
                     var files = ModDetection.BaseInstallFiles(firstDir).ToList();
-                    foreach (var r in inDir) files.AddRange(r.Target!.Files);
+                    foreach (var r in inDir) files.AddRange(LanFilesFor(r.Target!));
                     return Hashing.InstallHash(firstDir, files);
                 });
                 LanCodeLabel.Text = lan.Hash;
-                Dialogs.ApplyResult(this, Loc.T("result.body"), lan.Hash, LaunchGenLauncher);
+                Dialogs.ApplyResult(owner, Loc.T("result.body"), lan.Hash, LaunchGenLauncher);
             }
         }
         finally
@@ -141,41 +149,71 @@ public partial class MainWindow
         catch (System.ComponentModel.Win32Exception) { return -1; }
     });
 
-    /// <summary>Résumé « joueur » de ce que le patch va changer (par catégorie + caméra).</summary>
-    private List<string> BuildChangeSummary()
+    /// <summary>HUB vitesse/caméra (assistant) avec des valeurs BRUTES (depuis l'instance du composant de l'assistant) :
+    /// on les pousse dans le composant principal (que RunPatch consomme), puis on patche les lignes COCHÉES dans le
+    /// tableau de l'assistant (l'utilisateur choisit lui-même les cibles — plus de « tout cocher » automatique).</summary>
+    internal void ApplySpeedCamRawAll(Window owner, IReadOnlyDictionary<string, double> factors,
+        IReadOnlyDictionary<string, string?> cam)
     {
-        var lines = new List<string>();
-        foreach (var (key, _, _) in Cats)
+        SpeedCam.SetFactors(factors);
+        SpeedCam.SetCam(cam);
+        _ = RunPatch("apply", owner);
+    }
+
+    /// <summary>Construit un tableau des jeux/mods (cases à cocher + vitesse/caméra) que l'ASSISTANT insère dans sa page
+    /// vitesse/caméra. Vue distincte mais MÊMES données (_rows) que la fenêtre principale : cocher ici coche partout.
+    /// MainWindow le construit car le type de ligne (ModRow) lui est privé.</summary>
+    internal FrameworkElement BuildAssistantModTable()
+    {
+        RefreshModsIfChanged();   // _rows à jour (un fork/mod a pu être installé depuis le démarrage)
+        var grid = new DataGrid
         {
-            if (_catBoxes.TryGetValue(key, out var box) &&
-                double.TryParse(box.Text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var f) &&
-                Math.Abs(f - 1) > 0.001)
-                lines.Add(string.Format(Loc.T("fx." + key), Fmt(f)));
-        }
-        var cam = ReadCam();
-        if (cam.Any(kv => kv.Key != "CameraYaw" && !string.IsNullOrEmpty(kv.Value)))
-            lines.Add(string.Format(Loc.T("fx.camera"), _camIdx > 0 ? CamLabel.Text : Loc.T("cam.custom")));
-        if (lines.Count == 0) lines.Add(Loc.T("fx.none"));
-        return lines;
-    }
+            AutoGenerateColumns = false,
+            CanUserAddRows = false,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            SelectionMode = DataGridSelectionMode.Single,
+            GridLinesVisibility = DataGridGridLinesVisibility.None,
+            BorderThickness = new Thickness(0),
+            Background = (Brush)FindResource("bgInput"),
+            Foreground = (Brush)FindResource("fg"),
+            Margin = new Thickness(0),
+        };
+        ScrollViewer.SetVerticalScrollBarVisibility(grid, ScrollBarVisibility.Auto);
 
-    private Dictionary<string, double> ReadFactors()
-    {
-        var d = new Dictionary<string, double>();
-        foreach (var (key, _, _) in Cats)
-            if (_catBoxes.TryGetValue(key, out var box) &&
-                double.TryParse(box.Text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var v))
-                d[key] = v;
-        return d;
-    }
+        // Colonne case à cocher : vraie CheckBox dans un template → toggle au CLIC SIMPLE (le DataGridCheckBoxColumn
+        // natif exige un double-clic). En-tête = CheckBox « tout cocher / tout décocher » (comme le mode avancé).
+        var selCol = new DataGridTemplateColumn { Width = 40, CanUserSort = false, CanUserResize = false };
+        var cbCell = new FrameworkElementFactory(typeof(CheckBox));
+        cbCell.SetBinding(CheckBox.IsCheckedProperty, new System.Windows.Data.Binding(nameof(ModRow.Sel))
+            { Mode = System.Windows.Data.BindingMode.TwoWay, UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.PropertyChanged });
+        cbCell.SetValue(CheckBox.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        cbCell.SetValue(CheckBox.VerticalAlignmentProperty, VerticalAlignment.Center);
+        selCol.CellTemplate = new DataTemplate { VisualTree = cbCell };
+        var headerCb = new CheckBox { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = Loc.T("sel.all.tip") };
+        headerCb.Click += (s, _) => { bool check = (s as CheckBox)?.IsChecked == true; foreach (var r in _rows) r.Sel = check; };
+        selCol.Header = headerCb;
+        grid.Columns.Add(selCol);
+        grid.Columns.Add(new DataGridTextColumn { Header = Loc.T("col.mod"), Binding = new System.Windows.Data.Binding(nameof(ModRow.Display)),
+            Width = new DataGridLength(1, DataGridLengthUnitType.Star), IsReadOnly = true });
+        grid.Columns.Add(new DataGridTextColumn { Header = Loc.T("col.speed"), Binding = new System.Windows.Data.Binding(nameof(ModRow.Vitesse)),
+            Width = 90, IsReadOnly = true });
+        grid.Columns.Add(new DataGridTextColumn { Header = Loc.T("col.camera"), Binding = new System.Windows.Data.Binding(nameof(ModRow.Camera)),
+            Width = 100, IsReadOnly = true });
 
-    private Dictionary<string, string?> ReadCam()
-    {
-        var d = new Dictionary<string, string?> { ["CameraYaw"] = "" };
-        foreach (var (var, _) in CamVars)
-            if (_camControls.TryGetValue(var, out var c) && c is TextBox tb) d[var] = tb.Text.Trim();
-        if (_camControls.TryGetValue("DrawEntireTerrain", out var cc) && cc is ComboBox cb)
-            d["DrawEntireTerrain"] = cb.SelectedItem as string ?? "";
-        return d;
+        // Vue groupée par installation — distincte de celle de ModGrid mais sur la même ObservableCollection.
+        var view = new System.Windows.Data.ListCollectionView(_rows);
+        view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(ModRow.InstallName)));
+        grid.ItemsSource = view;
+
+        // En-tête de groupe (nom de l'installation), couleur accent.
+        var header = new FrameworkElementFactory(typeof(TextBlock));
+        header.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding("Name"));
+        header.SetValue(TextBlock.ForegroundProperty, FindResource("accent"));
+        header.SetValue(TextBlock.FontWeightProperty, FontWeights.Bold);
+        header.SetValue(TextBlock.MarginProperty, new Thickness(4, 6, 0, 2));
+        grid.GroupStyle.Add(new GroupStyle { HeaderTemplate = new DataTemplate { VisualTree = header } });
+
+        return grid;
     }
 }

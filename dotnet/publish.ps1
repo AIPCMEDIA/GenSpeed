@@ -24,7 +24,7 @@ if (Test-Path $exe) {
     Write-Host "Taille : $size  (autonome, aucun .NET a installer chez l'ami)" -ForegroundColor Green
 
     # ── Paquet de distribution (dist/) : exe + LICENSE + LISEZMOI, zippes pour GitHub Releases. ──
-    $ver  = "v2.3-beta"
+    $ver  = "v2.5-beta"
     $dist = "dist"
     $stage = Join-Path $dist "GenSpeed-$ver"
     if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }

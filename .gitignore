@@ -34,3 +34,6 @@ desktop.ini
 .DS_Store
 .idea/
 .vscode/
+
+# Captures de debug (jamais versionnées)
+genspeed_capture*.png

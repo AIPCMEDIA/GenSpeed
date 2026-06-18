@@ -50,22 +50,38 @@ public partial class MainWindow
     }
 
     // ===== Code LAN =====
-    private async void OnComputeLanCode(object sender, RoutedEventArgs e)
+    // Bouton : recalcule + journalise. (Le calcul auto à l'ouverture / à chaque modif passe par RefreshLanCode.)
+    private async void OnComputeLanCode(object sender, RoutedEventArgs e) => await RefreshLanCode(log: true);
+
+    /// <summary>Met à jour le code LAN affiché (base + mods cochés de la 1re install cochée). Appelé AUTOMATIQUEMENT
+    /// à l'ouverture et à chaque modif (sélection, patch). Mis en CACHE par signature de fichiers → instantané si
+    /// rien n'a changé. Affiche « — » si aucun mod coché, « … » pendant un calcul à froid.</summary>
+    private async Task RefreshLanCode(bool log = false)
     {
         var targets = CheckedTargets();
-        string? dir = targets.FirstOrDefault()?.InstallDir ?? _installs.FirstOrDefault();
-        if (dir == null) { Log(Loc.T("log.nogame")); return; }
-        // Le code LAN est PAR install : base + mods cochés de cette install.
+        if (targets.Count == 0) { LanCodeLabel.Text = "—"; return; }
+        string? dir = targets[0].InstallDir ?? _installs.FirstOrDefault();
+        if (dir == null) { LanCodeLabel.Text = "—"; if (log) Log(Loc.T("log.nogame")); return; }
         var inDir = targets.Where(t => string.Equals(t.InstallDir, dir, StringComparison.OrdinalIgnoreCase)).ToList();
-        Log(Loc.T("lan.computing"));
-        var r = await Task.Run(() =>
+
+        var files = ModDetection.BaseInstallFiles(dir).ToList();
+        foreach (var t in inDir) files.AddRange(LanFilesFor(t));
+        // Clé de cache combinée (base + mods cochés), insensible à la casse via Normalize.
+        string key = dir + "::LAN::" + string.Join("+", inDir.Select(t => t.Label).OrderBy(x => x, StringComparer.Ordinal));
+        var sig = BuildSig(files);
+        if (_config.HashCache.TryGetValue(key, out var ce) && SigEqual(ce.Sig, sig))
         {
-            var files = ModDetection.BaseInstallFiles(dir).ToList();
-            foreach (var t in inDir) files.AddRange(t.Files);
-            return Hashing.InstallHash(dir, files);
-        });
+            LanCodeLabel.Text = ce.Hash;                          // cache valide → instantané
+            if (log) Log(string.Format(Loc.T("lan.done"), ce.Hash, ce.Sig.Count, 0));
+            return;
+        }
+        LanCodeLabel.Text = "…";
+        if (log) Log(Loc.T("lan.computing"));
+        var r = await Task.Run(() => Hashing.InstallHash(dir, files));
+        _config.HashCache[key] = new HashCacheEntry { Hash = r.Hash, Sig = sig };
+        _hashCacheDirty = true;
         LanCodeLabel.Text = r.Hash;
-        Log(string.Format(Loc.T("lan.done"), r.Hash, r.FileCount, r.TotalBytes / 1048576));
+        if (log) Log(string.Format(Loc.T("lan.done"), r.Hash, r.FileCount, r.TotalBytes / 1048576));
     }
 
     /// <summary>Vérification des fichiers (statut known-good neutre + lien VirusTotal) sur toutes les installs.</summary>
@@ -73,21 +89,25 @@ public partial class MainWindow
 
     /// <summary>L'empreinte mismatch est PAR install (c'est l'install qu'on joue qui compte) :
     /// une seule → directe ; plusieurs → on demande laquelle.</summary>
-    private string? PickInstall()
+    private string? PickInstall(System.Windows.Window? owner = null)
     {
+        owner ??= this;
         if (_installs.Count == 0) { Log(Loc.T("log.nogame")); return null; }
         if (_installs.Count == 1) return _installs[0];
         var options = _installs.Select(d => $"{InstallLabel(d)}   ·   {InstallType(d)}").ToList();
-        string? pick = Dialogs.Choose(this, Loc.T("diag.pick.title"), Loc.T("diag.pick.msg"), options);
+        string? pick = Dialogs.Choose(owner, Loc.T("diag.pick.title"), Loc.T("diag.pick.msg"), options);
         if (pick == null) return null;
         int idx = options.IndexOf(pick);
         return idx >= 0 ? _installs[idx] : null;
     }
 
     // ===== Diagnostic mismatch =====
-    private async void OnDiagExport()
+    private void OnDiagExport() { _ = DiagExportFrom(this); }
+
+    /// <summary>Export de l'empreinte mismatch. owner = fenêtre des pop-ups (l'assistant peut la posséder).</summary>
+    private async System.Threading.Tasks.Task DiagExportFrom(System.Windows.Window owner)
     {
-        string? dir = PickInstall();
+        string? dir = PickInstall(owner);
         if (dir == null) return;
         var modTargets = _targets.Where(t => t.Type == TargetType.Gib
                                           && string.Equals(t.InstallDir, dir, StringComparison.OrdinalIgnoreCase)).ToList();

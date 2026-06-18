@@ -21,14 +21,7 @@ public partial class MainWindow
     // ===== Menu Config =====
     private void OnCfgReset()
     {
-        SpeedSlider.Value = Math.Min(2, Speeds.Count - 1);
-        ApplySpeedPreset(SpeedIdx);
-        int camInit = _camNames.IndexOf("Cam haute");
-        if (camInit < 0) camInit = _camNames.Count > 1 ? 1 : 0;
-        _camIdx = camInit;
-        if (CamLabel != null) CamLabel.Text = camInit == 0 ? Loc.T("cam.default") : _camNames[camInit];
-        CamSlider.Value = camInit;
-        ApplyCamPreset(camInit);
+        SpeedCam.ResetToDefaults();
         Log(Loc.T("cfg.reset.done"));
     }
 
@@ -51,8 +44,7 @@ public partial class MainWindow
         _config.SpeedPresets = c.SpeedPresets;
         _config.CameraPresets = c.CameraPresets;
         ConfigStore.Save(_config);
-        SetupSpeedSlider();
-        SetupCamSlider();
+        SpeedCam.ReloadPresets();
         Log(string.Format(Loc.T("cfg.imported"), dlg.FileName));
     }
 
@@ -93,8 +85,19 @@ public partial class MainWindow
     private static bool IsForkExe(string file)
         => IsLauncherCandidate(file) && Path.GetFileName(file).ToLowerInvariant() != "genlauncher.exe";
 
-    private static string InstallType(string dir)
+    /// <summary>Nom affiché du fork installé dans ce dossier (identité enregistrée à l'install), ou null.</summary>
+    private string? ForkNameFor(string dir)
     {
+        if (dir != null && _config.InstallForks.TryGetValue(dir, out var id) && !string.IsNullOrWhiteSpace(id))
+            return GenSpeed.Core.ForkCatalog.Find(_config.Forks, id)?.Name ?? id;
+        return null;
+    }
+
+    private string InstallType(string dir)
+    {
+        // 0) Identité de fork explicite enregistrée à l'install → nom du fork (« 🔧 Reborn Omega »).
+        var forkName = ForkNameFor(dir);
+        if (forkName != null) return "🔧 " + forkName;
         // 1) Fork = exe de jeu propre au mod présent à la racine (signal fiable, indépendant du nom du dossier).
         try
         {

@@ -75,6 +75,27 @@ public static class InstallDiscovery
         return steamBase;
     }
 
+    /// <summary>Liste pour l'AFFICHAGE (« ce que tu as ») : les installs ENREGISTRÉES (known = JSON, source de
+    /// vérité) prises TELLES QUELLES — sans les re-filtrer par Directory.Exists — PLUS l'auto-découverte live
+    /// Steam/EA. Pourquoi : un disque secondaire endormi (ex. G:) répond « dossier inexistant » au tout premier
+    /// accès → filtrer ici ferait « disparaître » une install enregistrée pourtant bien présente. On fait donc
+    /// confiance au JSON : ce qui a été installé reste affiché jusqu'à une désinstallation EXPLICITE.</summary>
+    public static List<string> DiscoverForDisplay(IEnumerable<string>? known)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var outp = new List<string>();
+        void Add(string? dir)
+        {
+            if (string.IsNullOrWhiteSpace(dir)) return;
+            string norm;
+            try { norm = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dir)); } catch { return; }
+            if (seen.Add(norm)) outp.Add(norm);
+        }
+        foreach (var d in DiscoverAll(null)) Add(d);   // Steam/EA live (disques système, toujours dispo)
+        if (known != null) foreach (var p in known) Add(p);   // JSON = vérité (inclus même disque endormi)
+        return outp;
+    }
+
     /// <summary>Vrai si le dossier contient un exe du jeu (generals.exe / GeneralsZH.exe / game.dat).</summary>
     private static bool HasGameExe(string dir)
     {

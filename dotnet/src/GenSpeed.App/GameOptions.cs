@@ -62,7 +62,7 @@ internal static class GameOptions
             ["UseShadowVolumes"] = yn(eff), ["UseShadowDecals"] = yn(eff), ["UseCloudMap"] = yn(eff),
             ["UseLightMap"] = yn(eff), ["BuildingOcclusion"] = yn(eff),
             ["HeatEffects"] = "no", ["ExtraAnimations"] = "no", ["ShowTrees"] = "no", ["ShowSoftWaterEdge"] = "no",
-            ["DynamicLOD"] = "no", ["SendDelay"] = "yes", ["MaxParticleCount"] = "1000",
+            ["DynamicLOD"] = "no", ["SendDelay"] = "yes", ["MaxParticleCount"] = "100",   // 100 = sûr (testé : 1000 → mismatch avec RotR)
             ["UseVulkan"] = "no",
         };
     }

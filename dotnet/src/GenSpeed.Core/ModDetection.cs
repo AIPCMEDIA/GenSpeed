@@ -3,7 +3,7 @@ using System.Text;
 
 namespace GenSpeed.Core;
 
-public enum TargetType { Big, Ini, Gib }
+public enum TargetType { Big, Ini, Gib, Pak }
 
 /// <summary>Une cible patchable : Vanilla, overrides Data/INI, ou un mod (.gib).</summary>
 public sealed class Target
@@ -130,10 +130,39 @@ public static class ModDetection
         foreach (var d in subs) yield return d;
     }
 
-    /// <summary>Détecte toutes les cibles : Vanilla (.big), Data/INI, et les mods GLM (.gib).</summary>
+    /// <summary>Label de la cible « données du fork » (archives .pak). Stable → clé d'état persistante.</summary>
+    public const string PakTargetLabel = "🔧 Données du fork (.pak)";
+
+    /// <summary>Archives .pak (format BIGF) contenant des .ini, dans le dossier d'install ou un sous-dossier direct
+    /// (ex. RebornOmegaData\). SEULS les forks recompilés en ont → signal fiable et exclusif d'install de fork.</summary>
+    public static List<string> FindPatchablePaks(string gameDir)
+    {
+        var outp = new List<string>();
+        void Scan(string dir)
+        {
+            try { foreach (var f in Directory.EnumerateFiles(dir, "*.pak")) if (ArchiveHasIni(f)) outp.Add(f); }
+            catch { }
+        }
+        Scan(gameDir);
+        try { foreach (var sub in Directory.EnumerateDirectories(gameDir)) Scan(sub); } catch { }
+        outp.Sort(StringComparer.Ordinal);
+        return outp;
+    }
+
+    /// <summary>Détecte toutes les cibles : Vanilla (.big), Data/INI, mods GLM (.gib). Pour un FORK (présence de
+    /// .pak patchables), on émet UNIQUEMENT la cible « données du fork » (.pak) : ses INI sont la vraie source, et
+    /// patcher les .big vanilla résiduels de la copie M0 n'aurait aucun effet (le .pak les surcharge).</summary>
     public static List<Target> DetectTargets(string gameDir)
     {
         var targets = new List<Target>();
+
+        // FORK (.pak) : une seule cible, les données du fork. Le patch se fait en LOOSE (override), pas dans le .pak.
+        var paks = FindPatchablePaks(gameDir);
+        if (paks.Count > 0)
+        {
+            targets.Add(new Target { Label = PakTargetLabel, Type = TargetType.Pak, Files = paks, InstallDir = gameDir });
+            return targets;
+        }
 
         var bigFiles = BaseInstallFiles(gameDir)
             .Where(f => f.EndsWith(".big", StringComparison.OrdinalIgnoreCase)

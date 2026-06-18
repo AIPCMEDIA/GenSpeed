@@ -97,6 +97,62 @@ public static class Patcher
         return res;
     }
 
+    /// <summary>Patch d'une cible FORK (.pak) par OVERLAY LOOSE : on extrait les .ini du .pak (source PRISTINE,
+    /// jamais modifiée), on les scale/règle la caméra, et on écrit le résultat en LOOSE dans Data\INI — que le
+    /// moteur SAGE charge PAR-DESSUS l'archive. Avantages : aucune réécriture des centaines de Mo du .pak, et
+    /// re-patch toujours sûr (on repart du .pak pristine à chaque fois). Le « backup » = ne rien écrire / supprimer
+    /// les loose (cf. <see cref="RestorePakLoose"/>). <paramref name="prevLoose"/> = loose du patch précédent à
+    /// nettoyer d'abord (sinon un ancien override resterait si la nouvelle valeur ne change plus ce fichier).</summary>
+    public static PatchOutcome PatchPakLoose(Target t, IReadOnlyDictionary<string, double> factors,
+        IReadOnlyDictionary<string, string?>? cam, IEnumerable<string> prevLoose)
+    {
+        var res = new PatchOutcome();
+        DeleteLoose(prevLoose);                                  // repart d'un état propre
+        var camFork = ForkCam(cam);                             // jamais de pleine-carte sur un fork (FPS)
+        foreach (var pak in t.Files)
+        {
+            List<BigEntry> inis;
+            try { inis = BigArchive.ReadIniEntries(pak); }
+            catch (BigFileException) { res.Skipped++; continue; }
+            foreach (var e in inis)
+            {
+                string orig = Latin1.GetString(e.Data);
+                string np = IniScaler.ApplyText(orig, factors, camFork);
+                if (np == orig) continue;
+                string loose = Path.Combine(t.InstallDir, e.Name);
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(loose)!);
+                    File.WriteAllBytes(loose, Latin1.GetBytes(np));
+                    res.PatchedFiles[loose] = Hashing.FileSha256(loose)!;
+                }
+                catch { res.Skipped++; }
+            }
+        }
+        return res;
+    }
+
+    /// <summary>Dépatch d'un fork (.pak) : supprime les fichiers loose écrits par le patch → le moteur relit
+    /// l'archive d'origine. Réversible à 100 %, le .pak n'a jamais été touché.</summary>
+    public static void RestorePakLoose(IEnumerable<string> looseFiles) => DeleteLoose(looseFiles);
+
+    private static void DeleteLoose(IEnumerable<string> files)
+    {
+        foreach (var f in files)
+            try { if (File.Exists(f)) File.Delete(f); } catch { }
+    }
+
+    /// <summary>Copie de la caméra forçant DrawEntireTerrain=No DÈS qu'une caméra est réglée : un fork tourne sur
+    /// le moteur recompilé lourd, où le rendu pleine-carte écroule les FPS (cause du « jeu ralenti »).</summary>
+    private static IReadOnlyDictionary<string, string?>? ForkCam(IReadOnlyDictionary<string, string?>? cam)
+    {
+        if (cam == null) return null;
+        var d = new Dictionary<string, string?>(cam);
+        bool camSet = d.Any(kv => kv.Key is not ("DrawEntireTerrain" or "CameraYaw") && !string.IsNullOrEmpty(kv.Value));
+        if (camSet) d["DrawEntireTerrain"] = "No";
+        return d;
+    }
+
     /// <summary>Classe les fichiers d'une cible : restaurables vs backup périmé (stale).</summary>
     public static (List<string> ToRestore, List<string> Stale) ClassifyRestore(
         Target t, IReadOnlyDictionary<string, string>? expected)

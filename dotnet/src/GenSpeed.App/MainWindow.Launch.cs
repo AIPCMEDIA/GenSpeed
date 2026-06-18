@@ -37,6 +37,21 @@ public partial class MainWindow
         catch { return new List<string>(); }
     }
 
+    /// <summary>Candidats de lancement en tenant compte d'un fork : certains forks réutilisent le nom
+    /// « generals.exe » (exclu par défaut comme moteur). Pour une install de fork enregistrée, on inclut donc
+    /// l'exe de jeu — sinon la liste serait vide et le lancement impossible.</summary>
+    private List<string> LaunchCandidatesFor(string dir)
+    {
+        var cands = LaunchCandidates(dir);
+        if (ForkNameFor(dir) != null)
+        {
+            var game = InstallManager.FindGameExe(dir);
+            if (game != null && !cands.Any(c => string.Equals(c, game, StringComparison.OrdinalIgnoreCase)))
+                cands.Insert(0, game);
+        }
+        return cands;
+    }
+
     /// <summary>Install à lancer : celle du PREMIER mod coché, sinon la première découverte.</summary>
     private string? LaunchDir()
     {
@@ -59,7 +74,7 @@ public partial class MainWindow
         }
         if (exe == null)
         {
-            var cands = LaunchCandidates(dir);
+            var cands = LaunchCandidatesFor(dir);
             if (cands.Count == 0) { Dialogs.Info(this, "GenSpeed", Loc.T("genl.notfound")); Log(Loc.T("genl.notfound")); return; }
             if (cands.Count == 1) exe = cands[0];
             else
@@ -80,6 +95,48 @@ public partial class MainWindow
         catch (System.ComponentModel.Win32Exception) { Log(Loc.T("genl.cancel")); }
     }
 
+    /// <summary>HUB (assistant) : sélectionne une install puis lance son exe. owner = fenêtre des pop-ups (l'assistant).</summary>
+    private void LaunchPickFrom(System.Windows.Window owner)
+    {
+        var installs = _installs;
+        if (installs.Count == 0) { Dialogs.Info(owner, "GenSpeed", Loc.T("log.nogame")); return; }
+        string? dir;
+        if (installs.Count == 1) dir = installs[0];
+        else
+        {
+            var opts = installs.Select(d => $"{InstallLabel(d)}   ·   {InstallType(d)}").ToList();
+            string? pick = Dialogs.Choose(owner, Loc.T("launch.pickinst.title"), Loc.T("launch.pickinst.msg"), opts);
+            if (pick == null) return;
+            int idx = opts.IndexOf(pick); dir = idx >= 0 ? installs[idx] : null;
+        }
+        if (dir == null) return;
+        LaunchInstallDir(owner, dir);
+    }
+
+    /// <summary>HUB (assistant) : lance l'exe d'une install PRÉCISE (boutons « Lancer » par jeu/mod). Exe unique →
+    /// direct ; sinon on demande lequel. owner = fenêtre des pop-ups.</summary>
+    internal void LaunchInstallDir(System.Windows.Window owner, string dir)
+    {
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) { Dialogs.Info(owner, "GenSpeed", Loc.T("log.nogame")); return; }
+        var cands = LaunchCandidatesFor(dir);
+        if (cands.Count == 0) { Dialogs.Info(owner, "GenSpeed", Loc.T("genl.notfound")); return; }
+        string exe;
+        if (cands.Count == 1) exe = cands[0];
+        else
+        {
+            string? p = Dialogs.Choose(owner, Loc.T("launch.pick.title"), Loc.T("launch.pick.msg"),
+                                       cands.Select(c => Path.GetFileName(c)!).ToList());
+            if (p == null) return;
+            exe = Path.Combine(dir, p);
+        }
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = exe, WorkingDirectory = dir, UseShellExecute = true, Verb = "runas" });
+            Log(string.Format(Loc.T("launch.started"), Path.GetFileName(exe)));
+        }
+        catch (System.ComponentModel.Win32Exception) { Log(Loc.T("genl.cancel")); }
+    }
+
     /// <summary>Clé du lanceur mémorisé : dossier d'install + mod coché (le 1er). Le bon lanceur dépend du mod joué.</summary>
     private string LaunchKey(string dir)
     {
@@ -92,7 +149,7 @@ public partial class MainWindow
     {
         string? dir = LaunchDir();
         if (dir == null) { Log(Loc.T("log.nogame")); return; }
-        var cands = LaunchCandidates(dir);
+        var cands = LaunchCandidatesFor(dir);
         if (cands.Count == 0) { Dialogs.Info(this, "GenSpeed", Loc.T("genl.notfound")); return; }
         var first = CheckedTargets().FirstOrDefault();
         string forMod = first != null ? FriendlyLabel(first.Label) : Loc.T("launch.nomod");

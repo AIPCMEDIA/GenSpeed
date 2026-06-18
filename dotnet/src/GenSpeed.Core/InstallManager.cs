@@ -122,9 +122,20 @@ public static class InstallManager
     /// l'initialisation par « le process apparaît puis disparaît » (l'utilisateur a lancé puis quitté).</summary>
     public static bool GameProcessRunning()
     {
-        foreach (var n in new[] { "generals", "generalszh", "game", "modded" })
+        foreach (var n in GameProcNames)
             try { if (System.Diagnostics.Process.GetProcessesByName(n).Length > 0) return true; } catch { }
         return false;
+    }
+
+    private static readonly string[] GameProcNames = { "generals", "generalszh", "game", "game.dat", "modded" };
+
+    /// <summary>Ferme le jeu (init automatique : dès qu'INIZH est consommé, GenSpeed n'a plus besoin du jeu → il le
+    /// ferme lui-même, évitant à l'utilisateur d'interagir avec la fenêtre plein écran du 1er lancement).</summary>
+    public static void KillGame()
+    {
+        foreach (var n in GameProcNames)
+            try { foreach (var p in System.Diagnostics.Process.GetProcessesByName(n)) { try { p.Kill(); } catch { } } }
+            catch { }
     }
 
     /// <summary>Best-effort : télécharge un installeur officiel (URL) dans le temp et l'exécute en SILENCIEUX +
@@ -314,11 +325,11 @@ public static class InstallManager
     public static bool NeedsInit(string dir)
         => !string.IsNullOrWhiteSpace(dir) && File.Exists(Path.Combine(dir, "Data", "INI", "INIZH.big"));
 
-    /// <summary>Init VRAIMENT terminée : INIZH.big consommé (NeedsInit faux) ET Options.ini écrit par le jeu —
-    /// preuve qu'il a atteint un état utilisable (menu) et quitté proprement. INIZH.big seul est consommé TROP TÔT
-    /// (avant le menu), donc un crash en plein chargement le supprime sans finir l'init → vérif insuffisante.</summary>
+    /// <summary>Init terminée : c'est bien un dossier de jeu ET `INIZH.big` a été CONSOMMÉ (le 1er lancement l'a
+    /// traité). On NE se base PAS sur Options.ini : GenSpeed l'écrit lui-même (calage), donc sa présence ne prouve
+    /// rien sur le jeu. La clé HKCU n'est pas fiable non plus (la ré-édition Steam ne l'écrit pas toujours).</summary>
     public static bool IsInitialized(string dir)
-        => !NeedsInit(dir) && MultiplayerTuning.FindOptionsIni() != null;
+        => !string.IsNullOrWhiteSpace(dir) && FindGameExe(dir) != null && !NeedsInit(dir);
 
     /// <summary>Exe principal du jeu dans <paramref name="dir"/> (Generals.exe), sinon le 1er .exe hors outils
     /// (WorldBuilder/GenLauncher/GenTool/EdgeScroller/setup). null si aucun.</summary>
@@ -338,11 +349,15 @@ public static class InstallManager
         catch { return null; }
     }
 
-    /// <summary>Chemin de steam.exe (registre HKCU\Software\Valve\Steam : SteamExe, sinon SteamPath\steam.exe), ou null.</summary>
+    /// <summary>Chemin de steam.exe. HKCU (SteamExe / SteamPath\steam.exe) d'abord, puis repli MACHINE
+    /// (HKLM Valve\Steam InstallPath) — utile si HKCU est vide (autre compte, élévation…). null si introuvable.</summary>
     public static string? SteamExePath()
     {
         try
         {
+            foreach (var key in new[] { @"HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Valve\Steam", @"HKEY_LOCAL_MACHINE\SOFTWARE\Valve\Steam" })
+                if (Microsoft.Win32.Registry.GetValue(key, "InstallPath", null) is string ip)
+                { string p = Path.Combine(ip.Replace('/', '\\'), "steam.exe"); if (File.Exists(p)) return p; }
             if (Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamExe", null) is string exe)
             { exe = exe.Replace('/', '\\'); if (File.Exists(exe)) return exe; }
             if (Microsoft.Win32.Registry.GetValue(@"HKEY_CURRENT_USER\Software\Valve\Steam", "SteamPath", null) is string path)
@@ -353,24 +368,35 @@ public static class InstallManager
     }
 
     /// <summary>Lance le jeu en mode FENÊTRÉ (`-win`) pour l'initialisation : évite le crash si l'utilisateur clique
-    /// ailleurs pendant le chargement plein écran. Pour une install STEAM (appId connu) → `steam.exe -applaunch
-    /// &lt;appId&gt; -win` (Steam lance = DRM satisfait, et -win passe au jeu) ; sinon (fork/copie hors Steam) → exe
-    /// direct `-win`. Renvoie faux si rien n'a pu être lancé.</summary>
+    /// ailleurs pendant le chargement plein écran.
+    /// ⚠️ L'exe vanilla Steam est DRM-wrappé → un lancement DIRECT échoue (« Failed to initialize Steam »).
+    /// Donc un jeu STEAM passe TOUJOURS par Steam : `steam.exe -applaunch &lt;appId&gt; -win` (fenêtré confirmé), ou à
+    /// défaut le protocole `steam://run/&lt;appId&gt;//-win` (DRM ok, -win best-effort). L'exe direct `-win` n'est utilisé
+    /// QUE hors Steam (fork/copie, sans DRM). L'appId est dérivé du dossier s'il n'est pas fourni.</summary>
     public static bool LaunchGameWindowed(string dir, string? appId)
     {
+        appId ??= SteamAppId(dir);
         try
         {
-            string? steam = !string.IsNullOrWhiteSpace(appId) ? SteamExePath() : null;
-            if (steam != null)
+            // -win SEUL ne suffit pas sur une install fraîche (pas d'Options.ini) → le jeu reste en plein écran.
+            // Il faut une résolution EXPLICITE : -win -xres -yres (testé : -win seul = plein écran, +xres/yres = fenêtre).
+            // 1024x768 = sûr sur tout écran (même le 1366x768 du Dell). GenSpeed remettra la résolution native ensuite.
+            const string winArgs = "-win -xres 1024 -yres 768";
+            if (!string.IsNullOrWhiteSpace(appId))
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                { FileName = steam, Arguments = $"-applaunch {appId} -win", UseShellExecute = true });
+                string? steam = SteamExePath();
+                if (steam != null)
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    { FileName = steam, Arguments = $"-applaunch {appId} {winArgs}", UseShellExecute = true });
+                else
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(
+                        $"steam://run/{appId}//-win") { UseShellExecute = true });   // protocole : DRM ok, fenêtré best-effort
                 return true;
             }
-            string? exe = FindGameExe(dir);
-            if (exe == null) return false;   // hors Steam : exe direct (pas de DRM sur un fork)
+            string? exe = FindGameExe(dir);   // hors Steam uniquement (pas de DRM sur un fork)
+            if (exe == null) return false;
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            { FileName = exe, Arguments = "-win", WorkingDirectory = dir, UseShellExecute = true });
+            { FileName = exe, Arguments = winArgs, WorkingDirectory = dir, UseShellExecute = true });
             return true;
         }
         catch { return false; }

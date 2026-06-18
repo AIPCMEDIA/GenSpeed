@@ -22,6 +22,8 @@
                                    FontFamily="Consolas" FontWeight="Bold" FontSize="18" VerticalAlignment="Center"/>
                         <TextBlock Text="{l:Tr subtitle}" Foreground="{DynamicResource dim}"
                                    VerticalAlignment="Bottom" Margin="8,0,0,2"/>
+                        <TextBlock x:Name="BuildLabel" Foreground="{DynamicResource dim}" FontFamily="Consolas"
+                                   FontSize="11" VerticalAlignment="Bottom" Margin="10,0,0,2"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                         <TextBlock Text="{l:Tr tb.theme}" Foreground="{DynamicResource dim}"
@@ -31,6 +33,7 @@
                                   SelectionChanged="ThemeBox_Changed"/>
                         <Button x:Name="LangBtn" Content="EN" Width="44" Margin="0,0,12,0"
                                 Click="LangBtn_Click"/>
+                        <Button x:Name="AssistantBtn" Content="{l:Tr tb.assistant}" Margin="4,0" Click="OnSwitchToAssistant"/>
                         <Button Content="{l:Tr tb.reset}" Margin="4,0"/>
                         <Button x:Name="LogBtn" Content="{l:Tr tb.log}" Margin="4,0" Width="90" Click="OnToggleLog"/>
                         <Button x:Name="LaunchBtn" Content="{l:Tr tb.launch}" Style="{StaticResource GoButton}"
@@ -64,17 +67,30 @@
                 <ColumnDefinition x:Name="JournalCol" Width="270"/>
             </Grid.ColumnDefinitions>
 
-            <!-- Colonne gauche -->
-            <DockPanel Grid.Column="0">
+            <!-- Colonne gauche : tableau (haut) / réglages (bas), séparés par un splitter redimensionnable -->
+            <Grid Grid.Column="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="300"/>
+                    <ColumnDefinition Width="6"/>
+                    <ColumnDefinition x:Name="SettingsCol" Width="450" MinWidth="380"/>
+                </Grid.ColumnDefinitions>
 
-                <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}">
+                <!-- Réglages vitesse/caméra + appliquer (COLONNE DE DROITE), défilables -->
+                <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                <StackPanel Margin="2,0,0,0">
+
+                <!-- Blocs vitesse (au-dessus) / caméra : composant partagé (réutilisé aussi dans l'assistant). -->
+                <l:SpeedCameraPanel x:Name="SpeedCam" Margin="0,0,0,6"/>
+
+                <!-- Carte « Appliquer » (sous les réglages, dans la rangée du bas) -->
+                <Border Style="{StaticResource Card}">
                     <DockPanel>
                         <ContentControl DockPanel.Dock="Top" Tag="{l:Tr card.apply}" Template="{StaticResource CardHead}"/>
                         <StackPanel Margin="10,6">
-                            <StackPanel Orientation="Horizontal">
+                            <StackPanel>
                                 <Button x:Name="ApplyBtn" Content="{l:Tr apply.btn}" Style="{StaticResource PrimaryButton}"
-                                        Padding="14,9" Margin="0,0,8,0" Click="OnApply"/>
-                                <Button x:Name="RestoreBtn" Content="{l:Tr apply.cancel}" Padding="12,9" Click="OnRestore"/>
+                                        Padding="14,9" HorizontalContentAlignment="Center" Click="OnApply"/>
+                                <Button x:Name="RestoreBtn" Content="{l:Tr apply.cancel}" Padding="12,9" Margin="0,6,0,0" Click="OnRestore"/>
                             </StackPanel>
                             <TextBlock Foreground="{DynamicResource dim}" FontSize="11" Margin="0,6,0,0"
                                        Text="{l:Tr apply.note}"/>
@@ -82,74 +98,16 @@
                     </DockPanel>
                 </Border>
 
-                <Grid DockPanel.Dock="Bottom" Margin="0,6,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+                </StackPanel>
+                </ScrollViewer>
 
-                    <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,4,0">
-                        <DockPanel>
-                            <ContentControl DockPanel.Dock="Top" Tag="{l:Tr card.speed}" Template="{StaticResource CardHead}"/>
-                            <StackPanel Margin="10,6">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{l:Tr speed.global}" Foreground="{DynamicResource dim}"
-                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <Slider x:Name="SpeedSlider" Width="180" Minimum="0" Maximum="3"
-                                            IsSnapToTickEnabled="True" TickFrequency="1" Value="2"
-                                            ValueChanged="SpeedSlider_Changed"/>
-                                    <TextBlock x:Name="SpeedLabel" Foreground="{DynamicResource accent}"
-                                               FontFamily="Consolas" FontWeight="Bold"
-                                               VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                </StackPanel>
-                                <Border Height="1" Background="{DynamicResource border}" Margin="0,6"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <TextBlock Text="{l:Tr speed.factor}" Foreground="{DynamicResource dim}"
-                                               VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBox x:Name="FactorBox" Width="52" Text="2.0"
-                                             VerticalContentAlignment="Center" TextChanged="FactorBox_Changed"/>
-                                    <Button Content="💾" ToolTip="{l:Tr crud.save}"   Margin="8,0,2,0" Padding="8,4" Click="OnSpeedSave"/>
-                                    <Button Content="＋" ToolTip="{l:Tr crud.new}"    Margin="2,0" Padding="8,4" Click="OnSpeedNew"/>
-                                    <Button Content="✏" ToolTip="{l:Tr crud.rename}" Margin="2,0" Padding="8,4" Click="OnSpeedRename"/>
-                                    <Button Content="🗑" ToolTip="{l:Tr crud.delete}" Margin="2,0" Padding="8,4" Click="OnSpeedDelete"/>
-                                </StackPanel>
-                                <TextBlock Text="{l:Tr speed.fine}" Foreground="{DynamicResource dim}"
-                                           FontSize="11" Margin="0,0,0,4"/>
-                                <UniformGrid x:Name="CatGrid" Columns="3"/>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
+                <!-- Splitter vertical : redimensionne tableau (gauche) / réglages (droite) -->
+                <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                              ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
+                              Background="{DynamicResource border}"/>
 
-                    <Border Grid.Column="1" Style="{StaticResource Card}" Margin="4,0,0,0">
-                        <DockPanel>
-                            <ContentControl DockPanel.Dock="Top" Tag="{l:Tr card.camera}" Template="{StaticResource CardHead}"/>
-                            <StackPanel Margin="10,6">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{l:Tr cam.preset}" Foreground="{DynamicResource dim}"
-                                               VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                    <Slider x:Name="CamSlider" Width="180" Minimum="0" Maximum="4"
-                                            IsSnapToTickEnabled="True" TickFrequency="1" Value="0"
-                                            ValueChanged="CamSlider_Changed"/>
-                                    <TextBlock x:Name="CamLabel" Text="{l:Tr cam.default}" Foreground="{DynamicResource accent}"
-                                               FontFamily="Consolas" FontWeight="Bold"
-                                               VerticalAlignment="Center" Margin="8,0,0,0"/>
-                                </StackPanel>
-                                <Border Height="1" Background="{DynamicResource border}" Margin="0,6"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <Button Content="💾" ToolTip="{l:Tr crud.save}" Margin="0,0,2,0" Padding="8,4" Click="OnCamSave"/>
-                                    <Button Content="＋" ToolTip="{l:Tr crud.new}"    Margin="2,0" Padding="8,4" Click="OnCamNew"/>
-                                    <Button Content="✏" ToolTip="{l:Tr crud.rename}" Margin="2,0" Padding="8,4" Click="OnCamRename"/>
-                                    <Button Content="🗑" ToolTip="{l:Tr crud.delete}" Margin="2,0" Padding="8,4" Click="OnCamDelete"/>
-                                </StackPanel>
-                                <TextBlock Text="{l:Tr cam.fine}" Foreground="{DynamicResource dim}"
-                                           FontSize="11" Margin="0,0,0,4"/>
-                                <Grid x:Name="CamGrid"/>
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-                </Grid>
-
-                <Border Style="{StaticResource Card}">
+                <!-- Tableau des mods (colonne de gauche) -->
+                <Border Grid.Column="0" Style="{StaticResource Card}">
                     <DockPanel>
                         <ContentControl DockPanel.Dock="Top" Tag="{l:Tr card.mods}" Template="{StaticResource CardHead}"/>
                         <DataGrid x:Name="ModGrid" Margin="10,6" SelectionMode="Single">
@@ -187,7 +145,7 @@
                         </DataGrid>
                     </DockPanel>
                 </Border>
-            </DockPanel>
+            </Grid>
 
             <GridSplitter x:Name="JournalSplitter" Grid.Column="1" Width="6" HorizontalAlignment="Stretch"
                           Background="{DynamicResource border}"/>

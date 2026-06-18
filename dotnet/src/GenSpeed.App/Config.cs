@@ -53,6 +53,10 @@ public sealed class GenConfig
     public string Link(string key)
         => (Links != null && Links.TryGetValue(key, out var v) && !string.IsNullOrWhiteSpace(v))
             ? v.Trim() : GenSpeed.Core.DownloadLinks.DefaultFor(key);
+    // Catalogue de forks autonomes ÉDITABLE (nom -> dépôt GitHub) ; vide = défauts codés (ForkCatalog).
+    [JsonPropertyName("forks")] public List<GenSpeed.Core.ForkDef> Forks { get; set; } = new();
+    // Dossier d'install -> id du fork qui y est installé : identité (étiquetage par nom, lancement du bon exe).
+    [JsonPropertyName("install_forks")] public Dictionary<string, string> InstallForks { get; set; } = new();
     // Installations connues (jeu de base + mods autonomes type Reborn Omega). GameDir = active.
     [JsonPropertyName("known_installs")] public List<string> KnownInstalls { get; set; } = new();
     // Dossier d'install -> exe de lancement mémorisé (résout l'ambiguïté GenLauncher vs exe du mod).
@@ -152,6 +156,21 @@ public static class ConfigStore
     {
         if (c.SpeedPresets.Count == 0) c.SpeedPresets = GenConfig.DefaultSpeedPresets();
         if (c.CameraPresets.Count == 0) c.CameraPresets = GenConfig.DefaultCameraPresets();
+
+        // Dictionnaires indexés par CHEMIN (clé « <install>::<mod> » ou chemin) : rendus INSENSIBLES À LA CASSE.
+        // Sinon une différence de casse du chemin (ex. « g:\… » vs « G:\… ») fait perdre l'état mémorisé
+        // (réglage vitesse/caméra affiché « patché » au lieu de la valeur, lanceur oublié, cache raté).
+        static Dictionary<string, TV> CI<TV>(Dictionary<string, TV> src)
+        {
+            var d = new Dictionary<string, TV>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in src) d[kv.Key] = kv.Value;   // en cas de doublon de casse, la dernière gagne
+            return d;
+        }
+        c.PatchedState = CI(c.PatchedState);
+        c.LaunchExes = CI(c.LaunchExes);
+        c.HashCache = CI(c.HashCache);
+        c.ModAliases = CI(c.ModAliases);
+        c.InstallForks = CI(c.InstallForks);
     }
 
     public static void ExportTo(string path, GenConfig cfg) =>

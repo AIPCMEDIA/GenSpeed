@@ -62,13 +62,21 @@ public static class ElevatedRunner
                     {
                         if (mode == "apply")
                         {
-                            var outcome = Patcher.PatchTarget(t, job.Factors, job.Cam, prev);
+                            // FORK (.pak) : overlay loose ; sinon patch d'archive/INI classique (inchangé).
+                            var outcome = t.Type == TargetType.Pak
+                                ? Patcher.PatchPakLoose(t, job.Factors, job.Cam, prev.Keys)
+                                : Patcher.PatchTarget(t, job.Factors, job.Cam, prev);
                             result.Patched[key] = outcome.PatchedFiles;
                         }
                         else // restore
                         {
-                            var (toRestore, stale) = Patcher.ClassifyRestore(t, prev);
-                            Patcher.RestoreFiles(toRestore, stale);
+                            if (t.Type == TargetType.Pak)
+                                Patcher.RestorePakLoose(prev.Keys);   // supprime les loose écrits
+                            else
+                            {
+                                var (toRestore, stale) = Patcher.ClassifyRestore(t, prev);
+                                Patcher.RestoreFiles(toRestore, stale);
+                            }
                             result.Patched[key] = new Dictionary<string, string>();
                         }
                     }

@@ -17,8 +17,23 @@ public partial class MainWindow
     {
         ConfigStore.Suppressed = false;   // (ré)installer = on veut de nouveau persister (annule un wipe précédent même session)
         InstallWizardWindow.Show(this, _config, Log,
-            dir => { EnsureInstallListed(dir); LoadMods(); });   // install → tableau
+            dir => { EnsureInstallListed(dir); LoadMods(); },   // install → tableau
+            new WizardActions(                                  // actions du HUB (on orchestre l'existant)
+                OpenForkCatalog: owner => { OnCfgForksFrom(owner); return System.Threading.Tasks.Task.CompletedTask; },
+                OpenOptions: owner => { GameOptionsWindow.Show(owner, _config, LoadMods); return System.Threading.Tasks.Task.CompletedTask; },
+                OpenUninstall: owner => UninstallFrom(owner, wipeAll: false),
+                OpenUninstallAll: owner => UninstallFrom(owner, wipeAll: true),
+                OpenDiagnostic: DiagExportFrom,
+                OpenTable: () => Activate(),                    // « affiner » → ramène la fenêtre principale (tableau)
+                ApplySpeedCamRawAll: ApplySpeedCamRawAll,   // valeurs brutes du composant partagé de l'assistant
+                BuildModTable: BuildAssistantModTable,       // tableau (cases à cocher) inséré dans la page vitesse/caméra
+                RestoreSelected: owner => { _ = RunPatch("restore", owner); },   // « revenir à l'original » (lignes cochées)
+                LaunchGame: owner => { LaunchPickFrom(owner); return System.Threading.Tasks.Task.CompletedTask; },
+                LaunchInstall: (owner, dir) => LaunchInstallDir(owner, dir)));
     }
+
+    /// <summary>Mode avancé → rebascule vers l'assistant (le hub), qui recouvre de nouveau le tableau.</summary>
+    private void OnSwitchToAssistant(object sender, System.Windows.RoutedEventArgs e) => OnInstallWizard();
 
     /// <summary>Au démarrage sans aucune install détectée : proposer 2 choix clairs (Installer le jeu
     /// via Steam → ouvre l'assistant ; ou indiquer un dossier existant) au lieu d'un sélecteur Windows brut.</summary>
@@ -39,45 +54,6 @@ public partial class MainWindow
         return false;   // annulé
     }
 
-    /// <summary>⚙ Config → caler Options.ini (anti-mismatch + perf 7290) + GenLauncherCfg.yaml (GenSpeed-safe).
-    /// Édition en place, sauvegardes .gsbak. À lancer GenLauncher fermé (il réécrit son YAML à la fermeture).</summary>
-    private void OnCfgTuneMultiplayer()
-    {
-        if (!Dialogs.Confirm(this, Loc.T("tune.title"), Loc.T("tune.confirm"))) return;
-
-        var log = new List<string>();
-
-        // 1) Options.ini (un seul — dossier Documents partagé).
-        string? opt = MultiplayerTuning.FindOptionsIni();
-        if (opt == null) log.Add(Loc.T("tune.noopt"));
-        else
-        {
-            var r = MultiplayerTuning.ApplyOptions(opt, ScreenInfo.NativeResolution());
-            log.Add(r.Ok ? string.Format(Loc.T("tune.opt.ok"), r.Applied) : "⚠ " + r.Error);
-        }
-
-        // 2) GenLauncherCfg.yaml par install — cale l'existant, ou le CRÉE (baseline) si GenLauncher.exe est là
-        //    mais pas encore lancé (pré-empte l'install auto de GenTool + le setup de 1er lancement).
-        //    Pas touché si GenLauncher est ouvert (il l'écraserait à la fermeture).
-        bool glRunning = RunningGameProcs().Contains("GenLauncher");
-        bool anyYaml = false;
-        foreach (var dir in _installs)
-        {
-            bool hasYaml = MultiplayerTuning.FindGenLauncherYaml(dir) != null;
-            bool hasExe = File.Exists(Path.Combine(dir, "GenLauncher.exe"));
-            if (!hasYaml && !hasExe) continue;   // pas une install GenLauncher
-            anyYaml = true;
-            if (glRunning && hasYaml) { log.Add(Loc.T("tune.glrunning")); break; }
-            var r = MultiplayerTuning.SeedOrTuneYaml(dir);
-            if (!r.Ok) { log.Add("⚠ " + r.Error); continue; }
-            log.Add(r.Applied < 0 ? string.Format(Loc.T("gl.seeded"), r.Path)
-                                  : string.Format(Loc.T("tune.yaml.ok"), InstallLabel(dir), r.Applied));
-        }
-        if (!anyYaml) log.Add(Loc.T("tune.noyaml"));
-
-        foreach (var l in log) Log(l);
-        Dialogs.Info(this, Loc.T("tune.title"), string.Join("\n", log));
-    }
 
     /// <summary>« GenSpeed sait TOUJOURS où est M2 » : résout les raccourcis Bureau « GenLauncher » (fil d'Ariane
     /// sur le disque, créé par le wizard) → ajoute le dossier de l'install aux installs connues (persisté).
@@ -176,6 +152,14 @@ public partial class MainWindow
     /// <summary>⚙ Config → sélecteur « 🎛 Options de jeu » : résolution, souris, qualité graphique, anti-mismatch,
     /// Vulkan — pré-cochés (analyse PC), tous modifiables, avec explication par option. Écrit Options.ini + YAML.</summary>
     private void OnCfgGameOptions() => GameOptionsWindow.Show(this, _config, LoadMods);
+
+    /// <summary>⚙ Config → « 🔧 Mods autonomes (forks) » : catalogue éditable (nom → dépôt GitHub) + install auto
+    /// d'un fork (Reborn Omega…) sur une COPIE de ZH vierge (M0 intact). L'install créée est ajoutée au tableau.</summary>
+    private void OnCfgForks() => OnCfgForksFrom(this);
+
+    /// <summary>Variante avec fenêtre propriétaire (l'assistant peut posséder la fenêtre du catalogue → reste ouvert).</summary>
+    private void OnCfgForksFrom(System.Windows.Window owner) => ForksWindow.Show(owner, _config, _installs, Log,
+        dir => { EnsureInstallListed(dir); LoadMods(); });
 
     /// <summary>🌐 Multijoueur → « IP réseau du jeu » : ouvre les options de jeu directement sur la section Réseau
     /// (IP LAN / en ligne + SendDelay + pare-feu).</summary>

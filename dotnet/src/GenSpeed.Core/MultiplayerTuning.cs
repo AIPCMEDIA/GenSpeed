@@ -11,28 +11,6 @@ public sealed record TuningResult(bool Ok, int Applied, string? Path, string? Er
 /// visées (le reste des fichiers est préservé), avec sauvegarde .gsbak. Voir [[genlauncher-sources]].</summary>
 public static class MultiplayerTuning
 {
-    /// <summary>Options.ini : anti-mismatch (🔴, doivent être identiques entre joueurs) + perf (libre).
-    /// Resolution gérée à part (posée native si absente, via le param d'ApplyOptions) ; UseAlternateMouse
-    /// VOLONTAIREMENT exclu (préférence).</summary>
-    public static readonly (string Key, string Value)[] OptionsBaseline =
-    {
-        ("IdealStaticGameLOD", "High"),
-        ("StaticGameLOD",      "High"),
-        ("TextureReduction",   "2"),
-        ("MaxParticleCount",   "1000"),   // 🔴
-        ("DynamicLOD",         "no"),     // 🔴
-        ("HeatEffects",        "no"),     // 🔴
-        ("ExtraAnimations",    "no"),     // 🔴
-        ("ShowSoftWaterEdge",  "no"),     // 🔴
-        ("ShowTrees",          "no"),     // 🔴
-        ("SendDelay",          "no"),     // 🔴
-        ("UseShadowVolumes",   "no"),
-        ("UseShadowDecals",    "no"),
-        ("UseCloudMap",        "no"),
-        ("UseLightMap",        "no"),
-        ("BuildingOcclusion",  "no"),
-    };
-
     /// <summary>GenLauncherCfg.yaml : réglages CRITIQUES pour GenSpeed / anti-mismatch (clés root-level).
     /// On ne touche PAS aux préférences (Windowed, QuickStart, AutoUpdateGentool, HideLauncher…).</summary>
     public static readonly (string Key, string Value)[] YamlSafe =
@@ -122,46 +100,9 @@ public static class MultiplayerTuning
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Documents", "Command and Conquer Generals Zero Hour Data", "Options.ini");
 
-    /// <summary>Applique la base Options.ini : CRÉE le fichier (baseline) s'il manque, sinon édite en place
-    /// (remplace les lignes existantes, ajoute les manquantes ; le reste — audio, luminosité, calibrage —
-    /// préservé). N'écrit QUE si quelque chose change (idempotent → sûr à relancer). Sauvegarde .gsbak avant écriture.
-    /// <paramref name="resolution"/> ("L H", ex. "1920 1080") : posée UNIQUEMENT si la clé Resolution est ABSENTE
-    /// (on respecte un choix existant fait en jeu) → évite le défaut basse résolution au 1er lancement.</summary>
-    public static TuningResult ApplyOptions(string optionsIniPath, string? resolution = null)
-    {
-        try
-        {
-            bool hasRes(IEnumerable<string> ls) => ls.Any(l => Regex.IsMatch(l, @"^\s*Resolution\s*=", RegexOptions.IgnoreCase));
-            if (!File.Exists(optionsIniPath))
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(optionsIniPath)!);
-                var seed = OptionsBaseline.Select(kv => $"{kv.Key} = {kv.Value}").ToList();
-                if (!string.IsNullOrWhiteSpace(resolution)) seed.Add($"Resolution = {resolution}");
-                File.WriteAllLines(optionsIniPath, seed, new UTF8Encoding(false));
-                return new(true, seed.Count, optionsIniPath, null);
-            }
-            var lines = File.ReadAllLines(optionsIniPath).ToList();
-            int applied = 0;
-            foreach (var (key, val) in OptionsBaseline)
-            {
-                var rx = new Regex(@"^\s*" + Regex.Escape(key) + @"\s*=.*$", RegexOptions.IgnoreCase);
-                int idx = lines.FindIndex(l => rx.IsMatch(l));
-                string line = $"{key} = {val}";
-                if (idx >= 0) { if (lines[idx] != line) { lines[idx] = line; applied++; } }
-                else { lines.Add(line); applied++; }
-            }
-            // Résolution native : posée seulement si absente (ne jamais écraser une résolution déjà choisie).
-            if (!string.IsNullOrWhiteSpace(resolution) && !hasRes(lines)) { lines.Add($"Resolution = {resolution}"); applied++; }
-            if (applied == 0) return new(true, 0, optionsIniPath, null);   // déjà calé → pas de réécriture
-            try { File.Copy(optionsIniPath, optionsIniPath + ".gsbak", overwrite: true); } catch { }
-            File.WriteAllLines(optionsIniPath, lines, new UTF8Encoding(false));
-            return new(true, applied, optionsIniPath, null);
-        }
-        catch (Exception ex) { return new(false, 0, optionsIniPath, ex.Message); }
-    }
-
-    /// <summary>Comme ApplyOptions mais avec des VALEURS arbitraires (les choix de l'utilisateur), FORCÉES
-    /// (remplace/ajoute chaque clé). Crée le fichier s'il manque. N'écrit que si changement (idempotent).</summary>
+    /// <summary>Applique des VALEURS Options.ini (les choix de l'utilisateur, via GameOptions.EffectiveIni), FORCÉES
+    /// (remplace/ajoute chaque clé ; le reste — audio, luminosité, calibrage — préservé). Crée le fichier s'il manque.
+    /// N'écrit que si changement (idempotent → sûr à relancer). Sauvegarde .gsbak avant écriture.</summary>
     public static TuningResult ApplyOptionsValues(string optionsIniPath, IReadOnlyList<(string Key, string Value)> values)
     {
         try

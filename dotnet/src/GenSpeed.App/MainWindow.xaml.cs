@@ -22,43 +22,18 @@ public partial class MainWindow : Window
     private Brush Dim => (Brush)FindResource("dim");
 
     private GenConfig _config = null!;
-    private List<SpeedPreset> Speeds => _config.SpeedPresets;
     private List<string> _installs = new();   // TOUTES les installs découvertes (plus d'« install active »)
     private List<Target> _targets = new();
     private string _lastModSig = "";          // signature disque (installs+mods GLM) au dernier LoadMods
     private bool _loadingMods;                 // garde-fou ré-entrance LoadMods
 
-    // (clé cat, symbole, couleur pastille)
-    private static readonly (string Key, string Sym, string Dot)[] Cats =
-    {
-        ("deplacement","×","#2ECC71"), ("projectiles","×","#2ECC71"), ("visee","×","#2ECC71"),
-        ("construction","÷","#2ECC71"), ("tir","÷","#2ECC71"), ("pouvoirs","÷","#2ECC71"),
-        ("deploiement","÷","#2ECC71"), ("economie_collecte","÷","#2ECC71"), ("economie_gain","×","#E67E22"),
-        ("detection","×","#E74C3C"), ("soin","×","#2ECC71"), ("merite","×","#E67E22"),
-    };
-
-    private static readonly (string Var, string HintKey)[] CamVars =
-    {
-        ("CameraPitch", "cam.hint.pitch"), ("CameraHeight", "cam.hint.h"),
-        ("MaxCameraHeight", "cam.hint.max"), ("MinCameraHeight", "cam.hint.min"),
-    };
-    private static readonly string[] CamAllVars =
-        { "CameraPitch", "CameraYaw", "CameraHeight", "MaxCameraHeight", "MinCameraHeight", "DrawEntireTerrain" };
-    private static readonly string[] CamOrderDefault =
-        { "Cam haute", "Cam max", "Cam eloignee", "Vue satellite" };
-
-    private readonly List<(string Key, TextBlock Tb)> _catLabels = new();
-    private readonly List<(string Key, TextBlock Tb)> _camHints = new();
-    private readonly Dictionary<string, TextBox> _catBoxes = new();
-    private readonly Dictionary<string, Control> _camControls = new();
-
-    private List<string> _camNames = new();   // [0] = sentinelle "vue par défaut"
-    private int _camIdx;
-    private bool _suppressFactor;
+    // (Les données + champs vitesse/caméra ont été déplacés dans le composant partagé SpeedCameraPanel,
+    //  réutilisé ici (x:Name="SpeedCam") ET dans l'assistant.)
 
     public MainWindow()
     {
         InitializeComponent();
+        BuildLabel.Text = BuildInfo.Label();   // version + horodatage exe (vérifier qu'on lance le bon build)
         _config = ConfigStore.Load();
         Loc.I.SetLanguage(_config.LastLang);
 
@@ -66,10 +41,7 @@ public partial class MainWindow : Window
         int ti = Array.FindIndex(ThemeManager.Themes, t => t.Key == _config.LastTheme);
         ThemeBox.SelectedIndex = ti < 0 ? 0 : ti;
 
-        BuildCategoryGrid();
-        BuildCameraGrid();
-        SetupSpeedSlider();
-        SetupCamSlider();
+        SpeedCam.Init(_config, this);   // blocs vitesse/caméra (composant partagé)
         RefreshTexts();
 
         Loc.LanguageChanged += RefreshTexts;
@@ -83,13 +55,37 @@ public partial class MainWindow : Window
         // Rafraîchissement auto : quand on revient sur GenSpeed (ex. après avoir installé un mod dans
         // GenLauncher), re-scanner le tableau SI le disque a changé — sans devoir redémarrer GenSpeed.
         Activated += OnActivatedRefresh;
+
     }
+
+    private bool _assistantShown;
+    /// <summary>Ouvre l'assistant par-dessus la fenêtre principale (appelé par App juste après Show(), AVANT le premier
+    /// rendu du tableau → l'assistant recouvre tout de suite, ce qui minimise le flash après le splash). L'assistant
+    /// masque ensuite la fenêtre principale via son propre Loaded.</summary>
+    public void OpenAssistant()
+    {
+        if (_assistantShown) return;
+        _assistantShown = true;
+        OnInstallWizard();
+    }
+
+    // « App vivante » : remplace les gardes IsLoaded (qui n'étaient vraies qu'avec la fenêtre AFFICHÉE). MainWindow
+    // porte la logique pendant toute la vie de l'app, même non affichée (mode assistant) → reste true jusqu'à l'arrêt.
+    private bool _alive = true;
+
+    // Mode d'arrêt explicite (voir App) : fermer la fenêtre principale (mode avancé) quitte GenSpeed.
+    protected override void OnClosed(EventArgs e) { _alive = false; base.OnClosed(e); Application.Current?.Shutdown(); }
 
     /// <summary>À l'activation de la fenêtre : si la signature disque (installs + mods GLM) a changé depuis le
     /// dernier chargement, recharge le tableau. Le calcul de signature est léger (énumération de dossiers, AUCUN
     /// hachage) → pas de rescan lourd tant que rien n'a bougé. Couvre « j'installe un mod dans GenLauncher puis
     /// je reviens sur GenSpeed ».</summary>
-    private void OnActivatedRefresh(object? sender, EventArgs e)
+    private void OnActivatedRefresh(object? sender, EventArgs e) => RefreshModsIfChanged();
+
+    /// <summary>Re-scanne le tableau SI la signature disque a changé (léger). Appelable hors event « Activated »
+    /// (qui ne se déclenche pas quand la fenêtre n'est pas affichée) : l'assistant l'invoque avant de construire
+    /// son tableau, pour refléter un mod/fork installé entre-temps.</summary>
+    internal void RefreshModsIfChanged()
     {
         if (_loadingMods || ConfigStore.Suppressed) return;
         try { if (LiveModSignature() != _lastModSig) { Log(Loc.T("log.refresh.auto")); LoadMods(); } }
@@ -133,7 +129,7 @@ public partial class MainWindow : Window
     {
         var dep = e.OriginalSource as DependencyObject;
         while (dep != null && dep is not DataGridRow) dep = VisualTreeHelper.GetParent(dep);
-        if (dep is DataGridRow { Item: ModRow mr }) mr.Sel = !mr.Sel;
+        if (dep is DataGridRow { Item: ModRow mr }) { mr.Sel = !mr.Sel; _ = RefreshLanCode(); }
     }
 
     // ===== Menu contextuel (clic droit) sur un mod =====
@@ -186,7 +182,12 @@ public partial class MainWindow : Window
     private string DisplayName(string installDir, string label)
     {
         string key = installDir + "::" + label;
-        return _config.ModAliases.TryGetValue(key, out var a) && !string.IsNullOrWhiteSpace(a) ? a : FriendlyLabel(label);
+        if (_config.ModAliases.TryGetValue(key, out var a) && !string.IsNullOrWhiteSpace(a)) return a;
+        // Install de fork : la cible « Data/INI » EST le contenu du fork → l'afficher sous son nom (pas « Vanilla »).
+        // (Les .big restent « Vanilla » : ce sont bien les archives ZH d'origine, non modifiées par le fork.)
+        var forkName = ForkNameFor(installDir);
+        if (forkName != null && label == "VANILLA (Data/INI)") return forkName;
+        return FriendlyLabel(label);
     }
 
     /// <summary>Renommer l'AFFICHAGE d'un mod dans le tableau (non destructif — n'affecte pas le patch ni le code LAN).</summary>
@@ -207,7 +208,7 @@ public partial class MainWindow : Window
     {
         Dropdown(DiagBtn, ("diag.export", OnDiagExport), ("diag.compare", OnDiagCompare), ("diag.verify", OnDiagVerify));
         Dropdown(ConfigBtn, ("wiz.cfg", OnInstallWizard), ("cfg.installs", OnCfgInstalls),
-                            ("cfg.gameoptions", OnCfgGameOptions), ("cfg.links", OnCfgLinks),
+                            ("cfg.gameoptions", OnCfgGameOptions), ("cfg.forks", OnCfgForks), ("cfg.links", OnCfgLinks),
                             ("cfg.addinstall", OnCfgAddInstall), ("cfg.modsdir", OnCfgModsDir),
                             ("cfg.launcher", OnCfgLauncher),
                             ("cfg.uninstall", OnCfgUninstall),
@@ -251,6 +252,7 @@ public partial class MainWindow : Window
     {
         bool check = (sender as CheckBox)?.IsChecked == true;
         foreach (var r in _rows) r.Sel = check;
+        _ = RefreshLanCode();
     }
 
     /// <summary>Libellé d'affichage convivial (Vanilla → « Jeu de base »), localisé.</summary>
@@ -274,19 +276,32 @@ public partial class MainWindow : Window
         ColIni.Header = Loc.T("col.ini");
         ColPatched.Header = Loc.T("col.patched");
         ColCode.Header = Loc.T("col.code");
-        foreach (var (key, tb) in _catLabels) { tb.Text = Loc.T("cat." + key); tb.ToolTip = Loc.T("tip.cat." + key); }
-        foreach (var (key, box) in _catBoxes) box.ToolTip = Loc.T("tip.cat." + key);
-        foreach (var (key, tb) in _camHints) tb.Text = Loc.T(key);
-        foreach (var kv in _camControls) kv.Value.ToolTip = Loc.T("tip.cam." + kv.Key);
+        SpeedCam?.RefreshTexts();   // libellés/tooltips des blocs vitesse/caméra (composant partagé)
         LangBtn.Content = Loc.I.Lang == 0 ? "EN" : "FR";
         if (LogBtn != null) LogBtn.Content = Loc.T(_logVisible ? "tb.log" : "tb.logshow");
         foreach (var r in _rows) r.Display = DisplayName(r.InstallDir, r.Mod);
-        UpdateSpeedLabel();
-        if (CamLabel != null) CamLabel.Text = _camIdx == 0 ? Loc.T("cam.default") : _camNames[_camIdx];
     }
 
     // ===== Liste des mods (détection réelle, TOUTES les installs) =====
     private readonly ObservableCollection<ModRow> _rows = new();
+
+    /// <summary>Purge les installs connues VRAIMENT mortes : dossier absent ALORS QUE son disque est EN LIGNE
+    /// (vraie suppression). Un disque hors-ligne ou endormi (ex. G: secondaire en veille) renvoie temporairement
+    /// « dossier inexistant » au tout premier accès → on NE supprime PAS l'install (sinon un fork sans raccourci de
+    /// ré-amorçage serait perdu pour de bon). Bug réel observé : Reborn Omega sur G: endormi disparaissait au boot.</summary>
+    private void PruneDeadInstalls()
+    {
+        _config.KnownInstalls.RemoveAll(p =>
+        {
+            try
+            {
+                string? root = Path.GetPathRoot(p);
+                if (string.IsNullOrEmpty(root) || !Directory.Exists(root)) return false;   // disque hors-ligne → on GARDE
+                return !Directory.Exists(p);                                               // disque en ligne, dossier absent → on retire
+            }
+            catch { return false; }
+        });
+    }
 
     private async void LoadMods()
     {
@@ -295,7 +310,10 @@ public partial class MainWindow : Window
         try
         {
         Title = "GenSpeed";
-        _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p));
+        // PAS de purge des installs connues au DÉMARRAGE : un disque secondaire endormi (ex. G:) répond
+        // temporairement « dossier inexistant » au tout premier accès → purger ici ferait disparaître une install
+        // (fork sans raccourci de ré-amorçage = perdu). On GARDE la config telle quelle ; DiscoverAll ignore de
+        // toute façon les chemins inaccessibles à l'affichage, et l'install réapparaît dès que le disque est réveillé.
         SeedKnownFromShortcuts();   // « toujours savoir où est M2 » : réenregistre l'install GenLauncher via son raccourci Bureau
         _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
         if (_installs.Count == 0)
@@ -305,7 +323,9 @@ public partial class MainWindow : Window
             // Plus aucune install (ex. après un wipe) : VIDER le tableau pour refléter la réalité,
             // que l'utilisateur valide le dialogue ou l'annule (sinon il garderait les lignes supprimées).
             _rows.Clear(); _targets = new();
-            if (!PromptNoInstall()) { Log(Loc.T("log.nogame")); return; }
+            // L'assistant (hub) gère désormais le cas « rien d'installé » (il s'ouvre au démarrage). On ne
+            // double-prompte plus ici : tableau vide + log ; l'utilisateur installe via l'assistant.
+            Log(Loc.T("log.nogame")); return;
             _installs = await Task.Run(() => InstallDiscovery.DiscoverAll(_config.KnownInstalls));
             if (_installs.Count == 0) { Log(Loc.T("log.nogame")); return; }   // toujours rien après le dialogue
         }
@@ -368,11 +388,14 @@ public partial class MainWindow : Window
         foreach (var row in _rows.ToList())
         {
             var t = row.Target!;
-            // État persistant : un mod est « patché » s'il a des sauvegardes .speedbak (survit au redémarrage).
-            int patched = t.Files.Count(fp => File.Exists(fp + ".speedbak"));
+            // État persistant : un mod est « patché » s'il a des .speedbak (archives/INI) ; pour un FORK (.pak),
+            // s'il a des fichiers loose override enregistrés encore présents. Survit au redémarrage.
+            int patched = t.Type == TargetType.Pak
+                ? (_config.PatchedState.TryGetValue(row.StateKey, out var pps) ? pps.Files.Keys.Count(File.Exists) : 0)
+                : t.Files.Count(fp => File.Exists(fp + ".speedbak"));
             if (patched > 0)
             {
-                row.Patched = $"{patched}/{t.ArchiveCount}";
+                row.Patched = t.Type == TargetType.Pak ? patched.ToString() : $"{patched}/{t.ArchiveCount}";
                 if (_config.PatchedState.TryGetValue(row.StateKey, out var ps) && !string.IsNullOrWhiteSpace(ps.Speed))
                 {
                     row.Vitesse = ps.Speed;
@@ -400,14 +423,31 @@ public partial class MainWindow : Window
 
     private bool _hashCacheDirty;
 
+    /// <summary>Fichiers pertinents pour le code LAN d'une cible. Pour un FORK (.pak), on ajoute les .ini LOOSE
+    /// (Data\INI) : ce sont eux qui portent le patch (vitesse/caméra), donc deux PC aux réglages différents doivent
+    /// avoir des codes DIFFÉRENTS. Sans ça, le code ne refléterait pas le patch (le .pak ne change jamais).</summary>
+    internal static List<string> LanFilesFor(Target t)
+    {
+        var files = new List<string>(t.Files);
+        if (t.Type == TargetType.Pak)
+        {
+            string iniDir = Path.Combine(t.InstallDir, "Data", "INI");
+            try { if (Directory.Exists(iniDir)) files.AddRange(Directory.EnumerateFiles(iniDir, "*.ini", SearchOption.AllDirectories)); }
+            catch { }
+        }
+        files.Sort(StringComparer.Ordinal);
+        return files;
+    }
+
     /// <summary>Code LAN avec cache : ne re-hache (lourd) que si la signature mtime/taille a changé.</summary>
     private async Task<string> CachedLanCode(Target t)
     {
         string key = t.InstallDir + "::" + t.Label;
-        var sig = BuildSig(t.Files);
+        var lanFiles = LanFilesFor(t);
+        var sig = BuildSig(lanFiles);
         if (_config.HashCache.TryGetValue(key, out var ce) && SigEqual(ce.Sig, sig))
             return ce.Hash;                                   // cache valide -> instantané
-        string h = await Task.Run(() => Hashing.InstallHash(t.InstallDir, t.Files).Hash);
+        string h = await Task.Run(() => Hashing.InstallHash(t.InstallDir, lanFiles).Hash);
         _config.HashCache[key] = new HashCacheEntry { Hash = h, Sig = sig };
         _hashCacheDirty = true;
         return h;

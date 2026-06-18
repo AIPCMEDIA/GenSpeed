@@ -39,10 +39,10 @@ public partial class MainWindow
 
     /// <summary>Lance la désinstallation OFFICIELLE Steam (steam://uninstall) pour chaque jeu coché —
     /// avec confirmation par jeu. La fenêtre de confirmation Steam prend ensuite le relais.</summary>
-    private void LaunchSteamUninstalls(List<CleanupItem> steamChosen)
+    private void LaunchSteamUninstalls(System.Windows.Window owner, List<CleanupItem> steamChosen)
     {
         foreach (var s in steamChosen)
-            if (Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.steam.ask"), s.Extra)))
+            if (Dialogs.Confirm(owner, Loc.T("clean.title"), string.Format(Loc.T("clean.steam.ask"), s.Extra)))
                 try
                 {
                     Process.Start(new ProcessStartInfo { FileName = $"steam://uninstall/{s.Extra}", UseShellExecute = true });
@@ -79,7 +79,7 @@ public partial class MainWindow
         var appIds = steamChosen.Select(s => s.Extra!).Where(a => !string.IsNullOrEmpty(a)).Distinct().ToList();
         for (int i = 0; i < 100 && appIds.Any(SteamAppInstalled); i++)   // ~5 min max (100 × 3 s)
         {
-            if (!IsLoaded) return;
+            if (!_alive) return;
             await Task.Delay(3000);
         }
 
@@ -118,18 +118,23 @@ public partial class MainWindow
         finally { try { File.Delete(jobPath); File.Delete(job.ResultPath); } catch { } }
     }
 
-    private async void OnCfgUninstall()
+    private void OnCfgUninstall() { _ = UninstallFrom(this, false); }
+
+    /// <summary>Désinstall propre. owner = fenêtre des pop-ups (l'assistant peut la posséder → reste ouvert).
+    /// wipeAll = TOUT supprimer directement (tout coché + SupprimerDirect, SANS la page à cocher ; une
+    /// confirmation forte reste demandée).</summary>
+    private async System.Threading.Tasks.Task UninstallFrom(System.Windows.Window owner, bool wipeAll)
     {
         // MACHINE ENTIÈRE : toutes les installs découvertes + traces globales (plus d'« install active »).
         var installs = _installs.ToList();
-        if (installs.Count == 0) { Dialogs.Info(this, "GenSpeed", Loc.T("log.nogame")); return; }
+        if (installs.Count == 0) { Dialogs.Info(owner, "GenSpeed", Loc.T("log.nogame")); return; }
 
         Log(Loc.T("clean.scanning"));
         List<CleanupItem> items;
         try { items = await Task.Run(() => Cleanup.Scan(installs)); }
         catch (Exception ex) { Log("⚠ " + ex.Message); return; }
-        if (!IsLoaded) return;   // fenêtre principale fermée pendant l'analyse : abandonner proprement
-        if (items.Count == 0) { Dialogs.Info(this, Loc.T("clean.title"), Loc.T("clean.nothing")); return; }
+        if (!_alive) return;   // app en cours d'arrêt pendant l'analyse : abandonner proprement
+        if (items.Count == 0) { Dialogs.Info(owner, Loc.T("clean.title"), Loc.T("clean.nothing")); return; }
 
         // Dossier dédié (pas le Bureau) : toutes les sauvegardes GenSpeed regroupées au même endroit.
         string backupDir = Path.Combine(
@@ -138,7 +143,17 @@ public partial class MainWindow
 
         var headers = installs.ToDictionary(d => d, d => $"🖥 {InstallLabel(d)}   ·   {InstallType(d)}",
                                             StringComparer.OrdinalIgnoreCase);
-        var (action, result) = CleanupWindow.Show(this, items, backupDir, headers);
+
+        CleanupAction action;
+        List<CleanupItem> result;
+        if (wipeAll)
+        {
+            // « Tout supprimer » : tout le retirable coché en SupprimerDirect, SANS la page à cocher.
+            foreach (var i in items.Where(x => x.Removable))
+            { i.Selected = true; if (i.Category != CleanupCategory.Steam) i.ChosenMethod = CleanupMethod.SupprimerDirect; }
+            result = items; action = CleanupAction.Execute;
+        }
+        else (action, result) = CleanupWindow.Show(owner, items, backupDir, headers);
         if (action == CleanupAction.Cancel) return;
 
         var chosen = result.Where(i => i.Selected && i.Removable && i.ChosenMethod != CleanupMethod.Laisser).ToList();
@@ -189,11 +204,11 @@ public partial class MainWindow
         // Étape 0 : vérifier qu'aucun process du jeu/outil ne tourne (verrous + symlinks GenLauncher actifs).
         var running = RunningGameProcs();
         if (running.Count > 0 &&
-            !Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.proc.warn"), string.Join(", ", running))))
+            !Dialogs.Confirm(owner, Loc.T("clean.title"), string.Format(Loc.T("clean.proc.warn"), string.Join(", ", running))))
             return;
 
         // Exécution réelle : confirmation forte.
-        if (!Dialogs.Confirm(this, Loc.T("clean.title"), string.Format(Loc.T("clean.confirm"), chosen.Count, backupDir)))
+        if (!Dialogs.Confirm(owner, Loc.T("clean.title"), string.Format(Loc.T("clean.confirm"), chosen.Count, backupDir)))
             return;
 
         // Réinitialisation GenSpeed : si on supprime sa config, empêcher qu'il la réécrive à la
@@ -205,9 +220,9 @@ public partial class MainWindow
         if (jobChosen.Count == 0)
         {
             // Seuls des jeux Steam sont cochés : pas d'élévation nécessaire, désinstallation Steam directe.
-            LaunchSteamUninstalls(steamChosen);
+            LaunchSteamUninstalls(owner, steamChosen);
             if (steamChosen.Count > 0 && fullWipe) await PostSteamCleanup(steamChosen, installs, backupDir);
-            _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p));
+            ForgetUninstalled(installs, wipeAll);
             LoadMods();
             return;
         }
@@ -263,16 +278,16 @@ public partial class MainWindow
                 catch { }
             }
 
-            if (!IsLoaded) { SaveJournal(); return; }   // fenêtre fermée pendant le nettoyage : journal quand même
-            Dialogs.Info(this, Loc.T("clean.title"),
+            if (!_alive) { SaveJournal(); return; }   // app en cours d'arrêt pendant le nettoyage : journal quand même
+            Dialogs.Info(owner, Loc.T("clean.title"),
                 string.Format(Loc.T("clean.report"), res.Done.Count, res.Errors.Count, FmtBytes(res.FreedBytes), res.BackupDir));
 
             // Rafraîchir le tableau dès la fin de la passe 1 (avant la longue attente Steam) → mise à jour
             // visible en cours d'opération (les installs non-Steam supprimées disparaissent tout de suite).
-            if (IsLoaded) { _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p)); LoadMods(); }
+            if (_alive) { PruneDeadInstalls(); LoadMods(); }
 
             // Jeux Steam COCHÉS : lancer la désinstallation officielle via Steam (jamais de suppression manuelle).
-            LaunchSteamUninstalls(steamChosen);
+            LaunchSteamUninstalls(owner, steamChosen);
             // En « tout supprimer » : attendre la fin de Steam puis nettoyer ses résidus automatiquement.
             if (steamChosen.Count > 0 && fullWipe) await PostSteamCleanup(steamChosen, installs, backupDir, jl);
 
@@ -292,7 +307,7 @@ public partial class MainWindow
                 {
                     Log("⚠ " + string.Format(Loc.T("clean.dx.bad"), detail));
                     jl.AppendLine($"DirectX 8 système : ANORMAL — {detail}");
-                    if (IsLoaded && Dialogs.Confirm(this, Loc.T("clean.title"), Loc.T("clean.dx.sfc.ask")))
+                    if (_alive && Dialogs.Confirm(owner, Loc.T("clean.title"), Loc.T("clean.dx.sfc.ask")))
                         try
                         {
                             Process.Start(new ProcessStartInfo
@@ -334,12 +349,41 @@ public partial class MainWindow
 
             // Rafraîchir l'application : l'install active ou ses mods ont pu disparaître.
             // LoadMods re-détecte (et bascule automatiquement sur une install existante si besoin).
-            _config.KnownInstalls.RemoveAll(p => !Directory.Exists(p));
+            ForgetUninstalled(installs, wipeAll);
             LoadMods();
         }
         finally
         {
             try { File.Delete(jobPath); File.Delete(job.ResultPath); } catch { }
         }
+    }
+
+    /// <summary>JSON tenu à jour après désinstallation : retire du suivi les installs RÉELLEMENT supprimées
+    /// (known_installs, install_forks, et états indexés par chemin : PatchedState, LaunchExes) PUIS persiste.
+    /// wipeAll = toutes ; sinon = celles dont le dossier a réellement disparu (disque en ligne + dossier absent).
+    /// Sans ça, des installs « fantômes » restaient affichées à l'accueil (dossier supprimé mais toujours dans le JSON).</summary>
+    private void ForgetUninstalled(IEnumerable<string> installDirs, bool wipeAll)
+    {
+        bool Confirmed(string d)
+        {
+            try { var r = Path.GetPathRoot(d); return !string.IsNullOrEmpty(r) && Directory.Exists(r) && !Directory.Exists(d); }
+            catch { return false; }
+        }
+        var forget = installDirs.Where(d => wipeAll || Confirmed(d)).ToList();
+        if (forget.Count == 0) return;
+
+        foreach (var dir in forget)
+        {
+            string d = dir.TrimEnd('\\', '/');
+            bool SamePath(string p) => string.Equals(p.TrimEnd('\\', '/'), d, StringComparison.OrdinalIgnoreCase);
+            bool Under(string key) => key.StartsWith(dir + "::", StringComparison.OrdinalIgnoreCase)
+                                   || key.StartsWith(d + "::", StringComparison.OrdinalIgnoreCase);
+            _config.KnownInstalls.RemoveAll(SamePath);
+            foreach (var k in _config.InstallForks.Keys.Where(SamePath).ToList()) _config.InstallForks.Remove(k);
+            foreach (var k in _config.PatchedState.Keys.Where(Under).ToList()) _config.PatchedState.Remove(k);
+            foreach (var k in _config.LaunchExes.Keys.Where(Under).ToList()) _config.LaunchExes.Remove(k);
+        }
+        ConfigStore.Suppressed = false;   // désinstaller = on PERSISTE l'état nettoyé (le JSON doit refléter la réalité)
+        ConfigStore.Save(_config);
     }
 }
