@@ -288,6 +288,16 @@ dotnet publish src/GenSpeed.App -c Release -r win-x64 --self-contained `
 - **Multijoueur & communauté / Multiplayer & community** : C&C:Online · GameRanger · et toute la communauté C&C / and the wider C&C community
 - **Jeu d'origine / Original game** : *Command & Conquer™ Generals / Zero Hour* © **Electronic Arts**
 
+> 🇫🇷 **Avant tout, GenSpeed sert à s'amuser.** En quelques clics, il **accélère les parties** (unités plus rapides, constructions et recharges plus courtes) et te laisse choisir la **caméra** — et ça marche **aussi bien en solo qu'en LAN entre potes**, ce que le jeu de base ne permet pas. C'est **simple** (une vitesse, une caméra, c'est parti) et **toujours annulable** : un bouton pour revenir à l'original.
+>
+> **« Et pourquoi GenSpeed n'utilise ni GenPatcher ni GenTool ? »** — Pas pour leur faire de l'ombre : ce sont d'excellents outils, et GenSpeed les détecte et les respecte. Simplement, pour ce qu'il fait (accélérer le jeu + jouer **en LAN entre potes sans bug de synchro**), il n'en a pas besoin :
+> - **GenPatcher** prépare normalement le jeu pour un PC récent : il installe les **petits programmes que le jeu réclame pour démarrer** et **règle la résolution d'écran**. GenSpeed fait ces deux choses tout seul — il va chercher les programmes manquants **directement chez Microsoft**, et la résolution est gérée par **GenLauncher**. Résultat : **aucun outil de plus à installer**, et ton **jeu d'origine n'est jamais modifié** (GenSpeed travaille sur une **copie propre**, tout reste annulable).
+> - **GenTool** sert surtout au **jeu en ligne classé**. Le souci en LAN : il **télécharge et met à jour certaines cartes tout seul, sans te prévenir** — et si ton PC et celui de ton copain n'ont pas exactement la même version, la partie **plante / se désynchronise**. Comme GenSpeed cherche justement à rendre les **deux PC identiques**, il le laisse **éteint par défaut** (c'est **réversible** : tu peux le réactiver quand tu veux).
+>
+> 🇬🇧 **First of all, GenSpeed is about fun.** In a few clicks it **speeds up matches** (faster units, shorter builds & reloads) and lets you pick the **camera** — in **solo and in LAN with friends**, which the base game doesn't allow. It's **simple** (one speed, one camera, done) and **always reversible**: one button back to the original.
+>
+> **"And why doesn't GenSpeed use GenPatcher or GenTool?"** — Not to overshadow them: they're great tools, and GenSpeed detects and respects them. It just doesn't need them for what it does (faster gameplay + **LAN with friends, no sync bugs**). GenPatcher normally readies the game for a modern PC — installing the **small programs the game needs to launch** and **setting the screen resolution**; GenSpeed does both itself (it fetches the missing programs **straight from Microsoft**, and **GenLauncher** handles resolution), so there's **no extra tool to install** and **your original game is never modified** (it works on a **clean copy**, all reversible). GenTool is mainly for **online/ranked** play; in LAN it **self-updates some maps on its own** — and if you and your friend don't have the exact same version, the match **desyncs** — so GenSpeed leaves it **off by default** (reversible; you can turn it back on anytime).
+
 ---
 
 ## 🤖 À propos du code / About the code
