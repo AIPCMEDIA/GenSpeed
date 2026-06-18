@@ -9,7 +9,7 @@ namespace GenSpeed.App;
 internal static class BuildInfo
 {
     /// <summary>Version « produit » (à bumper manuellement aux jalons).</summary>
-    public const string Version = "v2.5-beta";
+    public const string Version = "v2.5";
 
     /// <summary>Date/heure de l'exe en cours (jj/MM HH:mm), ou « ? » si indéterminable.</summary>
     public static string Stamp()

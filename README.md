@@ -7,15 +7,15 @@
 **Accélère le gameplay de *Command & Conquer™ Generals – Zero Hour* (et de ses mods), même en LAN.**
 *Speed up the gameplay of C&C Generals: Zero Hour (and its mods), even in LAN.*
 
-[![Version](https://img.shields.io/badge/v2.5-BETA-orange?style=flat)](#-v25-beta--assistant-tout-en-un--all-in-one-assistant)
+[![Version](https://img.shields.io/badge/v2.5-brightgreen?style=flat)](#-v25--assistant-tout-en-un--all-in-one-assistant)
 [![Platform](https://img.shields.io/badge/Windows-10_/_11-blue?style=flat)](#)
 [![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-8_/_WPF-512BD4?style=flat)](#)
 
 </div>
 
-> 🧪 **v2.5 est une BETA.** L'**assistant devient la porte d'entrée unique** : l'app démarre dessus (**splash** au lancement, puis un accueil « ce que tu as » + objectifs **en cartes cliquables**, plus de « Suivant »). Tes **mods GenLauncher** sont listés, chaque jeu/mod a son bouton **▶ Lancer**, et la **version/build** s'affiche dans l'en-tête. Fiabilité renforcée : une install sur **disque secondaire endormi ne disparaît plus**, et le suivi reflète fidèlement install/désinstall (fini les installs « fantômes »). **Sauvegarde tes données avant** et remonte tout souci via une **issue**. La v2.2 stable reste dans les [Releases](../../releases).
-> *🧪 **v2.5 is a BETA.** The **assistant becomes the single front door**: the app starts on it (**splash** at launch, then a "what you have" home + goals as **clickable cards**, no more "Next"). Your **GenLauncher mods** are listed, each game/mod has a **▶ Launch** button, and the **version/build** shows in the header. More robust: an install on a **spun-down secondary drive no longer vanishes**, and tracking mirrors install/uninstall faithfully (no more "ghost" installs). **Back up your data first** and report issues. The stable v2.2 stays in [Releases](../../releases).*
+> 🆕 **v2.5 — l'assistant devient la porte d'entrée unique** : l'app démarre dessus (**splash** au lancement, puis un accueil « ce que tu as » + objectifs **en cartes cliquables**, plus de « Suivant »). Tes **mods GenLauncher** sont listés, chaque jeu/mod a son bouton **▶ Lancer**, et la **version/build** s'affiche dans l'en-tête. Fiabilité renforcée : une install sur **disque secondaire endormi ne disparaît plus**, et le suivi reflète fidèlement install/désinstall (fini les installs « fantômes »). Un souci, une idée ? Ouvre une **issue**.
+> *🆕 **v2.5 — the assistant becomes the single front door**: the app starts on it (**splash** at launch, then a "what you have" home + goals as **clickable cards**, no more "Next"). Your **GenLauncher mods** are listed, each game/mod has a **▶ Launch** button, and the **version/build** shows in the header. More robust: an install on a **spun-down secondary drive no longer vanishes**, and tracking mirrors install/uninstall faithfully (no more "ghost" installs). Found a bug or have an idea? Open an **issue**.*
 
 > 🇫🇷 GenSpeed modifie les fichiers de données (`.ini`) du jeu/mod pour rendre les parties plus rapides : unités plus véloces, constructions/recharges plus courtes, presets de caméra. Plus un **outil de diagnostic de désync (mismatch) LAN** qui compare ton install à celle d'un ami et nomme exactement ce qui diffère.
 >
@@ -23,7 +23,7 @@
 
 ---
 
-## 🧪 v2.5 (BETA) — Assistant tout-en-un / All-in-one assistant
+## 🆕 v2.5 — Assistant tout-en-un / All-in-one assistant
 
 🇫🇷
 - 🧙 **L'assistant est la porte d'entrée** : l'app démarre dessus — **splash au lancement**, puis un **accueil conscient de l'état** (« ce que tu as » : jeu de base, hub GenLauncher + ses mods, forks). Le **mode avancé** (tableau détaillé) reste à un clic.
@@ -104,8 +104,8 @@
 | Assistant — accueil / Assistant home | Mode avancé (tableau) / Advanced view |
 |:---:|:---:|
 | ![Assistant](docs/screenshots/06-assistant-hub.png) | ![Avancé](docs/screenshots/01-main-eva.png) |
-| **Diagnostic mismatch** | **Thèmes / Themes** |
-| ![Diagnostic](docs/screenshots/05-diagnostic.png) | ![USA theme](docs/screenshots/02-theme-usa.png) ![China theme](docs/screenshots/03-theme-china.png) |
+| **Diagnostic mismatch** | **Thèmes / Themes** (assistant) |
+| ![Diagnostic](docs/screenshots/05-diagnostic.png) | ![USA theme](docs/screenshots/07-assistant-usa.png) ![China theme](docs/screenshots/08-assistant-china.png) |
 
 ---
 
@@ -292,7 +292,7 @@ MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage,
 
 ## 📝 Changelog
 
-### v2.5 (beta)
+### v2.5
 - 🧙 **Assistant = porte d'entrée unique** : l'app démarre dessus (fenêtre non-modale), **splash logo** au lancement ; **mode avancé** (tableau) à un clic, retour assistant via le bouton dédié. En-tête affichant **version + horodatage du build**
 - 🃏 **Accueil tout en cartes** : objectifs d'install et choix (jeu de base / hub GenLauncher / fork / installation complète) **lancés au clic** — suppression des boutons « Suivant » et des sélecteurs ; carte « Installer ici » sur la destination, cartes « Continuer/Terminer/Copier ». Composant vitesse/caméra partagé (mêmes blocs en mode avancé et dans l'assistant), tableau à gauche / réglages à droite
 - 🧩 **Accueil conscient des mods** : « ce que tu as » liste les installs (JSON = source de vérité) **et leurs mods GenLauncher** (dossiers GLM contenant des `.gib`), avec le réglage vitesse/caméra mémorisé ; **bouton ▶ Lancer par install** ; **rafraîchissement auto** au retour de focus (mod installé/désinstallé dans GenLauncher visible directement)
