@@ -101,18 +101,18 @@
 
 ## 📸 Aperçu / Screenshots
 
-| Écran principal / Main window | Diagnostic mismatch |
+| Assistant — accueil / Assistant home | Mode avancé (tableau) / Advanced view |
 |:---:|:---:|
-| ![Main](docs/screenshots/01-main-eva.png) | ![Diagnostic](docs/screenshots/05-diagnostic.png) |
-| **Confirmation avant patch / Apply confirmation** | **Thèmes / Themes** |
-| ![Confirm](docs/screenshots/04-confirm.png) | ![USA theme](docs/screenshots/02-theme-usa.png) ![China theme](docs/screenshots/03-theme-china.png) |
+| ![Assistant](docs/screenshots/06-assistant-hub.png) | ![Avancé](docs/screenshots/01-main-eva.png) |
+| **Diagnostic mismatch** | **Thèmes / Themes** |
+| ![Diagnostic](docs/screenshots/05-diagnostic.png) | ![USA theme](docs/screenshots/02-theme-usa.png) ![China theme](docs/screenshots/03-theme-china.png) |
 
 ---
 
 ## ⚙️ Configuration requise / Requirements
 
-> ⚠️ **GenSpeed est conçu pour l'écosystème Steam + GenLauncher + GenPatcher.**
-> *GenSpeed is designed for the Steam + GenLauncher + GenPatcher ecosystem.*
+> ⚠️ **GenSpeed cible l'écosystème Steam + GenLauncher + GenPatcher**, et gère aussi les **forks « moteur 2025 »** (versions communautaires recompilées, ex. Reborn Omega — sans GenPatcher).
+> *GenSpeed targets the Steam + GenLauncher + GenPatcher ecosystem, and also handles **"2025-engine" forks** (recompiled community builds, e.g. Reborn Omega — no GenPatcher needed).*
 
 | | |
 |---|---|
@@ -139,6 +139,8 @@
 
 ## 🎮 Fonctionnalités / Features
 
+- 🧙 **Assistant-accueil** : porte d'entrée unique, **conscient de l'état** (« ce que tu as » + mods) — **tout en cartes cliquables**, bouton **▶ Lancer** par jeu/mod, **mode avancé** (tableau) à un clic. / **Assistant home** as the single, state-aware front door — all cards, per-install Launch, advanced table one click away.
+- 📦 **Installe pour toi** : jeu de base (Steam), **hub GenLauncher** (mods commutables), **forks autonomes** (moteur communautaire 2025, ex. Reborn Omega) — copies propres, le jeu d'origine reste **vierge**. / Installs for you: base game, GenLauncher hub, standalone forks — clean copies, original kept pristine.
 - ✅ **Jeu de base + mods** (détection auto via GenLauncher / auto-detect via GenLauncher)
 - ⚡ Paliers de vitesse **Original / Cool / Énervé / Déchaîné** + presets personnalisables
 - 🎛️ Réglage **détaillé par catégorie** (déplacement, tir, construction, vision…)
@@ -156,13 +158,15 @@
 
 ## 🕹️ Utilisation rapide / Quick start
 
-1. **Coche un ou plusieurs mods** dans la liste (clic sur la ligne). / **Check one or more mods** (click the row).
-2. **Règle la vitesse** : Original (×1) · Cool (≈×1.5) · Énervé (≈×2, recommandé) · Déchaîné (≈×3).
-3. **Caméra** (optionnel) : un preset ou réglages manuels. / **Camera** (optional): a preset or manual values.
-4. **Appliquer la config** → une fenêtre récapitule ce que ça change, tu valides (UAC). / **Apply** → a window summarizes the changes, you confirm (UAC).
-5. **▶ Lancer GenLauncher** et joue ! Pour revenir à l'original : **Annuler**.
+🇫🇷 Au lancement, GenSpeed s'ouvre sur l'**assistant** : un accueil **« ce que tu as »** (tes jeux/mods détectés) + des **objectifs en cartes**. Tout se fait au clic, pas de jargon.
 
-🖱️ **Clic droit sur un mod** : aperçus + ouvrir son dossier. / **Right-click a mod**: previews + open its folder.
+1. **Régler la vitesse / caméra** (carte du même nom) → **coche** les jeux/mods à régler, choisis une **vitesse** (Original ×1 · Cool ≈×1.5 · Énervé ≈×2, recommandé · Déchaîné ≈×3) et une **caméra** (optionnel), puis **Appliquer** (UAC). « Revenir à l'original » annule.
+2. **▶ Lancer** directement le jeu/mod depuis sa ligne dans « ce que tu as ».
+3. **Installer** un jeu/mod : clique l'objectif voulu (**jeu de base** · **hub GenLauncher** · **fork** · **installation complète**) — GenSpeed fait le reste.
+4. **Options de jeu**, **Diagnostic / parité LAN**, **Désinstaller proprement** : des cartes dédiées.
+5. **🛠 Mode avancé** (en haut à droite) ouvre le **tableau détaillé** (toutes les installs/mods, code LAN, aperçus). **🤖 Assistant** y ramène.
+
+🇬🇧 GenSpeed starts on the **assistant**: a **"what you have"** home (detected games/mods) + **goal cards**, all click-driven. Use **"Set speed/camera"** (tick targets → pick speed/camera → Apply), **▶ Launch** a game/mod from its row, or pick an **install goal**. **🛠 Advanced mode** opens the detailed table; **🤖 Assistant** brings you back.
 
 ---
 
@@ -199,6 +203,9 @@
 ---
 
 ## 🔧 Installation conseillée — ordre exact / Recommended install — exact order
+
+> 🤖 **L'assistant de GenSpeed automatise désormais l'essentiel** (install Steam, copie GenLauncher pré-configurée, options pré-réglées, forks via catalogue). Cette section reste la **référence manuelle** — utile pour comprendre, ou si tu installes à la main.
+> *GenSpeed's assistant now automates most of this. This section is the manual reference — handy to understand the flow or to install by hand.*
 
 > ⚠️ **Pour le LAN : fais EXACTEMENT les mêmes étapes, les mêmes versions et les mêmes options sur CHAQUE PC.** C'est ce qui évite les « mismatch / désync ».
 > *For LAN: do the **exact same steps, versions and options on EVERY PC**. That's what prevents mismatches.*
