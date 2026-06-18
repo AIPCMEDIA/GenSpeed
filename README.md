@@ -276,6 +276,20 @@ dotnet publish src/GenSpeed.App -c Release -r win-x64 --self-contained `
 
 ---
 
+## 🙏 Crédits & remerciements / Credits & acknowledgments
+
+🇫🇷 GenSpeed s'appuie sur — et fonctionne aux côtés de — l'écosystème communautaire de C&C Generals. Tous ces projets sont **indépendants** ; merci à leurs auteurs et à la communauté. Droits & marques à leurs détenteurs respectifs.
+
+🇬🇧 GenSpeed builds on — and works alongside — the C&C Generals community ecosystem. All these projects are **independent**; thanks to their authors and the community. Rights & trademarks belong to their respective owners.
+
+- **Outils / Tools** : GenPatcher · GenLauncher · GenTool
+- **Moteur recompilé « 2025 » & forks / Recompiled "2025" engine & forks** : GeneralsGameCode (TheSuperHackers) · Thyme · OpenSAGE — et les forks bâtis dessus, comme **Reborn Omega** / and forks built on it, such as **Reborn Omega**
+- **Mods (GenLauncher)** : Rise of the Reds · ShockWave · Contra · NProject Mod · GRE…
+- **Multijoueur & communauté / Multiplayer & community** : C&C:Online · GameRanger · et toute la communauté C&C / and the wider C&C community
+- **Jeu d'origine / Original game** : *Command & Conquer™ Generals / Zero Hour* © **Electronic Arts**
+
+---
+
 ## 🤖 À propos du code / About the code
 
 🇫🇷 Le code de GenSpeed est **écrit par des IA** (Claude Code, etc.). Moi, je ne code pas : mon rôle est plutôt celui d'un **architecte / chef d'orchestre** — je définis la vision et les fonctionnalités, je guide les choix, je teste et j'oriente. GenSpeed existe parce que je voulais retrouver la rapidité de l'Escarmouche… mais en LAN entre potes. Avis aux moddeurs : ce serait génial de le peaufiner, voire de l'intégrer à GenLauncher 😉. Un bug, une idée ? Ouvre une **issue** !
