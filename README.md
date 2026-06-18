@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="png/logo.png" width="120" alt="GenSpeed logo"/>
+<img src="docs/moddb-header-bilingual-950x150.png" width="860" alt="GenSpeed — Faster Zero Hour, even in LAN"/>
 
 # GenSpeed 🚀⚡
 
