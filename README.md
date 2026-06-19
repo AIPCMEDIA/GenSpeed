@@ -113,18 +113,19 @@
 
 ## ⚙️ Configuration requise / Requirements
 
-> ⚠️ **GenSpeed cible l'écosystème Steam + GenLauncher + GenPatcher**, et gère aussi les **forks « moteur 2025 »** (versions communautaires recompilées, ex. Reborn Omega — sans GenPatcher).
-> *GenSpeed targets the Steam + GenLauncher + GenPatcher ecosystem, and also handles **"2025-engine" forks** (recompiled community builds, e.g. Reborn Omega — no GenPatcher needed).*
+> ⚠️ **GenSpeed cible l'écosystème Steam + GenLauncher**, et gère aussi les **forks « moteur 2025 »** (versions communautaires recompilées, ex. Reborn Omega). **GenPatcher n'est pas requis** : l'assistant installe lui-même les prérequis (VC++/DirectX) et GenLauncher gère la résolution.
+> *GenSpeed targets the Steam + GenLauncher ecosystem, and also handles **"2025-engine" forks** (recompiled community builds, e.g. Reborn Omega). **GenPatcher is not required**: the assistant installs the prerequisites itself (VC++/DirectX) and GenLauncher handles resolution.*
 
 | | |
 |---|---|
 | **OS** | Windows 10 / 11 (64-bit) |
-| **Jeu / Game** | C&C Generals – Zero Hour via **Steam** |
+| **Jeu / Game** | C&C Generals – Zero Hour via **Steam** (+ **forks « moteur 2025 »**, non-Steam) |
 | **Mods** | gérés par **GenLauncher** (dossier `GLM`) / managed by **GenLauncher** (`GLM` folder) |
-| **Patchs** | **GenPatcher** (patch communautaire, redists…) |
+| **Prérequis / Prereqs** | VC++ / DirectX → **installés automatiquement par l'assistant** · **GenPatcher non requis** / installed automatically by the assistant · **GenPatcher not required** |
 | **.NET** | ❌ rien à installer / nothing to install (runtime embarqué dans l'exe) |
 
-**Ne fonctionne PAS avec / Does NOT work with :** versions CD/DVD, GOG, ou installations non-Steam.
+> 💡 **Optimisé pour Steam.** Les versions **non-Steam** (CD/DVD, GOG…) **peuvent** fonctionner en **ajoutant le dossier à la main** (« Mes installs » → Ajouter), tant que c'est une vraie install Zero Hour (`Data\INI` + l'exe du jeu) — **pas encore testé à 100 %**, signale-moi un souci. Les **forks « moteur 2025 »** sont non-Steam et **déjà pris en charge**.
+> *Optimized for Steam. Non-Steam copies (CD/DVD, GOG…) **may** work by adding the folder manually ("My installs" → Add), as long as it's a real Zero Hour install (`Data\INI` + the game exe) — **not fully tested yet**. "2025-engine" forks are non-Steam and **already supported**.*
 
 ---
 
@@ -215,14 +216,14 @@
 **1. Jeu de base (Steam)** — installe *C&C Generals* + *Zero Hour (Heure H)* via Steam. **Lance Generals une fois**, puis **Zero Hour une fois**, et quitte. (Ça initialise le jeu : registre, dossier `Data`, `Options.ini` — indispensable avant de patcher.)
 *Base game (Steam): install Generals + Zero Hour. Launch **Generals once**, then **Zero Hour once**, and quit, to initialize the game before anything else.*
 
-**2. GenPatcher** — applique les **correctifs de compatibilité Windows 10/11** + redistribuables.
+**2. GenPatcher** *(optionnel — l'assistant GenSpeed fait déjà ça pour toi)* — applique les **correctifs de compatibilité Windows 10/11** + redistribuables.
 - 💡 **GenTool** : GenPatcher propose de l'installer — c'est **optionnel**. Pour **GenSpeed + LAN entre amis**, tu peux le **laisser de côté** (ou, si tu l'installes, le **désactiver** dans GenLauncher). Il sert surtout au **jeu en ligne classé / aux replays** et peut interférer avec des fichiers modifiés.
 - *GenPatcher applies Win10/11 fixes + redists. GenTool is **optional** — for GenSpeed + LAN you can skip it (or disable it in GenLauncher). It's mainly for online/ranked play and may interfere with modified files.*
 - 💡 **Autres extras GenPatcher** (tous **optionnels**) : *Control Bar Pro* (barre de commandes enrichie), **packs de maps** communautaires, *hotkeys*, *World Builder*. Les **hotkeys** et *World Builder* sont **purement locaux** (aucun impact multi). En revanche, pour le **Control Bar Pro** et les **packs de maps** : si tu les installes, **mets le même choix sur les deux PC**.
 - *Other GenPatcher extras (all **optional**): Control Bar Pro, community **map packs**, hotkeys, World Builder. Hotkeys & World Builder are **purely local** (no multiplayer impact). For Control Bar Pro and map packs: if you install them, **use the same choice on both PCs**.*
 
-**3. GenLauncher** (installé / mis à jour via GenPatcher). Configure les options ainsi :
-*GenLauncher (installed/updated via GenPatcher). Set the options like this:*
+**3. GenLauncher** (installé par l'assistant GenSpeed — ou via GenPatcher si tu fais à la main). Configure les options ainsi :
+*GenLauncher (installed by the GenSpeed assistant — or via GenPatcher if doing it by hand). Set the options like this:*
 - ✔ **Use default Camera height** — laisse **GenSpeed gérer la caméra** (évite un conflit).
 - ✔ **Use modded .exe files**
 - ✔ **Particles: 1000** · ✔ **Texture quality level: 0** *(préférence perfs/visuel)*
@@ -236,8 +237,8 @@
 **5. Mods** — installe chaque **mod + ses patchs/addons** via GenLauncher, puis **lance chacun une fois**. (Ça génère leurs fichiers, indispensable pour que GenSpeed les détecte et les patche.)
 *Install each mod + its patches/add-ons via GenLauncher, then **launch each once** so GenSpeed can detect and patch them.*
 
-**6. GenSpeed (en dernier)** — règle la vitesse/caméra, **Applique**, **Lance GenLauncher** → joue ! Pour revenir à l'original : **Annuler**.
-*GenSpeed (last): set speed/camera, **Apply**, **Launch GenLauncher** → play! To revert: **Cancel**.*
+**6. GenSpeed (en dernier)** — règle la vitesse/caméra, **Applique**, **▶ Lance** le jeu/mod → joue ! Pour revenir à l'original : **« Revenir à l'original »**.
+*GenSpeed (last): set speed/camera, **Apply**, **▶ Launch** the game/mod → play! To revert: **"Revert to original"**.*
 
 ---
 
@@ -372,6 +373,6 @@ MIT — voir [`LICENSE`](LICENSE). Libre d'utilisation, modification et partage,
 
 <div align="center">
 
-**Enjoy faster gameplay! 🚀⚡** · *Pour Steam + GenPatcher + GenLauncher.*
+**Enjoy faster gameplay! 🚀⚡** · *Pour Steam + GenLauncher (+ forks « moteur 2025 »).*
 
 </div>
